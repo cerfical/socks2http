@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"socks2http/socks"
 	"strconv"
+	"sync"
 )
 
 func main() {
@@ -35,7 +36,7 @@ func (s *HttpProxyServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 
 	var err error
 	if req.Method == http.MethodConnect {
-		err = errors.New("unsupported method: " + req.Method)
+		err = s.setupTunnel(wr, req)
 	} else {
 		err = s.setupHttpConnection(wr, req)
 	}
@@ -46,14 +47,9 @@ func (s *HttpProxyServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 }
 
 func (s *HttpProxyServer) setupHttpConnection(wr http.ResponseWriter, req *http.Request) error {
-	destAddr, err := url2Addr(req.URL)
+	proxyConn, err := s.dialProxy(req)
 	if err != nil {
 		return err
-	}
-
-	proxyConn, err := socks.Dial(s.socksProxy, destAddr)
-	if err != nil {
-		return fmt.Errorf("failed to proxy %v: %w", destAddr, err)
 	}
 	defer proxyConn.Close()
 
@@ -69,6 +65,50 @@ func (s *HttpProxyServer) setupHttpConnection(wr http.ResponseWriter, req *http.
 
 	_, err = io.Copy(clientConn, proxyConn)
 	return err
+}
+
+func (s *HttpProxyServer) setupTunnel(wr http.ResponseWriter, req *http.Request) error {
+	proxyConn, err := s.dialProxy(req)
+	if err != nil {
+		return err
+	}
+
+	wr.WriteHeader(http.StatusOK)
+	clientConn, err := getRawConnection(wr)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		wg := sync.WaitGroup{}
+		wg.Add(2)
+
+		transfer := func(dest io.WriteCloser, src io.ReadCloser) {
+			if _, err := io.Copy(dest, src); err != nil {
+				log.Println(err)
+			}
+			wg.Done()
+		}
+
+		go transfer(clientConn, proxyConn)
+		go transfer(proxyConn, clientConn)
+		wg.Wait()
+
+	}()
+	return nil
+}
+
+func (s *HttpProxyServer) dialProxy(req *http.Request) (net.Conn, error) {
+	destAddr, err := url2Addr(req.URL)
+	if err != nil {
+		return nil, err
+	}
+
+	proxyConn, err := socks.Dial(s.socksProxy, destAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to proxy %v: %w", destAddr, err)
+	}
+	return proxyConn, err
 }
 
 func url2Addr(url *url.URL) (string, error) {
