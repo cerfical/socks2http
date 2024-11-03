@@ -16,34 +16,36 @@ const (
 	accessIdentFailed   = 93
 )
 
-type Ip4Addr struct {
+type ip4Addr struct {
 	Data [4]byte
 }
 
-func MakeIp4Addr(addr net.IP) Ip4Addr {
-	ipv4 := addr.To4()
-	if ipv4 == nil {
-		return Ip4Addr{}
+func Connect(conn net.Conn, addr net.IP, port uint16) error {
+	if ip4 := addr.To4(); ip4 == nil {
+		return errors.New("only IPv4 addresses are supported")
 	}
-	return Ip4Addr{Data: [4]byte(addr)}
-}
+	req := newRequest(connectRequest, ip4Addr{Data: [4]byte(addr)}, port)
 
-func Connect(conn net.Conn, addr Ip4Addr, port uint16) error {
-	req := newRequest(connectRequest, addr, port)
-
+	// write a SOCK4 request header, followed by an empty null-terminated userId
 	buf := make([]byte, unsafe.Sizeof(req)+1)
-	_, err := binary.Encode(buf, binary.BigEndian, req)
-	if err != nil {
+	if _, err := binary.Encode(buf, binary.BigEndian, req); err != nil {
+		return err
+	}
+	if _, err := conn.Write(buf); err != nil {
 		return err
 	}
 
-	// use empty usedId
-	buf = append(buf, byte('\x00'))
-	_, err = conn.Write(buf)
-	return err
+	reply := socksReply{}
+	if err := binary.Read(conn, binary.BigEndian, &reply); err != nil {
+		return err
+	}
+	if reply.Version != 0 || reply.DestAddr.Data != [4]byte{0} || reply.DestPort != 0 {
+		return errors.New("invalid SOCKS4 reply")
+	}
+	return checkReplyCode(reply.Code)
 }
 
-func newRequest(command byte, destAddr Ip4Addr, destPort uint16) socksRequest {
+func newRequest(command byte, destAddr ip4Addr, destPort uint16) socksRequest {
 	return socksRequest{
 		Version:  socksVersion,
 		Command:  command,
@@ -56,36 +58,31 @@ type socksRequest struct {
 	Version  byte
 	Command  byte
 	DestPort uint16
-	DestAddr Ip4Addr
-}
-
-func GetReply(conn net.Conn) error {
-	reply := socksReply{}
-	err := binary.Read(conn, binary.BigEndian, &reply)
-	if err != nil {
-		return err
-	}
-	return errorFromReplyCode(reply.Code)
+	DestAddr ip4Addr
 }
 
 type socksReply struct {
 	Version  byte
 	Code     byte
 	DestPort uint16
-	DestAddr Ip4Addr
+	DestAddr ip4Addr
 }
 
-func errorFromReplyCode(code byte) error {
-	switch code {
-	case accessGranted:
+func checkReplyCode(code byte) error {
+	if code == accessGranted {
 		return nil
-	case accessRejected:
-		return errors.New("socks: access rejected or failed")
-	case accessIdentRequired:
-		return errors.New("socks: access rejected: no Ident service")
-	case accessIdentFailed:
-		return errors.New("socks: access rejected: Ident auth failed")
-	default:
-		return errors.New("socks: uknown reply code")
 	}
+
+	msg := ""
+	switch code {
+	case accessRejected:
+		msg = "access rejected or failed"
+	case accessIdentRequired:
+		msg = "access rejected: no Ident service"
+	case accessIdentFailed:
+		msg = "access rejected: Ident auth failed"
+	default:
+		msg = "uknown reply code"
+	}
+	return errors.New(msg)
 }
