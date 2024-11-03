@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"socks2http/socks"
 	"strconv"
 )
@@ -45,22 +46,18 @@ func (s *HttpProxyServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 }
 
 func (s *HttpProxyServer) setupHttpConnection(wr http.ResponseWriter, req *http.Request) error {
-	ip, err := net.ResolveIPAddr("ip", req.URL.Hostname())
+	destAddr, err := url2Addr(req.URL)
 	if err != nil {
 		return err
 	}
 
-	proxyConn, err := net.Dial("tcp", s.socksProxy)
+	proxyConn, err := socks.Dial(s.socksProxy, destAddr)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to proxy %v: %w", destAddr, err)
 	}
 	defer proxyConn.Close()
 
-	if port, err := parsePort(req.URL.Port(), req.URL.Scheme); err != nil {
-		return err
-	} else if err := socks.Connect(proxyConn, ip.IP, port); err != nil {
-		return fmt.Errorf("failed to connect to SOCKS4 proxy %v:%v: %v", ip.IP, port, err)
-	} else if err := req.Write(proxyConn); err != nil {
+	if err := req.Write(proxyConn); err != nil {
 		return err
 	}
 
@@ -74,15 +71,18 @@ func (s *HttpProxyServer) setupHttpConnection(wr http.ResponseWriter, req *http.
 	return err
 }
 
-func parsePort(port string, scheme string) (uint16, error) {
-	if portNum, err := strconv.ParseUint(port, 10, 16); err == nil {
-		return uint16(portNum), nil
-	} else if scheme == "http" {
-		return 80, nil
-	} else if scheme == "https" {
-		return 443, nil
+func url2Addr(url *url.URL) (string, error) {
+	host := url.Hostname()
+	port := url.Port()
+
+	if port == "" {
+		portNum, err := net.LookupPort("tcp", url.Scheme)
+		if err != nil {
+			return "", err
+		}
+		port = strconv.Itoa(portNum)
 	}
-	return 0, errors.New("unsupported protocol scheme: " + scheme)
+	return host + ":" + port, nil
 }
 
 func getRawConnection(wr http.ResponseWriter) (net.Conn, error) {
