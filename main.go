@@ -12,6 +12,7 @@ import (
 	"socks2http/socks"
 	"strconv"
 	"sync"
+	"time"
 )
 
 func main() {
@@ -19,6 +20,7 @@ func main() {
 
 	httpProxy := flag.String("http-proxy", "localhost:8080", "IP and port to run HTTP proxy server")
 	flag.StringVar(&server.socksProxy, "socks-proxy", "localhost:1080", "IP and port of SOCKS proxy server to connect to")
+	flag.DurationVar(&server.timeout, "timeout", 0, "time to wait for connection, no timeout by default (0)")
 	flag.Parse()
 
 	if err := http.ListenAndServe(*httpProxy, &server); err != nil {
@@ -28,6 +30,7 @@ func main() {
 
 type HttpProxyServer struct {
 	socksProxy string
+	timeout    time.Duration
 }
 
 func (s *HttpProxyServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
@@ -104,7 +107,7 @@ func (s *HttpProxyServer) dialProxy(req *http.Request) (net.Conn, error) {
 		return nil, err
 	}
 
-	proxyConn, err := socks.Dial(s.socksProxy, destAddr)
+	proxyConn, err := socks.DialTimeout(s.socksProxy, destAddr, s.timeout)
 	if err != nil {
 		return nil, fmt.Errorf("failed to proxy %v: %w", destAddr, err)
 	}

@@ -3,9 +3,9 @@ package socks
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"net"
 	"strconv"
+	"time"
 	"unsafe"
 )
 
@@ -24,20 +24,22 @@ type tcp4Addr struct {
 }
 
 func Dial(socksAddr string, destAddr string) (net.Conn, error) {
+	return DialTimeout(socksAddr, destAddr, 0)
+}
+
+func DialTimeout(socksAddr string, destAddr string, timeout time.Duration) (net.Conn, error) {
 	tcpAddr, err := resolveAddr(destAddr)
 	if err != nil {
 		return nil, err
 	}
 
-	socksConn, err := net.Dial("tcp", socksAddr)
+	socksConn, err := net.DialTimeout("tcp", socksAddr, timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	if err = connect(socksConn, tcpAddr); err != nil {
-		if clsErr := socksConn.Close(); clsErr != nil {
-			return nil, fmt.Errorf(err.Error()+": %w", clsErr)
-		}
+		socksConn.Close()
 		return nil, err
 	}
 	return socksConn, nil
