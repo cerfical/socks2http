@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"socks2http/util"
+	"socks2http/internal/util"
 	"strconv"
 	"time"
 	"unsafe"

@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net/url"
-	"socks2http/util"
+	"socks2http/internal/util"
 	"time"
 )
 

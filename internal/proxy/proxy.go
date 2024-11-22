@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"socks2http/socks"
-	"socks2http/util"
+	"socks2http/internal/socks"
+	"socks2http/internal/util"
 	"strconv"
 	"time"
 )

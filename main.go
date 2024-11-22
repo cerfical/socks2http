@@ -6,9 +6,9 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"socks2http/args"
-	"socks2http/proxy"
-	"socks2http/util"
+	"socks2http/internal/args"
+	"socks2http/internal/proxy"
+	"socks2http/internal/util"
 	"sync"
 	"time"
 )
