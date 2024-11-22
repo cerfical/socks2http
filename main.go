@@ -3,20 +3,20 @@ package main
 import (
 	"errors"
 	"flag"
-	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"socks2http/socks"
+	"socks2http/util"
 	"strconv"
 	"sync"
 	"time"
 )
 
 func main() {
-	server := HttpProxyServer{}
+	server := httpProxyServer{}
 
 	httpProxy := flag.String("http-proxy", "localhost:8080", "IP and port to run HTTP proxy server")
 	flag.StringVar(&server.socksProxy, "socks-proxy", "localhost:1080", "IP and port of SOCKS proxy server to connect to")
@@ -28,34 +28,52 @@ func main() {
 	}
 }
 
-type HttpProxyServer struct {
+type httpProxyServer struct {
 	socksProxy string
 	timeout    time.Duration
 }
 
-func (s *HttpProxyServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
+func (s *httpProxyServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	requestLine := req.Method + " " + req.URL.String() + " " + req.Proto
 	log.Println(requestLine)
 
-	var err error
-	if req.Method == http.MethodConnect {
-		err = s.setupTunnel(wr, req)
-	} else {
-		err = s.setupHttpConnection(wr, req)
+	destAddr, err := url2Addr(req.URL)
+	if err != nil {
+		log.Printf("failed to parse an URL %v: %v\n", req.URL, err)
+		return
 	}
 
+	proxyConn, err := socks.ConnectTimeout(s.socksProxy, destAddr, s.timeout)
 	if err != nil {
-		log.Println(err)
+		log.Printf("failed to setup a proxy: %v\n", err)
+		return
+	}
+
+	if req.Method != http.MethodConnect {
+		if err := proxyRequest(wr, req, proxyConn); err != nil {
+			log.Printf("failed to send a request via proxy: %v\n", err)
+		}
+	} else {
+		if err := setupHTTPTunnel(wr, proxyConn, destAddr); err != nil {
+			log.Printf("failed to setup an HTTP tunnel: %v\n", err)
+		}
 	}
 }
 
-func (s *HttpProxyServer) setupHttpConnection(wr http.ResponseWriter, req *http.Request) error {
-	proxyConn, err := s.dialProxy(req)
-	if err != nil {
-		return err
+func url2Addr(url *url.URL) (string, error) {
+	port := url.Port()
+	if port == "" {
+		portNum, err := net.LookupPort("tcp", url.Scheme)
+		if err != nil {
+			return "", err
+		}
+		port = strconv.Itoa(portNum)
 	}
-	defer proxyConn.Close()
+	return url.Hostname() + ":" + port, nil
+}
 
+func proxyRequest(wr http.ResponseWriter, req *http.Request, proxyConn net.Conn) error {
+	defer proxyConn.Close()
 	if err := req.Write(proxyConn); err != nil {
 		return err
 	}
@@ -70,12 +88,7 @@ func (s *HttpProxyServer) setupHttpConnection(wr http.ResponseWriter, req *http.
 	return err
 }
 
-func (s *HttpProxyServer) setupTunnel(wr http.ResponseWriter, req *http.Request) error {
-	proxyConn, err := s.dialProxy(req)
-	if err != nil {
-		return err
-	}
-
+func setupHTTPTunnel(wr http.ResponseWriter, proxyConn net.Conn, destAddr string) error {
 	wr.WriteHeader(http.StatusOK)
 	clientConn, err := getRawConnection(wr)
 	if err != nil {
@@ -88,7 +101,7 @@ func (s *HttpProxyServer) setupTunnel(wr http.ResponseWriter, req *http.Request)
 
 		transfer := func(dest io.WriteCloser, src io.ReadCloser) {
 			if _, err := io.Copy(dest, src); err != nil {
-				log.Println(err)
+				log.Printf("closing an HTTP tunnel for %v: %v\n", destAddr, err)
 			}
 			wg.Done()
 		}
@@ -97,35 +110,10 @@ func (s *HttpProxyServer) setupTunnel(wr http.ResponseWriter, req *http.Request)
 		go transfer(proxyConn, clientConn)
 		wg.Wait()
 
+		util.Must(clientConn.Close())
+		util.Must(proxyConn.Close())
 	}()
 	return nil
-}
-
-func (s *HttpProxyServer) dialProxy(req *http.Request) (net.Conn, error) {
-	destAddr, err := url2Addr(req.URL)
-	if err != nil {
-		return nil, err
-	}
-
-	proxyConn, err := socks.DialTimeout(s.socksProxy, destAddr, s.timeout)
-	if err != nil {
-		return nil, fmt.Errorf("failed to proxy %v: %w", destAddr, err)
-	}
-	return proxyConn, err
-}
-
-func url2Addr(url *url.URL) (string, error) {
-	host := url.Hostname()
-	port := url.Port()
-
-	if port == "" {
-		portNum, err := net.LookupPort("tcp", url.Scheme)
-		if err != nil {
-			return "", err
-		}
-		port = strconv.Itoa(portNum)
-	}
-	return host + ":" + port, nil
 }
 
 func getRawConnection(wr http.ResponseWriter) (net.Conn, error) {

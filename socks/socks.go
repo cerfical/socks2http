@@ -3,7 +3,9 @@ package socks
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"net"
+	"socks2http/util"
 	"strconv"
 	"time"
 	"unsafe"
@@ -20,27 +22,27 @@ const (
 
 type tcp4Addr struct {
 	Port uint16
-	Ip   [4]byte
+	IP   [4]byte
 }
 
-func Dial(socksAddr string, destAddr string) (net.Conn, error) {
-	return DialTimeout(socksAddr, destAddr, 0)
+func Connect(socksAddr string, destAddr string) (net.Conn, error) {
+	return ConnectTimeout(socksAddr, destAddr, 0)
 }
 
-func DialTimeout(socksAddr string, destAddr string, timeout time.Duration) (net.Conn, error) {
+func ConnectTimeout(socksAddr string, destAddr string, timeout time.Duration) (net.Conn, error) {
 	tcpAddr, err := resolveAddr(destAddr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("address resolution failed: %w", err)
 	}
 
 	socksConn, err := net.DialTimeout("tcp", socksAddr, timeout)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("connection to SOCKS proxy failed: %w", err)
 	}
 
-	if err = connect(socksConn, tcpAddr); err != nil {
-		socksConn.Close()
-		return nil, err
+	if err = sendConnectRequest(socksConn, tcpAddr); err != nil {
+		util.Must(socksConn.Close())
+		return nil, fmt.Errorf("connection to destination server failed: %w", err)
 	}
 	return socksConn, nil
 }
@@ -51,7 +53,7 @@ func resolveAddr(addr string) (tcp4Addr, error) {
 		return tcp4Addr{}, err
 	}
 
-	ip, err := resolveIp4Addr(host)
+	ip, err := net.ResolveIPAddr("ip4", host)
 	if err != nil {
 		return tcp4Addr{}, err
 	}
@@ -60,23 +62,15 @@ func resolveAddr(addr string) (tcp4Addr, error) {
 	if err != nil {
 		return tcp4Addr{}, err
 	}
-	return tcp4Addr{Port: uint16(portNum), Ip: [4]byte(ip)}, nil
+	return tcp4Addr{Port: uint16(portNum), IP: [4]byte(ip.IP)}, nil
 }
 
-func resolveIp4Addr(host string) (net.IP, error) {
-	ip, err := net.ResolveIPAddr("ip", host)
-	if err != nil {
-		return nil, err
+func sendConnectRequest(socksConn net.Conn, destAddr tcp4Addr) error {
+	req := socksRequest{
+		Version:  socksVersion,
+		Command:  connectRequest,
+		DestAddr: destAddr,
 	}
-
-	if ip4 := ip.IP.To4(); ip4 == nil {
-		return nil, errors.New("only IPv4 addresses are supported")
-	}
-	return ip.IP, nil
-}
-
-func connect(socksConn net.Conn, destAddr tcp4Addr) error {
-	req := newRequest(connectRequest, destAddr)
 
 	// write a SOCK4 request header, followed by an empty null-terminated userId
 	buf := make([]byte, unsafe.Sizeof(req)+1)
@@ -89,20 +83,12 @@ func connect(socksConn net.Conn, destAddr tcp4Addr) error {
 
 	reply := socksRequest{}
 	if err := binary.Read(socksConn, binary.BigEndian, &reply); err != nil {
-		return err
+		return fmt.Errorf("failed to receive a client reply: %w", err)
 	}
-	if reply.Version != 0 || reply.DestAddr.Ip != [4]byte{0} || reply.DestAddr.Port != 0 {
+	if reply.Version != 0 || reply.DestAddr.IP != [4]byte{0} || reply.DestAddr.Port != 0 {
 		return errors.New("invalid SOCKS reply")
 	}
 	return checkReplyCode(reply.Command)
-}
-
-func newRequest(command byte, destAddr tcp4Addr) socksRequest {
-	return socksRequest{
-		Version:  socksVersion,
-		Command:  command,
-		DestAddr: destAddr,
-	}
 }
 
 type socksRequest struct {
