@@ -10,19 +10,12 @@ import (
 	"socks2http/internal/proxy"
 	"socks2http/internal/util"
 	"sync"
-	"time"
 )
 
 func main() {
-	args := args.Parse()
-	server := httpProxyServer{
-		proxy:   proxy.NewProxy(args.Proxy.Host, args.Proxy.Proto, args.Timeout),
-		timeout: args.Timeout,
-	}
-
 	switch args.Server.Proto {
 	case "http":
-		if err := http.ListenAndServe(args.Server.Host, &server); err != nil {
+		if err := http.ListenAndServe(args.Server.Host, &httpProxyServer{}); err != nil {
 			util.FatalError("closing the server: %v", err)
 		}
 	default:
@@ -30,16 +23,13 @@ func main() {
 	}
 }
 
-type httpProxyServer struct {
-	proxy   proxy.Proxy
-	timeout time.Duration
-}
+type httpProxyServer struct{}
 
 func (s *httpProxyServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	requestLine := req.Method + " " + req.URL.String() + " " + req.Proto
 	log.Println(requestLine)
 
-	proxyConn, err := proxy.OpenURL(s.proxy, req.URL)
+	proxyConn, err := proxy.Open(req.URL)
 	if err != nil {
 		log.Printf("failed to open up a proxy: %v\n", err)
 		return

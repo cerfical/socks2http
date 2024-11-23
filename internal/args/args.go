@@ -10,22 +10,34 @@ import (
 )
 
 const (
-	defaultSOCKSProxyPort = "1080"
-	defaultProxyPort      = defaultSOCKSProxyPort
-	defaultProxyProto     = "socks4"
+	defSOCKSProxyPort = "1080"
+	defProxyPort      = defSOCKSProxyPort
+	defProxyProto     = "socks4"
 
-	defaultHTTPServerPort = "8080"
-	defaultServerPort     = defaultHTTPServerPort
-	defaultServerProto    = "http"
+	defHTTPServerPort = "8080"
+	defServerPort     = defHTTPServerPort
+	defServerProto    = "http"
 )
 
-func Parse() *Args {
-	args := Args{}
+type Addr struct {
+	Host  string
+	Proto string
+}
 
-	serverAddr := stringArg{value: fmt.Sprintf("%v://localhost:%v", defaultServerProto, defaultServerPort)}
-	proxyAddr := stringArg{value: fmt.Sprintf("%v://localhost:%v", defaultProxyProto, defaultProxyPort)}
-	useProxy := flag.Bool("use-proxy", false, "create a proxy chain")
-	flag.DurationVar(&args.Timeout, "timeout", 0, "time to wait for a connection")
+var (
+	Server   Addr
+	Proxy    Addr
+	Timeout  time.Duration
+	UseProxy bool
+)
+
+func init() {
+	var err error
+	serverAddr := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defServerProto, defServerPort)}
+	proxyAddr := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defProxyProto, defProxyPort)}
+
+	flag.BoolVar(&UseProxy, "use-proxy", false, "create a proxy chain")
+	flag.DurationVar(&Timeout, "timeout", 0, "time to wait for a connection")
 	flag.Var(&serverAddr, "server-addr", "listen address for the server")
 	flag.Var(&proxyAddr, "proxy-addr", "a proxy server to use")
 	flag.Parse()
@@ -37,19 +49,13 @@ func Parse() *Args {
 		serverAddr.value = flag.Arg(0)
 	}
 
-	server, err := newAddr(serverAddr.value, defaultServerProto, defaultServerPort)
-	if err != nil {
+	if Server, err = newAddr(serverAddr.value, defServerProto, defServerPort); err != nil {
 		util.FatalError("invalid server address: %v", err)
 	}
-	args.Server = server
-
-	if proxyAddr.isSet || *useProxy {
-		args.Proxy, err = newAddr(proxyAddr.value, defaultProxyProto, defaultProxyPort)
-		if err != nil {
-			util.FatalError("invalid proxy server address: %v", err)
-		}
+	if Proxy, err = newAddr(proxyAddr.value, defProxyProto, defProxyPort); err != nil {
+		util.FatalError("invalid proxy server address: %v", err)
 	}
-	return &args
+	UseProxy = UseProxy || proxyAddr.isSet
 }
 
 func newAddr(addr, defaultProto, defaultPort string) (Addr, error) {
@@ -64,28 +70,17 @@ func newAddr(addr, defaultProto, defaultPort string) (Addr, error) {
 	}, nil
 }
 
-type Args struct {
-	Server  Addr
-	Proxy   Addr
-	Timeout time.Duration
-}
-
-type Addr struct {
-	Host  string
-	Proto string
-}
-
-type stringArg struct {
+type stringFlag struct {
 	isSet bool
 	value string
 }
 
-func (a *stringArg) String() string {
-	return a.value
+func (f *stringFlag) String() string {
+	return f.value
 }
 
-func (a *stringArg) Set(val string) error {
-	a.value = val
-	a.isSet = true
+func (f *stringFlag) Set(val string) error {
+	f.value = val
+	f.isSet = true
 	return nil
 }
