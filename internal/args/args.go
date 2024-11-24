@@ -4,19 +4,15 @@ import (
 	"cmp"
 	"flag"
 	"fmt"
-	"net/url"
+	"regexp"
 	"socks2http/internal/util"
+	"strings"
 	"time"
 )
 
 const (
-	defSOCKSProxyPort = "1080"
-	defProxyPort      = defSOCKSProxyPort
-	defProxyProto     = "socks4"
-
-	defHTTPServerPort = "8080"
-	defServerPort     = defHTTPServerPort
-	defServerProto    = "http"
+	defProxyScheme  = "socks4"
+	defServerScheme = "http"
 )
 
 const (
@@ -26,8 +22,13 @@ const (
 )
 
 type Addr struct {
-	Host  string
-	Proto string
+	Scheme   string
+	Hostname string
+	Port     string
+}
+
+func (a *Addr) Host() string {
+	return a.Hostname + ":" + a.Port
 }
 
 var (
@@ -39,8 +40,8 @@ var (
 )
 
 func init() {
-	serverAddr := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defServerProto, defServerPort)}
-	proxyAddr := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defProxyProto, defProxyPort)}
+	serverAddr := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defServerScheme, lookupPort(defServerScheme))}
+	proxyAddr := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defProxyScheme, lookupPort(defProxyScheme))}
 	logLevel := flag.String("log-level", "error", "severity of logging messages")
 
 	flag.Var(&serverAddr, "server-addr", "listen address for the server")
@@ -51,17 +52,16 @@ func init() {
 
 	if narg := flag.NArg(); narg > 0 {
 		if narg != 1 || serverAddr.isSet {
-			util.FatalError("too many command line options")
+			util.FatalError("invalid command line options")
 		}
 		serverAddr.value = flag.Arg(0)
 	}
 
-	var err error
-	if Server, err = newAddr(serverAddr.value, defServerProto, defServerPort); err != nil {
-		util.FatalError("invalid server address %v: %v", serverAddr, err)
+	if !parseAddr(&Server, serverAddr.value, defServerScheme) {
+		util.FatalError("invalid server address %q", serverAddr.value)
 	}
-	if Proxy, err = newAddr(proxyAddr.value, defProxyProto, defProxyPort); err != nil {
-		util.FatalError("invalid proxy server address %v: %v", proxyAddr, err)
+	if !parseAddr(&Proxy, proxyAddr.value, defProxyScheme) {
+		util.FatalError("invalid proxy address %q", proxyAddr.value)
 	}
 	UseProxy = UseProxy || proxyAddr.isSet
 
@@ -77,18 +77,6 @@ func init() {
 	}
 }
 
-func newAddr(addr, defProto, defPort string) (Addr, error) {
-	url, err := url.Parse(addr)
-	if err != nil {
-		return Addr{}, err
-	}
-
-	return Addr{
-		Host:  url.Hostname() + ":" + cmp.Or(url.Port(), defPort),
-		Proto: cmp.Or(url.Scheme, defProto),
-	}, nil
-}
-
 type stringFlag struct {
 	isSet bool
 	value string
@@ -102,4 +90,31 @@ func (f *stringFlag) Set(val string) error {
 	f.value = val
 	f.isSet = true
 	return nil
+}
+
+var urlRegex = regexp.MustCompile(`\A(?:([a-zA-Z0-9]+):)?(?://)?([-_.a-zA-Z0-9]+)(?::([0-9]+))?\z`)
+
+func parseAddr(parsed *Addr, addr, scheme string) bool {
+	matches := urlRegex.FindStringSubmatch(addr)
+	if matches == nil {
+		return false
+	}
+
+	*parsed = Addr{
+		Scheme:   strings.ToLower(cmp.Or(matches[1], scheme)),
+		Hostname: strings.ToLower(matches[2]),
+		Port:     strings.ToLower(cmp.Or(matches[3], lookupPort(scheme))),
+	}
+	return true
+}
+
+func lookupPort(scheme string) string {
+	switch scheme {
+	case "socks4":
+		return "1080"
+	case "http":
+		return "8080"
+	default:
+		panic(fmt.Sprintf("unknown protocol scheme %q", scheme))
+	}
 }

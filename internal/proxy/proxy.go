@@ -15,7 +15,7 @@ func Open(destServer *url.URL) (net.Conn, error) {
 	if port == "" {
 		portNum, err := net.LookupPort("tcp", destServer.Scheme)
 		if err != nil {
-			return nil, fmt.Errorf("invalid destination server %v: %w", destServer, err)
+			return nil, fmt.Errorf("invalid destination server address %q: %w", destServer, err)
 		}
 		port = strconv.Itoa(portNum)
 	}
@@ -26,13 +26,13 @@ var proxyOpen func(string) (net.Conn, error)
 
 func init() {
 	if args.UseProxy {
-		switch args.Proxy.Proto {
+		switch args.Proxy.Scheme {
 		case "socks4":
 			proxyOpen = func(destAddr string) (net.Conn, error) {
-				return socks.ConnectTimeout(args.Proxy.Host, destAddr, args.Timeout)
+				return socks.ConnectTimeout(args.Proxy.Host(), destAddr, args.Timeout)
 			}
 		default:
-			log.Fatal("unsupported proxy protocol scheme %q", args.Proxy.Proto)
+			log.Fatal("unsupported client protocol scheme %q", args.Proxy.Scheme)
 		}
 	} else {
 		proxyOpen = func(destAddr string) (net.Conn, error) {

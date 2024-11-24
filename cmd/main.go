@@ -13,13 +13,13 @@ import (
 )
 
 func main() {
-	switch args.Server.Proto {
+	switch args.Server.Scheme {
 	case "http":
-		if err := http.ListenAndServe(args.Server.Host, &httpProxyServer{}); err != nil {
+		if err := http.ListenAndServe(args.Server.Host(), &httpProxyServer{}); err != nil {
 			log.Fatal("unexpected server shutdown: %v", err)
 		}
 	default:
-		log.Fatal("unsupported server protocol scheme %q", args.Server.Proto)
+		log.Fatal("unsupported server protocol scheme %q", args.Server.Scheme)
 	}
 }
 
