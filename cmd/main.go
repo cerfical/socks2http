@@ -69,24 +69,22 @@ func setupHTTPTunnel(wr http.ResponseWriter, proxyConn net.Conn) error {
 		return err
 	}
 
-	go func() {
-		wg := sync.WaitGroup{}
-		wg.Add(2)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
-		transfer := func(dest io.WriteCloser, src io.ReadCloser) {
-			if _, err := io.Copy(dest, src); err != nil {
-				log.Error("HTTP tunnel closed: %v", err)
-			}
-			wg.Done()
+	transfer := func(dest io.WriteCloser, src io.ReadCloser) {
+		if _, err := io.Copy(dest, src); err != nil {
+			log.Error("HTTP tunnel closed: %v", err)
 		}
+		wg.Done()
+	}
 
-		go transfer(clientConn, proxyConn)
-		go transfer(proxyConn, clientConn)
-		wg.Wait()
+	go transfer(clientConn, proxyConn)
+	transfer(proxyConn, clientConn)
+	wg.Wait()
 
-		util.Must(clientConn.Close())
-		util.Must(proxyConn.Close())
-	}()
+	util.Must(clientConn.Close())
+	util.Must(proxyConn.Close())
 	return nil
 }
 
