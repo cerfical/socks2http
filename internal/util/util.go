@@ -1,9 +1,6 @@
 package util
 
-import (
-	"fmt"
-	"os"
-)
+import "log"
 
 func Must(err error) {
 	if err != nil {
@@ -12,6 +9,5 @@ func Must(err error) {
 }
 
 func FatalError(format string, v ...any) {
-	fmt.Printf("socks2http: "+format+"\n", v...)
-	os.Exit(1)
+	log.Fatalf(format+"\n", v...)
 }

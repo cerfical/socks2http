@@ -5,8 +5,8 @@ import (
 	"net"
 	"net/url"
 	"socks2http/internal/args"
+	"socks2http/internal/log"
 	"socks2http/internal/socks"
-	"socks2http/internal/util"
 	"strconv"
 )
 
@@ -15,7 +15,7 @@ func Open(destServer *url.URL) (net.Conn, error) {
 	if port == "" {
 		portNum, err := net.LookupPort("tcp", destServer.Scheme)
 		if err != nil {
-			return nil, fmt.Errorf("invalid destination server address %v: %w", destServer, err)
+			return nil, fmt.Errorf("invalid destination server %v: %w", destServer, err)
 		}
 		port = strconv.Itoa(portNum)
 	}
@@ -32,7 +32,7 @@ func init() {
 				return socks.ConnectTimeout(args.Proxy.Host, destAddr, args.Timeout)
 			}
 		default:
-			util.FatalError("unsupported proxy protocol scheme: %v", args.Proxy.Proto)
+			log.Fatal("unsupported proxy protocol scheme %q", args.Proxy.Proto)
 		}
 	} else {
 		proxyOpen = func(destAddr string) (net.Conn, error) {

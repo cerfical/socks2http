@@ -19,6 +19,12 @@ const (
 	defServerProto    = "http"
 )
 
+const (
+	LogFatal = iota
+	LogError
+	LogInfo
+)
+
 type Addr struct {
 	Host  string
 	Proto string
@@ -28,18 +34,19 @@ var (
 	Server   Addr
 	Proxy    Addr
 	Timeout  time.Duration
+	LogLevel uint8
 	UseProxy bool
 )
 
 func init() {
-	var err error
 	serverAddr := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defServerProto, defServerPort)}
 	proxyAddr := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defProxyProto, defProxyPort)}
+	logLevel := flag.String("log-level", "error", "severity of logging messages")
 
-	flag.BoolVar(&UseProxy, "use-proxy", false, "create a proxy chain")
-	flag.DurationVar(&Timeout, "timeout", 0, "time to wait for a connection")
 	flag.Var(&serverAddr, "server-addr", "listen address for the server")
 	flag.Var(&proxyAddr, "proxy-addr", "a proxy server to use")
+	flag.BoolVar(&UseProxy, "use-proxy", false, "create a proxy chain")
+	flag.DurationVar(&Timeout, "timeout", 0, "time to wait for a connection")
 	flag.Parse()
 
 	if narg := flag.NArg(); narg > 0 {
@@ -49,24 +56,36 @@ func init() {
 		serverAddr.value = flag.Arg(0)
 	}
 
+	var err error
 	if Server, err = newAddr(serverAddr.value, defServerProto, defServerPort); err != nil {
-		util.FatalError("invalid server address: %v", err)
+		util.FatalError("invalid server address %v: %v", serverAddr, err)
 	}
 	if Proxy, err = newAddr(proxyAddr.value, defProxyProto, defProxyPort); err != nil {
-		util.FatalError("invalid proxy server address: %v", err)
+		util.FatalError("invalid proxy server address %v: %v", proxyAddr, err)
 	}
 	UseProxy = UseProxy || proxyAddr.isSet
+
+	switch *logLevel {
+	case "fatal":
+		LogLevel = LogFatal
+	case "error":
+		LogLevel = LogError
+	case "info":
+		LogLevel = LogInfo
+	default:
+		util.FatalError("invalid log level %v", *logLevel)
+	}
 }
 
-func newAddr(addr, defaultProto, defaultPort string) (Addr, error) {
-	proxyURL, err := url.Parse(addr)
+func newAddr(addr, defProto, defPort string) (Addr, error) {
+	url, err := url.Parse(addr)
 	if err != nil {
 		return Addr{}, err
 	}
 
 	return Addr{
-		Host:  proxyURL.Hostname() + ":" + cmp.Or(proxyURL.Port(), defaultPort),
-		Proto: cmp.Or(proxyURL.Scheme, defaultProto),
+		Host:  url.Hostname() + ":" + cmp.Or(url.Port(), defPort),
+		Proto: cmp.Or(url.Scheme, defProto),
 	}, nil
 }
 
