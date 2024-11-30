@@ -15,12 +15,12 @@ func main() {
 
 	proxy, err := proxy.NewProxy(args.ProxyAddr, args.Timeout)
 	if err != nil {
-		log.Fatalf("failed to create proxy chain: %v", err)
+		log.Fatalf("proxy chaining: %v", err)
 	}
 
-	server, err := serv.NewServer(args.ServerAddr, proxy, args.Timeout)
+	server, err := serv.NewServer(args.ServerAddr, proxy)
 	if err != nil {
-		log.Fatalf("failed to start the server: %v", err)
+		log.Fatalf("server startup: %v", err)
 	}
 
 	servErrs := server.Run(args.LogLevel)
