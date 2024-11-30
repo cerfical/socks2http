@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 	"socks2http/internal/addr"
-	"socks2http/internal/socks"
+	"socks2http/internal/proxy/internal/socks"
 	"time"
 )
 
