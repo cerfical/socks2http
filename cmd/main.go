@@ -30,7 +30,7 @@ func main() {
 	switch args.ServerAddr.Scheme {
 	case "http":
 		server := &httpProxyServer{proxy: proxy}
-		if err := http.ListenAndServe(args.ServerAddr.Host(), server); err != nil {
+		if err := http.ListenAndServe(args.ServerAddr.Host.String(), server); err != nil {
 			log.Fatal("unexpected server shutdown: %v", err)
 		}
 	default:

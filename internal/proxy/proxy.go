@@ -3,8 +3,8 @@ package proxy
 import (
 	"fmt"
 	"net"
+	"socks2http/internal/addr"
 	"socks2http/internal/socks"
-	"socks2http/internal/util"
 	"time"
 )
 
@@ -12,7 +12,7 @@ type Proxy interface {
 	Open(addr string) (net.Conn, error)
 }
 
-func NewProxy(proxyAddr *util.Addr, timeout time.Duration) (Proxy, error) {
+func NewProxy(proxyAddr *addr.Addr, timeout time.Duration) (Proxy, error) {
 	if proxyAddr == nil {
 		return directProxy{timeout: timeout}, nil
 	}
@@ -20,7 +20,7 @@ func NewProxy(proxyAddr *util.Addr, timeout time.Duration) (Proxy, error) {
 	switch proxyAddr.Scheme {
 	case "socks4":
 		return socksProxy{
-			host:    proxyAddr.Host(),
+			host:    proxyAddr.Host.String(),
 			timeout: timeout,
 		}, nil
 	default:

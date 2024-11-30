@@ -2,18 +2,18 @@ package args
 
 import (
 	"cmp"
-	"errors"
 	"flag"
 	"fmt"
 	"regexp"
-	"socks2http/internal/util"
+	"socks2http/internal/addr"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	defProxyScheme  = "socks4"
-	defServerScheme = "http"
+	defProxyScheme = "socks4"
+	defServScheme  = "http"
 )
 
 const (
@@ -23,52 +23,60 @@ const (
 )
 
 type Args struct {
-	ServerAddr *util.Addr
-	ProxyAddr  *util.Addr
+	ServerAddr *addr.Addr
+	ProxyAddr  *addr.Addr
 	LogLevel   uint8
 	Timeout    time.Duration
 }
 
 func Parse() (*Args, error) {
-	serverAddrFlag := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defServerScheme, lookupPort(defServerScheme))}
-	flag.Var(&serverAddrFlag, "server-addr", "listen address for the server")
+	defServPort, err := lookupPort(defServScheme)
+	if err != nil {
+		return nil, err
+	}
 
-	proxyAddrFlag := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defProxyScheme, lookupPort(defProxyScheme))}
+	defProxyPort, err := lookupPort(defProxyScheme)
+	if err != nil {
+		return nil, err
+	}
+
+	servAddrFlag := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defServScheme, defServPort)}
+	flag.Var(&servAddrFlag, "server-addr", "listen address for the server")
+
+	proxyAddrFlag := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defProxyScheme, defProxyPort)}
 	flag.Var(&proxyAddrFlag, "proxy-addr", "a proxy server to use")
 	useProxy := flag.Bool("use-proxy", false, "create a proxy chain")
 
-	logLevelFlag := flag.String("log-level", "error", "severity of logging messages")
 	timeout := flag.Duration("timeout", 0, "time to wait for a connection")
+	logLevelFlag := flag.String("log-level", "error", "severity of logging messages")
 	flag.Parse()
 
-	// check for positional arguments
 	if narg := flag.NArg(); narg > 0 {
-		if narg != 1 || serverAddrFlag.isSet {
-			return nil, errors.New("invalid number of positional arguments")
+		if narg != 1 || servAddrFlag.isSet {
+			return nil, fmt.Errorf("expected 1 positional argument, but got %v", narg)
 		}
-		serverAddrFlag.value = flag.Arg(0)
+		servAddrFlag.value = flag.Arg(0)
 	}
 
-	serverAddr := parseAddr(serverAddrFlag.value, defServerScheme)
-	if serverAddr == nil {
-		return nil, fmt.Errorf("invalid server address %q", serverAddrFlag.value)
+	servAddr, err := parseAddr(servAddrFlag.value, defServScheme)
+	if err != nil {
+		return nil, err
 	}
 
-	var proxyAddr *util.Addr
+	var proxyAddr *addr.Addr
 	if *useProxy || proxyAddrFlag.isSet {
-		proxyAddr = parseAddr(proxyAddrFlag.value, defProxyScheme)
-		if proxyAddr == nil {
-			return nil, fmt.Errorf("invalid proxy address %q", proxyAddrFlag.value)
+		if proxyAddr, err = parseAddr(proxyAddrFlag.value, defProxyScheme); err != nil {
+			return nil, err
 		}
 	}
 
-	logLevel, ok := parseLogLevel(*logLevelFlag)
-	if !ok {
-		return nil, fmt.Errorf("invalid log level %v", *logLevelFlag)
+	logLevel, err := parseLogLevel(*logLevelFlag)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Args{
-		ServerAddr: serverAddr,
+		ServerAddr: servAddr,
 		ProxyAddr:  proxyAddr,
 		LogLevel:   logLevel,
 		Timeout:    *timeout,
@@ -92,39 +100,58 @@ func (f *stringFlag) Set(val string) error {
 
 var urlRegex = regexp.MustCompile(`\A(?:([a-zA-Z0-9]+):)?(?://)?([-_.a-zA-Z0-9]+)(?::([0-9]+))?\z`)
 
-func parseAddr(addr, scheme string) *util.Addr {
-	matches := urlRegex.FindStringSubmatch(addr)
+func parseAddr(addrStr, defScheme string) (*addr.Addr, error) {
+	matches := urlRegex.FindStringSubmatch(addrStr)
 	if matches == nil {
-		return nil
+		return nil, fmt.Errorf("invalid address %q", addrStr)
 	}
 
-	return &util.Addr{
-		Scheme:   strings.ToLower(cmp.Or(matches[1], scheme)),
-		Hostname: strings.ToLower(matches[2]),
-		Port:     strings.ToLower(cmp.Or(matches[3], lookupPort(scheme))),
+	scheme := strings.ToLower(cmp.Or(matches[1], defScheme))
+	port, err := parsePort(matches[3], scheme)
+	if err != nil {
+		return nil, err
 	}
+
+	return &addr.Addr{
+		Scheme: scheme,
+		Host: addr.Host{
+			Hostname: strings.ToLower(matches[2]),
+			Port:     port,
+		},
+	}, nil
 }
 
-func lookupPort(scheme string) string {
+func parsePort(portStr, defScheme string) (uint16, error) {
+	if portStr != "" {
+		portNum, err := strconv.ParseUint(portStr, 10, 16)
+		if err != nil {
+			return 0, fmt.Errorf("parsing port number %q: %w", portStr, err)
+		}
+		return uint16(portNum), nil
+	}
+	return lookupPort(defScheme)
+}
+
+func lookupPort(scheme string) (uint16, error) {
 	switch scheme {
 	case "socks4":
-		return "1080"
+		return 1080, nil
 	case "http":
-		return "8080"
+		return 8080, nil
 	default:
-		panic(fmt.Sprintf("unknown protocol scheme %q", scheme))
+		return 0, fmt.Errorf("unknown protocol scheme %q", scheme)
 	}
 }
 
-func parseLogLevel(logLevel string) (uint8, bool) {
+func parseLogLevel(logLevel string) (uint8, error) {
 	switch logLevel {
 	case "fatal":
-		return LogFatal, true
+		return LogFatal, nil
 	case "error":
-		return LogError, true
+		return LogError, nil
 	case "info":
-		return LogInfo, true
+		return LogInfo, nil
 	default:
-		return 0, false
+		return 0, fmt.Errorf("unknown log level %q", logLevel)
 	}
 }
