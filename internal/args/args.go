@@ -2,6 +2,7 @@ package args
 
 import (
 	"cmp"
+	"errors"
 	"flag"
 	"fmt"
 	"regexp"
@@ -21,60 +22,57 @@ const (
 	LogInfo
 )
 
-type Addr struct {
-	Scheme   string
-	Hostname string
-	Port     string
+type Args struct {
+	ServerAddr *util.Addr
+	ProxyAddr  *util.Addr
+	LogLevel   uint8
+	Timeout    time.Duration
 }
 
-func (a *Addr) Host() string {
-	return a.Hostname + ":" + a.Port
-}
+func Parse() (*Args, error) {
+	serverAddrFlag := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defServerScheme, lookupPort(defServerScheme))}
+	flag.Var(&serverAddrFlag, "server-addr", "listen address for the server")
 
-var (
-	Server   Addr
-	Proxy    Addr
-	Timeout  time.Duration
-	LogLevel uint8
-	UseProxy bool
-)
+	proxyAddrFlag := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defProxyScheme, lookupPort(defProxyScheme))}
+	flag.Var(&proxyAddrFlag, "proxy-addr", "a proxy server to use")
+	useProxy := flag.Bool("use-proxy", false, "create a proxy chain")
 
-func init() {
-	serverAddr := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defServerScheme, lookupPort(defServerScheme))}
-	proxyAddr := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defProxyScheme, lookupPort(defProxyScheme))}
-	logLevel := flag.String("log-level", "error", "severity of logging messages")
-
-	flag.Var(&serverAddr, "server-addr", "listen address for the server")
-	flag.Var(&proxyAddr, "proxy-addr", "a proxy server to use")
-	flag.BoolVar(&UseProxy, "use-proxy", false, "create a proxy chain")
-	flag.DurationVar(&Timeout, "timeout", 0, "time to wait for a connection")
+	logLevelFlag := flag.String("log-level", "error", "severity of logging messages")
+	timeout := flag.Duration("timeout", 0, "time to wait for a connection")
 	flag.Parse()
 
+	// check for positional arguments
 	if narg := flag.NArg(); narg > 0 {
-		if narg != 1 || serverAddr.isSet {
-			util.FatalError("invalid command line options")
+		if narg != 1 || serverAddrFlag.isSet {
+			return nil, errors.New("invalid number of positional arguments")
 		}
-		serverAddr.value = flag.Arg(0)
+		serverAddrFlag.value = flag.Arg(0)
 	}
 
-	if !parseAddr(&Server, serverAddr.value, defServerScheme) {
-		util.FatalError("invalid server address %q", serverAddr.value)
+	serverAddr := parseAddr(serverAddrFlag.value, defServerScheme)
+	if serverAddr == nil {
+		return nil, fmt.Errorf("invalid server address %q", serverAddrFlag.value)
 	}
-	if !parseAddr(&Proxy, proxyAddr.value, defProxyScheme) {
-		util.FatalError("invalid proxy address %q", proxyAddr.value)
-	}
-	UseProxy = UseProxy || proxyAddr.isSet
 
-	switch *logLevel {
-	case "fatal":
-		LogLevel = LogFatal
-	case "error":
-		LogLevel = LogError
-	case "info":
-		LogLevel = LogInfo
-	default:
-		util.FatalError("invalid log level %v", *logLevel)
+	var proxyAddr *util.Addr
+	if *useProxy || proxyAddrFlag.isSet {
+		proxyAddr = parseAddr(proxyAddrFlag.value, defProxyScheme)
+		if proxyAddr == nil {
+			return nil, fmt.Errorf("invalid proxy address %q", proxyAddrFlag.value)
+		}
 	}
+
+	logLevel, ok := parseLogLevel(*logLevelFlag)
+	if !ok {
+		return nil, fmt.Errorf("invalid log level %v", *logLevelFlag)
+	}
+
+	return &Args{
+		ServerAddr: serverAddr,
+		ProxyAddr:  proxyAddr,
+		LogLevel:   logLevel,
+		Timeout:    *timeout,
+	}, nil
 }
 
 type stringFlag struct {
@@ -94,18 +92,17 @@ func (f *stringFlag) Set(val string) error {
 
 var urlRegex = regexp.MustCompile(`\A(?:([a-zA-Z0-9]+):)?(?://)?([-_.a-zA-Z0-9]+)(?::([0-9]+))?\z`)
 
-func parseAddr(parsed *Addr, addr, scheme string) bool {
+func parseAddr(addr, scheme string) *util.Addr {
 	matches := urlRegex.FindStringSubmatch(addr)
 	if matches == nil {
-		return false
+		return nil
 	}
 
-	*parsed = Addr{
+	return &util.Addr{
 		Scheme:   strings.ToLower(cmp.Or(matches[1], scheme)),
 		Hostname: strings.ToLower(matches[2]),
 		Port:     strings.ToLower(cmp.Or(matches[3], lookupPort(scheme))),
 	}
-	return true
 }
 
 func lookupPort(scheme string) string {
@@ -116,5 +113,18 @@ func lookupPort(scheme string) string {
 		return "8080"
 	default:
 		panic(fmt.Sprintf("unknown protocol scheme %q", scheme))
+	}
+}
+
+func parseLogLevel(logLevel string) (uint8, bool) {
+	switch logLevel {
+	case "fatal":
+		return LogFatal, true
+	case "error":
+		return LogError, true
+	case "info":
+		return LogInfo, true
+	default:
+		return 0, false
 	}
 }

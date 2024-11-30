@@ -2,35 +2,57 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"socks2http/internal/args"
 	"socks2http/internal/log"
 	"socks2http/internal/proxy"
+	"strconv"
 	"sync"
 	"time"
 )
 
 func main() {
-	switch args.Server.Scheme {
+	args, err := args.Parse()
+	if err != nil {
+		log.Fatal("command line options: %v", err)
+	}
+
+	proxy, err := proxy.NewProxy(args.ProxyAddr, args.Timeout)
+	if err != nil {
+		log.Fatal("proxy chaining: %v", err)
+	}
+
+	switch args.ServerAddr.Scheme {
 	case "http":
-		if err := http.ListenAndServe(args.Server.Host(), &httpProxyServer{}); err != nil {
+		server := &httpProxyServer{proxy: proxy}
+		if err := http.ListenAndServe(args.ServerAddr.Host(), server); err != nil {
 			log.Fatal("unexpected server shutdown: %v", err)
 		}
 	default:
-		log.Fatal("unsupported server protocol scheme %q", args.Server.Scheme)
+		log.Fatal("unsupported server protocol scheme %q", args.ServerAddr.Scheme)
 	}
 }
 
-type httpProxyServer struct{}
+type httpProxyServer struct {
+	proxy proxy.Proxy
+}
 
 func (s *httpProxyServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	requestLine := req.Method + " " + req.URL.String() + " " + req.Proto
 	log.Info(requestLine)
 
-	proxyConn, err := proxy.Open(req.URL)
+	destAddr, err := url2Addr(req.URL)
+	if err != nil {
+		log.Error("destination URL %v: %v", req.URL, err)
+		return
+	}
+
+	proxyConn, err := s.proxy.Open(destAddr)
 	if err != nil {
 		log.Error("failed to proxy %v: %v", req.URL, err)
 		return
@@ -45,6 +67,18 @@ func (s *httpProxyServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 			log.Error("failed to setup an HTTP tunnel to %v: %v", req.URL, err)
 		}
 	}
+}
+
+func url2Addr(destUrl *url.URL) (string, error) {
+	port := destUrl.Port()
+	if port == "" {
+		portNum, err := net.LookupPort("tcp", destUrl.Scheme)
+		if err != nil {
+			return "", fmt.Errorf("invalid URL scheme %q: %w", destUrl.Scheme, err)
+		}
+		port = strconv.Itoa(portNum)
+	}
+	return destUrl.Hostname() + ":" + port, nil
 }
 
 func sendRequest(wr http.ResponseWriter, req *http.Request, conn net.Conn) error {

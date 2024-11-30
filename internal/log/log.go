@@ -3,11 +3,10 @@ package log
 import (
 	"log"
 	"socks2http/internal/args"
-	"socks2http/internal/util"
 )
 
 func Fatal(format string, v ...any) {
-	util.FatalError(format, v...)
+	log.Fatalf(format+"\n", v...)
 }
 
 func Error(format string, v ...any) {
@@ -19,7 +18,5 @@ func Info(format string, v ...any) {
 }
 
 func logEntry(level uint8, format string, v ...any) {
-	if level <= args.LogLevel {
-		log.Printf(format+"\n", v...)
-	}
+	log.Printf(format+"\n", v...)
 }

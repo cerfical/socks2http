@@ -3,40 +3,44 @@ package proxy
 import (
 	"fmt"
 	"net"
-	"net/url"
-	"socks2http/internal/args"
-	"socks2http/internal/log"
 	"socks2http/internal/socks"
-	"strconv"
+	"socks2http/internal/util"
+	"time"
 )
 
-func Open(destServer *url.URL) (net.Conn, error) {
-	port := destServer.Port()
-	if port == "" {
-		portNum, err := net.LookupPort("tcp", destServer.Scheme)
-		if err != nil {
-			return nil, fmt.Errorf("invalid destination server address %q: %w", destServer, err)
-		}
-		port = strconv.Itoa(portNum)
-	}
-	return proxyOpen(destServer.Hostname() + ":" + port)
+type Proxy interface {
+	Open(addr string) (net.Conn, error)
 }
 
-var proxyOpen func(string) (net.Conn, error)
-
-func init() {
-	if args.UseProxy {
-		switch args.Proxy.Scheme {
-		case "socks4":
-			proxyOpen = func(destAddr string) (net.Conn, error) {
-				return socks.ConnectTimeout(args.Proxy.Host(), destAddr, args.Timeout)
-			}
-		default:
-			log.Fatal("unsupported client protocol scheme %q", args.Proxy.Scheme)
-		}
-	} else {
-		proxyOpen = func(destAddr string) (net.Conn, error) {
-			return net.DialTimeout("tcp", destAddr, args.Timeout)
-		}
+func NewProxy(proxyAddr *util.Addr, timeout time.Duration) (Proxy, error) {
+	if proxyAddr == nil {
+		return directProxy{timeout: timeout}, nil
 	}
+
+	switch proxyAddr.Scheme {
+	case "socks4":
+		return socksProxy{
+			host:    proxyAddr.Host(),
+			timeout: timeout,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unsupported client protocol scheme %q", proxyAddr.Scheme)
+	}
+}
+
+type socksProxy struct {
+	host    string
+	timeout time.Duration
+}
+
+func (p socksProxy) Open(destAddr string) (net.Conn, error) {
+	return socks.ConnectTimeout(p.host, destAddr, p.timeout)
+}
+
+type directProxy struct {
+	timeout time.Duration
+}
+
+func (p directProxy) Open(destAddr string) (net.Conn, error) {
+	return net.DialTimeout("tcp", destAddr, p.timeout)
 }
