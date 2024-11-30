@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"socks2http/internal/addr"
 	"socks2http/internal/util"
-	"strconv"
 	"time"
 	"unsafe"
 )
@@ -25,17 +25,17 @@ type tcp4Addr struct {
 	IP   [4]byte
 }
 
-func Connect(socksAddr string, destAddr string) (net.Conn, error) {
-	return ConnectTimeout(socksAddr, destAddr, 0)
+func Connect(socksHost, destHost addr.Host) (net.Conn, error) {
+	return ConnectTimeout(socksHost, destHost, 0)
 }
 
-func ConnectTimeout(socksAddr string, destAddr string, timeout time.Duration) (net.Conn, error) {
-	tcpAddr, err := resolveAddr(destAddr)
+func ConnectTimeout(socksHost, destHost addr.Host, timeout time.Duration) (net.Conn, error) {
+	tcpAddr, err := resolveHost(destHost)
 	if err != nil {
 		return nil, fmt.Errorf("address resolution failed: %w", err)
 	}
 
-	socksConn, err := net.DialTimeout("tcp", socksAddr, timeout)
+	socksConn, err := net.DialTimeout("tcp", socksHost.String(), timeout)
 	if err != nil {
 		return nil, fmt.Errorf("connection to SOCKS proxy failed: %w", err)
 	}
@@ -47,22 +47,12 @@ func ConnectTimeout(socksAddr string, destAddr string, timeout time.Duration) (n
 	return socksConn, nil
 }
 
-func resolveAddr(addr string) (tcp4Addr, error) {
-	host, port, err := net.SplitHostPort(addr)
+func resolveHost(host addr.Host) (tcp4Addr, error) {
+	ip, err := net.ResolveIPAddr("ip4", host.Hostname)
 	if err != nil {
 		return tcp4Addr{}, err
 	}
-
-	ip, err := net.ResolveIPAddr("ip4", host)
-	if err != nil {
-		return tcp4Addr{}, err
-	}
-
-	portNum, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		return tcp4Addr{}, err
-	}
-	return tcp4Addr{Port: uint16(portNum), IP: [4]byte(ip.IP)}, nil
+	return tcp4Addr{Port: host.Port, IP: [4]byte(ip.IP)}, nil
 }
 
 func sendConnectRequest(socksConn net.Conn, destAddr tcp4Addr) error {

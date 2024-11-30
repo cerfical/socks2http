@@ -9,7 +9,7 @@ import (
 )
 
 type Proxy interface {
-	Open(addr string) (net.Conn, error)
+	Open(destHost addr.Host) (net.Conn, error)
 }
 
 func NewProxy(proxyAddr *addr.Addr, timeout time.Duration) (Proxy, error) {
@@ -20,7 +20,7 @@ func NewProxy(proxyAddr *addr.Addr, timeout time.Duration) (Proxy, error) {
 	switch proxyAddr.Scheme {
 	case "socks4":
 		return socksProxy{
-			host:    proxyAddr.Host.String(),
+			host:    proxyAddr.Host,
 			timeout: timeout,
 		}, nil
 	default:
@@ -29,18 +29,18 @@ func NewProxy(proxyAddr *addr.Addr, timeout time.Duration) (Proxy, error) {
 }
 
 type socksProxy struct {
-	host    string
+	host    addr.Host
 	timeout time.Duration
 }
 
-func (p socksProxy) Open(destAddr string) (net.Conn, error) {
-	return socks.ConnectTimeout(p.host, destAddr, p.timeout)
+func (p socksProxy) Open(destHost addr.Host) (net.Conn, error) {
+	return socks.ConnectTimeout(p.host, destHost, p.timeout)
 }
 
 type directProxy struct {
 	timeout time.Duration
 }
 
-func (p directProxy) Open(destAddr string) (net.Conn, error) {
-	return net.DialTimeout("tcp", destAddr, p.timeout)
+func (p directProxy) Open(destHost addr.Host) (net.Conn, error) {
+	return net.DialTimeout("tcp", destHost.String(), p.timeout)
 }
