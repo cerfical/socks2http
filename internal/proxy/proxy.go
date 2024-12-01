@@ -14,12 +14,12 @@ type Proxy interface {
 
 func NewProxy(proxyAddr addr.Addr, timeout time.Duration) (Proxy, error) {
 	switch proxyAddr.Scheme {
-	case "socks4":
+	case addr.SOCKS4:
 		return socksProxy{
 			host:    proxyAddr.Host,
 			timeout: timeout,
 		}, nil
-	case "direct":
+	case addr.Direct:
 		return directProxy{
 			timeout: timeout,
 		}, nil

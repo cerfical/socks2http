@@ -38,12 +38,12 @@ func Parse() (*Args, error) {
 		*servAddrFlag = flag.Arg(0)
 	}
 
-	servAddr, err := parseAddr(*servAddrFlag, defaultServScheme)
+	servAddr, err := parseAddr(*servAddrFlag, addr.HTTP)
 	if err != nil {
 		return nil, fmt.Errorf("server address: %w", err)
 	}
 
-	proxyAddr, err := parseAddr(*proxyAddrFlag, defaultProxyScheme)
+	proxyAddr, err := parseAddr(*proxyAddrFlag, addr.SOCKS4)
 	if err != nil {
 		return nil, fmt.Errorf("proxy chain: %w", err)
 	}
@@ -61,32 +61,32 @@ func Parse() (*Args, error) {
 	}, nil
 }
 
-func parseAddr(addrStr, defaultScheme string) (*addr.Addr, error) {
-	rawAddr, err := parseRawAddr(addrStr)
+func parseAddr(addrStr string, defaultScheme addr.ProtoScheme) (*addr.Addr, error) {
+	raddr, err := parseRawAddr(addrStr)
 	if err != nil {
 		return nil, err
 	}
 
-	rawAddr.scheme = cmp.Or(rawAddr.scheme, defaultScheme)
-	rawAddr.hostname = cmp.Or(rawAddr.hostname, defaultHostname)
-
-	portNum, err := portByScheme(rawAddr.scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	// use the provided port if available, or the scheme's default port otherwise
-	if rawAddr.port != "" {
-		portNum, err = addr.ParsePort(rawAddr.port)
+	scheme := defaultScheme
+	if raddr.scheme != "" {
+		scheme, err = addr.ParseScheme(raddr.scheme)
 		if err != nil {
-			return nil, fmt.Errorf("port number %q: %w", rawAddr.port, err)
+			return nil, err
+		}
+	}
+	portNum := scheme.Port()
+
+	if raddr.port != "" {
+		portNum, err = addr.ParsePort(raddr.port)
+		if err != nil {
+			return nil, fmt.Errorf("port number %q: %w", raddr.port, err)
 		}
 	}
 
 	return &addr.Addr{
-		Scheme: rawAddr.scheme,
+		Scheme: scheme,
 		Host: addr.Host{
-			Hostname: rawAddr.hostname,
+			Hostname: cmp.Or(raddr.hostname, defaultHostname),
 			Port:     portNum,
 		}}, nil
 }
@@ -140,7 +140,7 @@ func makeRawAddr(scheme, hostname, port string) rawAddr {
 
 func makeRawAddr1(str string) (raddr rawAddr) {
 	switch {
-	case isValidScheme(str):
+	case addr.IsValidScheme(str):
 		raddr.scheme = str
 	case addr.IsValidPort(str):
 		raddr.port = str
@@ -151,7 +151,7 @@ func makeRawAddr1(str string) (raddr rawAddr) {
 }
 
 func makeRawAddr2(str1, str2 string) (raddr rawAddr) {
-	if isValidScheme(str1) {
+	if addr.IsValidScheme(str1) {
 		raddr.scheme = str1
 		if addr.IsValidPort(str2) {
 			raddr.port = str2
@@ -163,24 +163,6 @@ func makeRawAddr2(str1, str2 string) (raddr rawAddr) {
 		raddr.port = str2
 	}
 	return
-}
-
-func isValidScheme(scheme string) bool {
-	_, err := portByScheme(scheme)
-	return err == nil
-}
-
-func portByScheme(scheme string) (uint16, error) {
-	switch scheme {
-	case "socks4":
-		return 1080, nil
-	case "http":
-		return 8080, nil
-	case "direct":
-		return 0, nil
-	default:
-		return 0, fmt.Errorf("unknown protocol scheme %q", scheme)
-	}
 }
 
 func parseLogLevel(logLevel string) (log.LogLevel, error) {

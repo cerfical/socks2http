@@ -17,7 +17,7 @@ type Server interface {
 
 func NewServer(servAddr addr.Addr, proxy proxy.Proxy, logger log.Logger) (Server, error) {
 	switch servAddr.Scheme {
-	case "http":
+	case addr.HTTP:
 		return &httpServer{
 			host:   servAddr.Host,
 			proxy:  proxy,

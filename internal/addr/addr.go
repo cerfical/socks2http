@@ -1,6 +1,9 @@
 package addr
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 type Host struct {
 	Hostname string
@@ -12,10 +15,10 @@ func (h Host) String() string {
 }
 
 type Addr struct {
-	Scheme string
+	Scheme ProtoScheme
 	Host
 }
 
 func (a Addr) String() string {
-	return a.Scheme + "://" + a.Host.String()
+	return fmt.Sprintf("%v://%v", a.Scheme, a.Host)
 }
