@@ -16,7 +16,7 @@ func NewProxy(proxyAddr addr.Addr, timeout time.Duration) (Proxy, error) {
 	switch proxyAddr.Scheme {
 	case addr.SOCKS4:
 		return socksProxy{
-			host:    proxyAddr.Host,
+			host:    proxyAddr.Host(),
 			timeout: timeout,
 		}, nil
 	case addr.Direct:

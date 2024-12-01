@@ -19,7 +19,7 @@ func NewServer(servAddr addr.Addr, proxy proxy.Proxy, logger log.Logger) (Server
 	switch servAddr.Scheme {
 	case addr.HTTP:
 		return &httpServer{
-			host:   servAddr.Host,
+			host:   servAddr.Host(),
 			proxy:  proxy,
 			logger: logger,
 		}, nil
