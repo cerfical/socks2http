@@ -36,14 +36,14 @@ func Parse() (*Args, error) {
 	}
 
 	servAddrFlag := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defServScheme, defServPort)}
-	flag.Var(&servAddrFlag, "server-addr", "listen address for the server")
+	flag.Var(&servAddrFlag, "serv", "listen address for the server")
 
 	proxyAddrFlag := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defProxyScheme, defProxyPort)}
-	flag.Var(&proxyAddrFlag, "proxy-addr", "a proxy server to use")
+	flag.Var(&proxyAddrFlag, "proxy", "a proxy server to use")
 	useProxy := flag.Bool("use-proxy", false, "create a proxy chain")
 
 	timeout := flag.Duration("timeout", 0, "time to wait for a connection")
-	logLevelFlag := flag.String("log-level", "error", "severity of logging messages")
+	logLevelFlag := flag.String("log", "error", "severity of logging messages")
 	flag.Parse()
 
 	if narg := flag.NArg(); narg > 0 {
