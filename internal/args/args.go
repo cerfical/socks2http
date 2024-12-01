@@ -96,11 +96,10 @@ func parseAddr(addrStr, defaultScheme string) (*addr.Addr, error) {
 	if err != nil {
 		return nil, err
 	}
-	validateAddr(&rawAddr)
 
-	// canonicalize domain and scheme names to lowercase
-	rawAddr.scheme = strings.ToLower(cmp.Or(rawAddr.scheme, defaultScheme))
-	rawAddr.hostname = strings.ToLower(cmp.Or(rawAddr.hostname, defaultHostname))
+	validateAddr(&rawAddr)
+	rawAddr.scheme = cmp.Or(rawAddr.scheme, defaultScheme)
+	rawAddr.hostname = cmp.Or(rawAddr.hostname, defaultHostname)
 
 	portNum, err := portByScheme(rawAddr.scheme)
 	if err != nil {
@@ -175,9 +174,10 @@ func parseRawAddr(addrStr string) (addr rawAddr, err error) {
 	if matches == nil {
 		err = fmt.Errorf("invalid network address %q", addrStr)
 	} else {
-		addr.scheme = matches[addrRgx.SubexpIndex("SCHEME")]
-		addr.hostname = matches[addrRgx.SubexpIndex("HOSTNAME")]
-		addr.port = matches[addrRgx.SubexpIndex("PORT")]
+		// normalize all names to lowercase
+		addr.scheme = strings.ToLower(matches[addrRgx.SubexpIndex("SCHEME")])
+		addr.hostname = strings.ToLower(matches[addrRgx.SubexpIndex("HOSTNAME")])
+		addr.port = strings.ToLower(matches[addrRgx.SubexpIndex("PORT")])
 	}
 	return
 }
