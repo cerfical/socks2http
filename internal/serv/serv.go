@@ -9,7 +9,6 @@ import (
 	"socks2http/internal/addr"
 	"socks2http/internal/log"
 	"socks2http/internal/proxy"
-	"strconv"
 )
 
 type Server interface {
@@ -90,14 +89,14 @@ func (s *httpServer) handleRequest(clientConn net.Conn, req *http.Request) {
 }
 
 func extractHost(url *url.URL) (addr.Host, error) {
-	port, err := parsePort(url.Port(), url.Scheme)
+	port, err := makePort(url.Port(), url.Scheme)
 	if err != nil {
 		return addr.Host{}, err
 	}
 	return addr.Host{Hostname: url.Hostname(), Port: port}, nil
 }
 
-func parsePort(portStr, scheme string) (uint16, error) {
+func makePort(portStr, scheme string) (uint16, error) {
 	if portStr == "" {
 		port, err := net.LookupPort("tcp", scheme)
 		if err != nil {
@@ -105,12 +104,7 @@ func parsePort(portStr, scheme string) (uint16, error) {
 		}
 		return uint16(port), nil
 	}
-
-	port, err := strconv.ParseUint(portStr, 10, 16)
-	if err != nil {
-		return 0, err
-	}
-	return uint16(port), nil
+	return addr.ParsePort(portStr)
 }
 
 func sendRequest(clientConn, servConn net.Conn, req *http.Request) error {

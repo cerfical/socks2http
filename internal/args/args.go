@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"socks2http/internal/addr"
 	"socks2http/internal/log"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -78,7 +77,7 @@ func parseAddr(addrStr, defaultScheme string) (*addr.Addr, error) {
 
 	// use the provided port if available, or the scheme's default port otherwise
 	if rawAddr.port != "" {
-		portNum, err = parsePort(rawAddr.port)
+		portNum, err = addr.ParsePort(rawAddr.port)
 		if err != nil {
 			return nil, fmt.Errorf("port number %q: %w", rawAddr.port, err)
 		}
@@ -139,44 +138,31 @@ func makeRawAddr(scheme, hostname, port string) rawAddr {
 	}
 }
 
-func makeRawAddr1(str string) (addr rawAddr) {
+func makeRawAddr1(str string) (raddr rawAddr) {
 	switch {
 	case isValidScheme(str):
-		addr.scheme = str
-	case isValidPort(str):
-		addr.port = str
+		raddr.scheme = str
+	case addr.IsValidPort(str):
+		raddr.port = str
 	default:
-		addr.hostname = str
+		raddr.hostname = str
 	}
 	return
 }
 
-func makeRawAddr2(str1, str2 string) (addr rawAddr) {
+func makeRawAddr2(str1, str2 string) (raddr rawAddr) {
 	if isValidScheme(str1) {
-		addr.scheme = str1
-		if isValidPort(str2) {
-			addr.port = str2
+		raddr.scheme = str1
+		if addr.IsValidPort(str2) {
+			raddr.port = str2
 		} else {
-			addr.hostname = str2
+			raddr.hostname = str2
 		}
 	} else {
-		addr.hostname = str1
-		addr.port = str2
+		raddr.hostname = str1
+		raddr.port = str2
 	}
 	return
-}
-
-func isValidPort(port string) bool {
-	_, err := parsePort(port)
-	return err == nil
-}
-
-func parsePort(port string) (uint16, error) {
-	portNum, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		return 0, fmt.Errorf("not a 16-bit unsigned integer: %w", err)
-	}
-	return uint16(portNum), nil
 }
 
 func isValidScheme(scheme string) bool {
