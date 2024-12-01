@@ -8,13 +8,16 @@ import (
 	"socks2http/internal/addr"
 	"socks2http/internal/log"
 	"strconv"
-	"strings"
 	"time"
 )
 
 const (
-	defProxyScheme = "socks4"
-	defServScheme  = "http"
+	defaultProxyScheme = "socks4"
+	defaultServScheme  = "http"
+	defaultHostname    = "localhost"
+
+	defaultServ  = "http://localhost:8080"
+	defaultProxy = "socks4://localhost:1080"
 )
 
 type Args struct {
@@ -25,20 +28,10 @@ type Args struct {
 }
 
 func Parse() (*Args, error) {
-	defServPort, err := lookupPort(defServScheme)
-	if err != nil {
-		return nil, err
-	}
-
-	defProxyPort, err := lookupPort(defProxyScheme)
-	if err != nil {
-		return nil, err
-	}
-
-	servAddrFlag := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defServScheme, defServPort)}
+	servAddrFlag := stringFlag{value: defaultServ}
 	flag.Var(&servAddrFlag, "serv", "listen address for the server")
 
-	proxyAddrFlag := stringFlag{value: fmt.Sprintf("%v://localhost:%v", defProxyScheme, defProxyPort)}
+	proxyAddrFlag := stringFlag{value: defaultProxy}
 	flag.Var(&proxyAddrFlag, "proxy", "a proxy server to use")
 	useProxy := flag.Bool("use-proxy", false, "create a proxy chain")
 
@@ -47,20 +40,24 @@ func Parse() (*Args, error) {
 	flag.Parse()
 
 	if narg := flag.NArg(); narg > 0 {
-		if narg != 1 || servAddrFlag.isSet {
+		if narg != 1 {
 			return nil, fmt.Errorf("expected 1 positional argument, but got %v", narg)
+		}
+		if servAddrFlag.isSet {
+			return nil, fmt.Errorf("overriding serv flag %q with %q", servAddrFlag.value, flag.Arg(0))
 		}
 		servAddrFlag.value = flag.Arg(0)
 	}
 
-	servAddr, err := parseAddr(servAddrFlag.value, defServScheme)
+	servAddr, err := parseAddr(servAddrFlag.value, defaultServScheme)
 	if err != nil {
 		return nil, err
 	}
 
 	var proxyAddr *addr.Addr
 	if *useProxy || proxyAddrFlag.isSet {
-		if proxyAddr, err = parseAddr(proxyAddrFlag.value, defProxyScheme); err != nil {
+		proxyAddr, err = parseAddr(proxyAddrFlag.value, defaultProxyScheme)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -93,41 +90,105 @@ func (f *stringFlag) Set(val string) error {
 	return nil
 }
 
-var urlRegex = regexp.MustCompile(`\A(?:([a-zA-Z0-9]+):)?(?://)?([-_.a-zA-Z0-9]+)(?::([0-9]+))?\z`)
-
-func parseAddr(addrStr, defScheme string) (*addr.Addr, error) {
-	matches := urlRegex.FindStringSubmatch(addrStr)
-	if matches == nil {
-		return nil, fmt.Errorf("invalid address %q", addrStr)
-	}
-
-	scheme := strings.ToLower(cmp.Or(matches[1], defScheme))
-	port, err := parsePort(matches[3], scheme)
+func parseAddr(addrStr, defaultScheme string) (*addr.Addr, error) {
+	scheme, hostname, port, err := splitAddr(addrStr)
 	if err != nil {
 		return nil, err
+	}
+
+	scheme, hostname, port = arrangeAddr(scheme, hostname, port)
+	scheme = cmp.Or(scheme, defaultScheme)
+	hostname = cmp.Or(hostname, defaultHostname)
+
+	portNum, err := portByScheme(scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	if port != "" {
+		portNum, err = parsePort(port)
+		if err != nil {
+			return nil, fmt.Errorf("port number %q: %w", port, err)
+		}
 	}
 
 	return &addr.Addr{
 		Scheme: scheme,
 		Host: addr.Host{
-			Hostname: strings.ToLower(matches[2]),
-			Port:     port,
-		},
-	}, nil
+			Hostname: hostname,
+			Port:     portNum,
+		}}, nil
 }
 
-func parsePort(portStr, defScheme string) (uint16, error) {
-	if portStr != "" {
-		portNum, err := strconv.ParseUint(portStr, 10, 16)
-		if err != nil {
-			return 0, fmt.Errorf("parsing port number %q: %w", portStr, err)
+func arrangeAddr(scheme, hostname, port string) (string, string, string) {
+	if hostname != "" {
+		if scheme != "" {
+			if port == "" {
+				return arrangeAddr2(scheme, hostname)
+			}
+		} else if port != "" {
+			return arrangeAddr2(hostname, port)
+		} else {
+			return arrangeAddrP1(hostname)
 		}
-		return uint16(portNum), nil
 	}
-	return lookupPort(defScheme)
+	return scheme, hostname, port
 }
 
-func lookupPort(scheme string) (uint16, error) {
+func arrangeAddrP1(str string) (string, string, string) {
+	switch {
+	case isValidScheme(str):
+		return str, "", ""
+	case isValidPort(str):
+		return "", "", str
+	default:
+		return "", str, ""
+	}
+}
+
+func arrangeAddr2(str1, str2 string) (string, string, string) {
+	if isValidScheme(str1) {
+		if isValidPort(str2) {
+			return str1, "", str2
+		}
+		return str1, str2, ""
+	}
+	return "", str1, str2
+}
+
+var addrRgx = regexp.MustCompile(`\A(?:(?<SCHEME>[^:]+):)?(?://)?(?<HOSTNAME>[^:]+)?(?::(?<PORT>[^:]+))?\z`)
+
+func splitAddr(addr string) (scheme string, hostname string, port string, err error) {
+	matches := addrRgx.FindStringSubmatch(addr)
+	if matches == nil {
+		err = fmt.Errorf("invalid network address %q", addr)
+	} else {
+		scheme = matches[addrRgx.SubexpIndex("SCHEME")]
+		hostname = matches[addrRgx.SubexpIndex("HOSTNAME")]
+		port = matches[addrRgx.SubexpIndex("PORT")]
+	}
+	return
+}
+
+func isValidPort(port string) bool {
+	_, err := parsePort(port)
+	return err == nil
+}
+
+func parsePort(port string) (uint16, error) {
+	portNum, err := strconv.ParseUint(port, 10, 16)
+	if err != nil {
+		return 0, fmt.Errorf("not a 16-bit unsigned integer: %w", err)
+	}
+	return uint16(portNum), nil
+}
+
+func isValidScheme(scheme string) bool {
+	_, err := portByScheme(scheme)
+	return err == nil
+}
+
+func portByScheme(scheme string) (uint16, error) {
 	switch scheme {
 	case "socks4":
 		return 1080, nil

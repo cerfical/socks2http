@@ -12,7 +12,7 @@ func main() {
 
 	args, err := args.Parse()
 	if err != nil {
-		logger.Fatal("command line parsing: %v", err)
+		logger.Fatal("command line: %v", err)
 	}
 	logger.SetLevel(args.LogLevel)
 
