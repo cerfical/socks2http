@@ -68,7 +68,6 @@ func parseAddr(addrStr, defaultScheme string) (*addr.Addr, error) {
 		return nil, err
 	}
 
-	validateAddr(&rawAddr)
 	rawAddr.scheme = cmp.Or(rawAddr.scheme, defaultScheme)
 	rawAddr.hostname = cmp.Or(rawAddr.hostname, defaultHostname)
 
@@ -99,21 +98,48 @@ type rawAddr struct {
 	port     string
 }
 
-func validateAddr(addr *rawAddr) {
-	if addr.hostname != "" {
-		if addr.scheme != "" {
-			if addr.port == "" {
-				validateAddr2(addr, addr.scheme, addr.hostname)
+var addrRgx = regexp.MustCompile(`\A(?:(?<SCHEME>[^:]+):)?(?://)?(?<HOSTNAME>[^:]+)?(?::(?<PORT>[^:]+))?\z`)
+
+func parseRawAddr(addrStr string) (addr rawAddr, err error) {
+	matches := addrRgx.FindStringSubmatch(addrStr)
+	if matches == nil {
+		err = fmt.Errorf("invalid network address %q", addrStr)
+	} else {
+		addr = makeRawAddr(
+			matches[addrRgx.SubexpIndex("SCHEME")],
+			matches[addrRgx.SubexpIndex("HOSTNAME")],
+			matches[addrRgx.SubexpIndex("PORT")],
+		)
+	}
+	return
+}
+
+func makeRawAddr(scheme, hostname, port string) rawAddr {
+	// normalize all address names to lowercase
+	scheme = strings.ToLower(scheme)
+	hostname = strings.ToLower(hostname)
+	port = strings.ToLower(port)
+
+	if hostname != "" {
+		if scheme != "" {
+			if port == "" {
+				return makeRawAddr2(scheme, hostname)
 			}
-		} else if addr.port != "" {
-			validateAddr2(addr, addr.hostname, addr.port)
+		} else if port != "" {
+			return makeRawAddr2(hostname, port)
 		} else {
-			validateAddr1(addr, addr.hostname)
+			return makeRawAddr1(hostname)
 		}
+	}
+
+	return rawAddr{
+		scheme:   scheme,
+		hostname: hostname,
+		port:     port,
 	}
 }
 
-func validateAddr1(addr *rawAddr, str string) {
+func makeRawAddr1(str string) (addr rawAddr) {
 	switch {
 	case isValidScheme(str):
 		addr.scheme = str
@@ -122,9 +148,10 @@ func validateAddr1(addr *rawAddr, str string) {
 	default:
 		addr.hostname = str
 	}
+	return
 }
 
-func validateAddr2(addr *rawAddr, str1, str2 string) {
+func makeRawAddr2(str1, str2 string) (addr rawAddr) {
 	if isValidScheme(str1) {
 		addr.scheme = str1
 		if isValidPort(str2) {
@@ -135,20 +162,6 @@ func validateAddr2(addr *rawAddr, str1, str2 string) {
 	} else {
 		addr.hostname = str1
 		addr.port = str2
-	}
-}
-
-var addrRgx = regexp.MustCompile(`\A(?:(?<SCHEME>[^:]+):)?(?://)?(?<HOSTNAME>[^:]+)?(?::(?<PORT>[^:]+))?\z`)
-
-func parseRawAddr(addrStr string) (addr rawAddr, err error) {
-	matches := addrRgx.FindStringSubmatch(addrStr)
-	if matches == nil {
-		err = fmt.Errorf("invalid network address %q", addrStr)
-	} else {
-		// normalize all names to lowercase
-		addr.scheme = strings.ToLower(matches[addrRgx.SubexpIndex("SCHEME")])
-		addr.hostname = strings.ToLower(matches[addrRgx.SubexpIndex("HOSTNAME")])
-		addr.port = strings.ToLower(matches[addrRgx.SubexpIndex("PORT")])
 	}
 	return
 }
