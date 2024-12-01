@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"socks2http/internal/addr"
-	"socks2http/internal/serv"
+	"socks2http/internal/log"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +20,7 @@ const (
 type Args struct {
 	ServerAddr *addr.Addr
 	ProxyAddr  *addr.Addr
-	LogLevel   serv.LogLevel
+	LogLevel   log.LogLevel
 	Timeout    time.Duration
 }
 
@@ -138,14 +138,14 @@ func lookupPort(scheme string) (uint16, error) {
 	}
 }
 
-func parseLogLevel(logLevel string) (serv.LogLevel, error) {
+func parseLogLevel(logLevel string) (log.LogLevel, error) {
 	switch logLevel {
 	case "fatal":
-		return serv.LogFatal, nil
+		return log.LogFatal, nil
 	case "error":
-		return serv.LogError, nil
+		return log.LogError, nil
 	case "info":
-		return serv.LogInfo, nil
+		return log.LogInfo, nil
 	default:
 		return 0, fmt.Errorf("unknown log level %q", logLevel)
 	}
