@@ -16,26 +16,18 @@ const (
 	defaultProxyScheme = "socks4"
 	defaultServScheme  = "http"
 	defaultHostname    = "localhost"
-
-	defaultServ  = "http://localhost:8080"
-	defaultProxy = "socks4://localhost:1080"
 )
 
 type Args struct {
-	ServerAddr *addr.Addr
-	ProxyAddr  *addr.Addr
+	ServerAddr addr.Addr
+	ProxyAddr  addr.Addr
 	LogLevel   log.LogLevel
 	Timeout    time.Duration
 }
 
 func Parse() (*Args, error) {
-	servAddrFlag := stringFlag{value: defaultServ}
-	flag.Var(&servAddrFlag, "serv", "listen address for the server")
-
-	proxyAddrFlag := stringFlag{value: defaultProxy}
-	flag.Var(&proxyAddrFlag, "proxy", "a proxy server to use")
-	useProxy := flag.Bool("use-proxy", false, "create a proxy chain")
-
+	servAddrFlag := flag.String("serv", "http", "listen address for the server")
+	proxyAddrFlag := flag.String("proxy", "direct", "a proxy server to use")
 	timeout := flag.Duration("timeout", 0, "time to wait for a connection")
 	logLevelFlag := flag.String("log", "error", "severity of logging messages")
 	flag.Parse()
@@ -44,23 +36,17 @@ func Parse() (*Args, error) {
 		if narg != 1 {
 			return nil, fmt.Errorf("expected 1 positional argument, but got %v", narg)
 		}
-		if servAddrFlag.isSet {
-			return nil, fmt.Errorf("server address: overriding %q with %q", servAddrFlag.value, flag.Arg(0))
-		}
-		servAddrFlag.value = flag.Arg(0)
+		*servAddrFlag = flag.Arg(0)
 	}
 
-	servAddr, err := parseAddr(servAddrFlag.value, defaultServScheme)
+	servAddr, err := parseAddr(*servAddrFlag, defaultServScheme)
 	if err != nil {
 		return nil, fmt.Errorf("server address: %w", err)
 	}
 
-	var proxyAddr *addr.Addr
-	if *useProxy || proxyAddrFlag.isSet {
-		proxyAddr, err = parseAddr(proxyAddrFlag.value, defaultProxyScheme)
-		if err != nil {
-			return nil, fmt.Errorf("proxy chain: %w", err)
-		}
+	proxyAddr, err := parseAddr(*proxyAddrFlag, defaultProxyScheme)
+	if err != nil {
+		return nil, fmt.Errorf("proxy chain: %w", err)
 	}
 
 	logLevel, err := parseLogLevel(*logLevelFlag)
@@ -69,26 +55,11 @@ func Parse() (*Args, error) {
 	}
 
 	return &Args{
-		ServerAddr: servAddr,
-		ProxyAddr:  proxyAddr,
+		ServerAddr: *servAddr,
+		ProxyAddr:  *proxyAddr,
 		LogLevel:   logLevel,
 		Timeout:    *timeout,
 	}, nil
-}
-
-type stringFlag struct {
-	isSet bool
-	value string
-}
-
-func (f *stringFlag) String() string {
-	return f.value
-}
-
-func (f *stringFlag) Set(val string) error {
-	f.value = val
-	f.isSet = true
-	return nil
 }
 
 func parseAddr(addrStr, defaultScheme string) (*addr.Addr, error) {
@@ -206,6 +177,8 @@ func portByScheme(scheme string) (uint16, error) {
 		return 1080, nil
 	case "http":
 		return 8080, nil
+	case "direct":
+		return 0, nil
 	default:
 		return 0, fmt.Errorf("unknown protocol scheme %q", scheme)
 	}

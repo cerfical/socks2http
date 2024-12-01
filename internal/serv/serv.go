@@ -16,7 +16,7 @@ type Server interface {
 	Run() error
 }
 
-func NewServer(servAddr *addr.Addr, proxy proxy.Proxy, logger log.Logger) (Server, error) {
+func NewServer(servAddr addr.Addr, proxy proxy.Proxy, logger log.Logger) (Server, error) {
 	switch servAddr.Scheme {
 	case "http":
 		return &httpServer{
