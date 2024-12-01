@@ -8,6 +8,7 @@ import (
 	"socks2http/internal/addr"
 	"socks2http/internal/log"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -44,27 +45,27 @@ func Parse() (*Args, error) {
 			return nil, fmt.Errorf("expected 1 positional argument, but got %v", narg)
 		}
 		if servAddrFlag.isSet {
-			return nil, fmt.Errorf("overriding serv flag %q with %q", servAddrFlag.value, flag.Arg(0))
+			return nil, fmt.Errorf("server address: overriding %q with %q", servAddrFlag.value, flag.Arg(0))
 		}
 		servAddrFlag.value = flag.Arg(0)
 	}
 
 	servAddr, err := parseAddr(servAddrFlag.value, defaultServScheme)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("server address: %w", err)
 	}
 
 	var proxyAddr *addr.Addr
 	if *useProxy || proxyAddrFlag.isSet {
 		proxyAddr, err = parseAddr(proxyAddrFlag.value, defaultProxyScheme)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("proxy chain: %w", err)
 		}
 	}
 
 	logLevel, err := parseLogLevel(*logLevelFlag)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("log: %w", err)
 	}
 
 	return &Args{
@@ -91,81 +92,92 @@ func (f *stringFlag) Set(val string) error {
 }
 
 func parseAddr(addrStr, defaultScheme string) (*addr.Addr, error) {
-	scheme, hostname, port, err := splitAddr(addrStr)
+	rawAddr, err := parseRawAddr(addrStr)
+	if err != nil {
+		return nil, err
+	}
+	validateAddr(&rawAddr)
+
+	// canonicalize domain and scheme names to lowercase
+	rawAddr.scheme = strings.ToLower(cmp.Or(rawAddr.scheme, defaultScheme))
+	rawAddr.hostname = strings.ToLower(cmp.Or(rawAddr.hostname, defaultHostname))
+
+	portNum, err := portByScheme(rawAddr.scheme)
 	if err != nil {
 		return nil, err
 	}
 
-	scheme, hostname, port = arrangeAddr(scheme, hostname, port)
-	scheme = cmp.Or(scheme, defaultScheme)
-	hostname = cmp.Or(hostname, defaultHostname)
-
-	portNum, err := portByScheme(scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	if port != "" {
-		portNum, err = parsePort(port)
+	// use the provided port if available, or the scheme's default port otherwise
+	if rawAddr.port != "" {
+		portNum, err = parsePort(rawAddr.port)
 		if err != nil {
-			return nil, fmt.Errorf("port number %q: %w", port, err)
+			return nil, fmt.Errorf("port number %q: %w", rawAddr.port, err)
 		}
 	}
 
 	return &addr.Addr{
-		Scheme: scheme,
+		Scheme: rawAddr.scheme,
 		Host: addr.Host{
-			Hostname: hostname,
+			Hostname: rawAddr.hostname,
 			Port:     portNum,
 		}}, nil
 }
 
-func arrangeAddr(scheme, hostname, port string) (string, string, string) {
-	if hostname != "" {
-		if scheme != "" {
-			if port == "" {
-				return arrangeAddr2(scheme, hostname)
-			}
-		} else if port != "" {
-			return arrangeAddr2(hostname, port)
-		} else {
-			return arrangeAddrP1(hostname)
-		}
-	}
-	return scheme, hostname, port
+type rawAddr struct {
+	scheme   string
+	hostname string
+	port     string
 }
 
-func arrangeAddrP1(str string) (string, string, string) {
+func validateAddr(addr *rawAddr) {
+	if addr.hostname != "" {
+		if addr.scheme != "" {
+			if addr.port == "" {
+				validateAddr2(addr, addr.scheme, addr.hostname)
+			}
+		} else if addr.port != "" {
+			validateAddr2(addr, addr.hostname, addr.port)
+		} else {
+			validateAddr1(addr, addr.hostname)
+		}
+	}
+}
+
+func validateAddr1(addr *rawAddr, str string) {
 	switch {
 	case isValidScheme(str):
-		return str, "", ""
+		addr.scheme = str
 	case isValidPort(str):
-		return "", "", str
+		addr.port = str
 	default:
-		return "", str, ""
+		addr.hostname = str
 	}
 }
 
-func arrangeAddr2(str1, str2 string) (string, string, string) {
+func validateAddr2(addr *rawAddr, str1, str2 string) {
 	if isValidScheme(str1) {
+		addr.scheme = str1
 		if isValidPort(str2) {
-			return str1, "", str2
+			addr.port = str2
+		} else {
+			addr.hostname = str2
 		}
-		return str1, str2, ""
+	} else {
+		addr.hostname = str1
+		addr.port = str2
 	}
-	return "", str1, str2
 }
 
 var addrRgx = regexp.MustCompile(`\A(?:(?<SCHEME>[^:]+):)?(?://)?(?<HOSTNAME>[^:]+)?(?::(?<PORT>[^:]+))?\z`)
 
-func splitAddr(addr string) (scheme string, hostname string, port string, err error) {
-	matches := addrRgx.FindStringSubmatch(addr)
+func parseRawAddr(addrStr string) (addr rawAddr, err error) {
+	matches := addrRgx.FindStringSubmatch(addrStr)
 	if matches == nil {
-		err = fmt.Errorf("invalid network address %q", addr)
+		err = fmt.Errorf("invalid network address %q", addrStr)
 	} else {
-		scheme = matches[addrRgx.SubexpIndex("SCHEME")]
-		hostname = matches[addrRgx.SubexpIndex("HOSTNAME")]
-		port = matches[addrRgx.SubexpIndex("PORT")]
+		addr.scheme = matches[addrRgx.SubexpIndex("SCHEME")]
+		addr.hostname = matches[addrRgx.SubexpIndex("HOSTNAME")]
+		addr.port = matches[addrRgx.SubexpIndex("PORT")]
 	}
 	return
 }
