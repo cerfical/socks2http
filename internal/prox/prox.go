@@ -20,12 +20,14 @@ func NewProxy(proxyAddr addr.Addr, timeout time.Duration) (Proxy, error) {
 			timeout: timeout,
 		}, nil
 	case addr.Direct:
-		return directProxy{
-			timeout: timeout,
-		}, nil
+		return Direct(timeout), nil
 	default:
 		return nil, fmt.Errorf("unsupported client protocol scheme %q", proxyAddr.Scheme)
 	}
+}
+
+func Direct(timeout time.Duration) Proxy {
+	return directProxy{timeout}
 }
 
 type socksProxy struct {

@@ -10,62 +10,62 @@ import (
 	"socks2http/internal/prox"
 )
 
-type HTTPServer struct {
-	Host   addr.Host
-	Proxy  prox.Proxy
-	Logger log.Logger
-}
-
-func (s *HTTPServer) Run() error {
-	if err := http.ListenAndServe(s.Host.String(), s); err != nil {
+func Run(servHost addr.Host, proxy prox.Proxy, logger log.Logger) error {
+	server := httpServer{proxy, logger}
+	if err := http.ListenAndServe(servHost.String(), &server); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *HTTPServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
+type httpServer struct {
+	proxy  prox.Proxy
+	logger log.Logger
+}
+
+func (s *httpServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	requestLine := req.Method + " " + req.URL.String() + " " + req.Proto
-	s.Logger.Info(requestLine)
+	s.logger.Info(requestLine)
 
 	clientConn, _, err := wr.(http.Hijacker).Hijack()
 	if err != nil {
-		s.Logger.Error("opening a client connection: %v", err)
+		s.logger.Error("opening a client connection: %v", err)
 		return
 	}
 	defer func() {
 		if err := clientConn.Close(); err != nil {
-			s.Logger.Error("closing client connection: %v", err)
+			s.logger.Error("closing client connection: %v", err)
 		}
 	}()
 
 	s.handleRequest(clientConn, req)
 }
 
-func (s *HTTPServer) handleRequest(clientConn net.Conn, req *http.Request) {
+func (s *httpServer) handleRequest(clientConn net.Conn, req *http.Request) {
 	destHost, err := extractHost(req.URL)
 	if err != nil {
-		s.Logger.Error("extracting destination host from %q: %v", req.URL, err)
+		s.logger.Error("extracting destination host from %q: %v", req.URL, err)
 		return
 	}
 
-	servConn, err := s.Proxy.Open(destHost)
+	servConn, err := s.proxy.Open(destHost)
 	if err != nil {
-		s.Logger.Error("opening proxy to %v: %v", destHost, err)
+		s.logger.Error("opening proxy to %v: %v", destHost, err)
 		return
 	}
 	defer func() {
 		if err := servConn.Close(); err != nil {
-			s.Logger.Error("closing proxy connection: %v", err)
+			s.logger.Error("closing proxy connection: %v", err)
 		}
 	}()
 
 	if req.Method == http.MethodConnect {
 		for err := range tunnel(clientConn, servConn) {
-			s.Logger.Error("tunnel to %v: %v", destHost, err)
+			s.logger.Error("tunnel to %v: %v", destHost, err)
 		}
 	} else {
 		if err := sendRequest(clientConn, servConn, req); err != nil {
-			s.Logger.Error("sending request to %v: %v", destHost, err)
+			s.logger.Error("sending request to %v: %v", destHost, err)
 		}
 	}
 }
