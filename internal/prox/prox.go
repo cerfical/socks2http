@@ -1,10 +1,10 @@
-package proxy
+package prox
 
 import (
 	"fmt"
 	"net"
 	"socks2http/internal/addr"
-	"socks2http/internal/proxy/socks"
+	"socks2http/internal/prox/socks"
 	"time"
 )
 

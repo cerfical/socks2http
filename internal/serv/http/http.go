@@ -7,12 +7,12 @@ import (
 	"net/url"
 	"socks2http/internal/addr"
 	"socks2http/internal/log"
-	"socks2http/internal/proxy"
+	"socks2http/internal/prox"
 )
 
 type HTTPServer struct {
 	Host   addr.Host
-	Proxy  proxy.Proxy
+	Proxy  prox.Proxy
 	Logger log.Logger
 }
 

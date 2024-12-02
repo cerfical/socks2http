@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"socks2http/internal/addr"
 	"socks2http/internal/log"
-	"socks2http/internal/proxy"
+	"socks2http/internal/prox"
 	"socks2http/internal/serv/http"
 	"time"
 )
@@ -14,7 +14,7 @@ type Server interface {
 }
 
 func NewServer(servAddr addr.Addr, proxyAddr addr.Addr, timeout time.Duration, logger log.Logger) (Server, error) {
-	proxy, err := proxy.NewProxy(proxyAddr, timeout)
+	proxy, err := prox.NewProxy(proxyAddr, timeout)
 	if err != nil {
 		return nil, fmt.Errorf("proxy chaining: %v", err)
 	}
