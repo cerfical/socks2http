@@ -3,7 +3,6 @@ package main
 import (
 	"socks2http/internal/args"
 	"socks2http/internal/log"
-	"socks2http/internal/proxy"
 	"socks2http/internal/serv"
 )
 
@@ -16,12 +15,7 @@ func main() {
 	}
 	logger.SetLevel(args.LogLevel)
 
-	proxy, err := proxy.NewProxy(args.ProxyAddr, args.Timeout)
-	if err != nil {
-		logger.Fatal("proxy chaining: %v", err)
-	}
-
-	server, err := serv.NewServer(args.ServerAddr, proxy, logger)
+	server, err := serv.NewServer(args.ServerAddr, args.ProxyAddr, args.Timeout, logger)
 	if err != nil {
 		logger.Fatal("server startup: %v", err)
 	}
