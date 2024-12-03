@@ -7,21 +7,18 @@ import (
 )
 
 func main() {
-	logger := log.NewLogger()
-
 	args, err := args.Parse()
 	if err != nil {
-		logger.Fatal("command line: %v", err)
+		log.Fatal("command line: %v", err)
 	}
-	logger.SetLevel(args.LogLevel)
 
 	server := serv.Server{
 		ProxyAddr: args.ProxyAddr,
 		Timeout:   args.Timeout,
-		Logger:    logger,
+		Logger:    log.NewLogger(args.LogLevel),
 	}
 
 	if err := server.Run(args.ServerAddr); err != nil {
-		logger.Fatal("server shutdown: %v", err)
+		log.Fatal("server shutdown: %v", err)
 	}
 }

@@ -36,7 +36,3 @@ func (l *stdLogger) putEntry(level LogLevel, format string, v ...any) {
 		io.WriteString(l.out, prefix+entry+"\n")
 	}
 }
-
-func (l *stdLogger) SetLevel(logLevel LogLevel) {
-	l.logLevel = logLevel
-}
