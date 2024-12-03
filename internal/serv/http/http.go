@@ -24,7 +24,7 @@ type httpServer struct {
 }
 
 func (s *httpServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
-	requestLine := req.Method + " " + req.URL.String() + " " + req.Proto
+	requestLine := req.Method + " " + req.RequestURI + " " + req.Proto
 	s.logger.Info(requestLine)
 
 	clientConn, _, err := wr.(http.Hijacker).Hijack()
