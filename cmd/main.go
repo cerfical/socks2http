@@ -15,10 +15,11 @@ func main() {
 	}
 	logger.SetLevel(args.LogLevel)
 
-	server := serv.NewServer()
-	server.SetLogger(logger)
-	server.SetTimeout(args.Timeout)
-	server.SetProxy(args.ProxyAddr)
+	server := serv.Server{
+		ProxyAddr: args.ProxyAddr,
+		Timeout:   args.Timeout,
+		Logger:    logger,
+	}
 
 	if err := server.Run(args.ServerAddr); err != nil {
 		logger.Fatal("server shutdown: %v", err)

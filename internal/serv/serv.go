@@ -9,49 +9,32 @@ import (
 	"time"
 )
 
-func NewServer() *Server {
-	return &Server{
-		proxyAddr: addr.Addr{
-			Scheme:   addr.Direct,
-			Hostname: "localhost",
-		},
-		logger: log.NilLogger(),
-	}
-}
-
 type Server struct {
-	proxyAddr addr.Addr
-	logger    log.Logger
-	timeout   time.Duration
-}
-
-func (s *Server) SetLogger(logger log.Logger) {
-	s.logger = logger
-}
-
-func (s *Server) SetTimeout(timeout time.Duration) {
-	s.timeout = timeout
-}
-
-func (s *Server) SetProxy(proxyAddr addr.Addr) {
-	s.proxyAddr = proxyAddr
+	ProxyAddr addr.Addr
+	Timeout   time.Duration
+	Logger    log.Logger
 }
 
 func (s *Server) Run(servAddr addr.Addr) error {
-	s.logger.Info("starting server on %v", servAddr)
-	if s.proxyAddr.Scheme != addr.Direct {
-		s.logger.Info("using proxy %v", s.proxyAddr)
+	// disable logging if no logger was provided
+	if s.Logger == nil {
+		s.Logger = log.NilLogger()
 	}
 
-	proxy, err := prox.NewProxy(s.proxyAddr, s.timeout)
+	s.Logger.Info("starting server on %v", servAddr)
+	if s.ProxyAddr.Scheme != addr.Direct {
+		s.Logger.Info("using proxy %v", s.ProxyAddr)
+	}
+
+	proxy, err := prox.NewProxy(s.ProxyAddr, s.Timeout)
 	if err != nil {
-		s.logger.Error("proxy disabled: %v", err)
-		proxy = prox.Direct(s.timeout)
+		s.Logger.Error("proxy disabled: %v", err)
+		proxy = prox.Direct(s.Timeout)
 	}
 
 	switch servAddr.Scheme {
 	case addr.HTTP:
-		return http.Run(servAddr.Host(), proxy, s.logger)
+		return http.Run(servAddr.Host(), proxy, s.Logger)
 	default:
 		return fmt.Errorf("unsupported server protocol scheme %q", servAddr.Scheme)
 	}
