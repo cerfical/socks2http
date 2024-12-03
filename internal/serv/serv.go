@@ -26,10 +26,9 @@ func (s *Server) Run(servAddr addr.Addr) error {
 		s.Logger.Info("using proxy %v", s.ProxyAddr)
 	}
 
-	proxy, err := prox.NewProxy(s.ProxyAddr, s.Timeout)
-	if err != nil {
-		s.Logger.Error("proxy disabled: %v", err)
-		proxy = prox.Direct(s.Timeout)
+	proxy := prox.Proxy{
+		ProxyAddr: s.ProxyAddr,
+		Timeout:   s.Timeout,
 	}
 
 	switch servAddr.Scheme {
