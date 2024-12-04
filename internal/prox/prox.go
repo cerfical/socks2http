@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"socks2http/internal/addr"
+	"socks2http/internal/prox/http"
 	"socks2http/internal/prox/socks"
 	"time"
 )
@@ -16,7 +17,7 @@ func NewProxy(proxyAddr *addr.Addr, timeout time.Duration) (*Proxy, error) {
 	}
 
 	// make sure some defaults are set
-	proxy.addr.Scheme = cmp.Or(proxy.addr.Scheme, addr.SOCKS4)
+	proxy.addr.Scheme = cmp.Or(proxy.addr.Scheme, addr.HTTP)
 	proxy.addr.Port = cmp.Or(proxy.addr.Port, proxy.addr.Scheme.Port())
 
 	switch proxy.addr.Scheme {
@@ -26,6 +27,8 @@ func NewProxy(proxyAddr *addr.Addr, timeout time.Duration) (*Proxy, error) {
 		}
 	case addr.SOCKS4:
 		proxy.connect = socks.Connect
+	case addr.HTTP:
+		proxy.connect = http.Connect
 	default:
 		return nil, fmt.Errorf("unsupported client protocol scheme %q", proxy.addr.Scheme)
 	}
@@ -62,7 +65,7 @@ func (p *Proxy) Open(destAddr *addr.Addr) (net.Conn, error) {
 
 	// and send a command for the proxy to connect to the destination server
 	if err := p.connect(proxyConn, destAddr); err != nil {
-		// ignore (?) the Close() error
+		// ignore the Close() errors
 		proxyConn.Close()
 		return nil, err
 	}

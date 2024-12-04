@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -24,7 +25,7 @@ type httpServer struct {
 }
 
 func (s *httpServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
-	requestLine := req.Method + " " + req.RequestURI + " " + req.Proto
+	requestLine := fmt.Sprintf("%v %v %v", req.Method, req.RequestURI, req.Proto)
 	s.logger.Info(requestLine)
 
 	clientConn, _, err := wr.(http.Hijacker).Hijack()
@@ -44,7 +45,7 @@ func (s *httpServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 func (s *httpServer) handleRequest(clientConn net.Conn, req *http.Request) {
 	destAddr, err := extractAddr(req.URL)
 	if err != nil {
-		s.logger.Error("extracting destination host from %q: %v", req.URL, err)
+		s.logger.Error("parsing destination %v: %v", req.URL, err)
 		return
 	}
 
@@ -55,27 +56,51 @@ func (s *httpServer) handleRequest(clientConn net.Conn, req *http.Request) {
 	}
 	defer func() {
 		if err := servConn.Close(); err != nil {
-			s.logger.Error("closing proxy connection: %v", err)
+			s.logger.Error("closing proxy %v: %v", s.proxy.Addr(), err)
 		}
 	}()
 
 	if req.Method == http.MethodConnect {
 		for err := range tunnel(clientConn, servConn) {
-			s.logger.Error("tunnel to %v: %v", destAddr, err)
+			s.logger.Error("tunneling %v: %v", destAddr, err)
 		}
 	} else {
-		if err := sendRequest(clientConn, servConn, req); err != nil {
-			s.logger.Error("sending request to %v: %v", destAddr, err)
+		if err := s.sendRequest(clientConn, servConn, req); err != nil {
+			s.logger.Error("requesting %v: %v", destAddr, err)
 		}
 	}
 }
 
+func (s *httpServer) sendRequest(clientConn, servConn net.Conn, req *http.Request) error {
+	// if the connection goes through an HTTP proxy
+	if s.proxy.Addr().Scheme == addr.HTTP {
+		// write the request as expected by the proxy
+		if err := req.WriteProxy(servConn); err != nil {
+			return err
+		}
+	} else {
+		// otherwise just forward the request
+		if err := req.Write(servConn); err != nil {
+			return err
+		}
+	}
+
+	_, err := io.Copy(clientConn, servConn)
+	return err
+}
+
 func extractAddr(url *url.URL) (*addr.Addr, error) {
+	scheme := addr.ProtoScheme(url.Scheme)
 	port, err := makePort(url.Port(), url.Scheme)
 	if err != nil {
 		return nil, err
 	}
-	return &addr.Addr{Hostname: url.Hostname(), Port: port}, nil
+
+	return &addr.Addr{
+		Scheme:   scheme,
+		Hostname: url.Hostname(),
+		Port:     port,
+	}, nil
 }
 
 func makePort(portStr, scheme string) (uint16, error) {
@@ -87,12 +112,4 @@ func makePort(portStr, scheme string) (uint16, error) {
 		return uint16(port), nil
 	}
 	return addr.ParsePort(portStr)
-}
-
-func sendRequest(clientConn, servConn net.Conn, req *http.Request) error {
-	if err := req.Write(servConn); err != nil {
-		return err
-	}
-	_, err := io.Copy(clientConn, servConn)
-	return err
 }
