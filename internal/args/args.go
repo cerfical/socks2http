@@ -29,12 +29,12 @@ func Parse() (*Args, error) {
 		*servAddrFlag = flag.Arg(0)
 	}
 
-	servAddr, err := addr.ParseAddr(*servAddrFlag, addr.HTTP)
+	servAddr, err := addr.ParseAddr(*servAddrFlag)
 	if err != nil {
 		return nil, fmt.Errorf("server address: %w", err)
 	}
 
-	proxyAddr, err := addr.ParseAddr(*proxyAddrFlag, addr.SOCKS4)
+	proxyAddr, err := addr.ParseAddr(*proxyAddrFlag)
 	if err != nil {
 		return nil, fmt.Errorf("proxy chain: %w", err)
 	}

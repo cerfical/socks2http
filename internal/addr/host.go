@@ -8,5 +8,9 @@ type Host struct {
 }
 
 func (h Host) String() string {
-	return h.Hostname + ":" + strconv.FormatUint(uint64(h.Port), 10)
+	var suffix string
+	if h.Port != 0 {
+		suffix = ":" + strconv.FormatUint(uint64(h.Port), 10)
+	}
+	return h.Hostname + suffix
 }

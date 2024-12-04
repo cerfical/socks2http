@@ -21,24 +21,28 @@ func (a Addr) Host() Host {
 }
 
 func (a Addr) String() string {
-	return fmt.Sprintf("%v://%v", a.Scheme, a.Host())
+	prefix := a.Scheme
+	if prefix != "" {
+		prefix += "://"
+	}
+	return fmt.Sprintf("%v%v", prefix, a.Host())
 }
 
-func ParseAddr(addr string, defaultScheme ProtoScheme) (*Addr, error) {
+func ParseAddr(addr string) (*Addr, error) {
 	raddr, err := parseRawAddr(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	scheme := defaultScheme
+	var scheme ProtoScheme
 	if raddr.scheme != "" {
 		scheme, err = ParseScheme(raddr.scheme)
 		if err != nil {
 			return nil, err
 		}
 	}
-	portNum := scheme.Port()
 
+	portNum := scheme.Port()
 	if raddr.port != "" {
 		portNum, err = ParsePort(raddr.port)
 		if err != nil {
