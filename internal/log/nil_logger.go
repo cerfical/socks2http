@@ -1,8 +1,6 @@
 package log
 
-func NilLogger() Logger {
-	return nilLogger{}
-}
+var NilLogger Logger = nilLogger{}
 
 type nilLogger struct{}
 

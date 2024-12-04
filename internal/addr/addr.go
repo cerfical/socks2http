@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -13,14 +14,15 @@ type Addr struct {
 	Port     uint16
 }
 
-func (a Addr) Host() Host {
-	return Host{
-		Hostname: a.Hostname,
-		Port:     a.Port,
+func (a *Addr) Host() string {
+	var suffix string
+	if a.Port != 0 {
+		suffix = ":" + strconv.FormatUint(uint64(a.Port), 10)
 	}
+	return a.Hostname + suffix
 }
 
-func (a Addr) String() string {
+func (a *Addr) String() string {
 	prefix := a.Scheme
 	if prefix != "" {
 		prefix += "://"

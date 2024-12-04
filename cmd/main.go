@@ -18,7 +18,7 @@ func main() {
 		Logger:    log.NewLogger(args.LogLevel),
 	}
 
-	if err := server.Run(args.ServerAddr); err != nil {
+	if err := server.Run(&args.ServerAddr); err != nil {
 		log.Fatal("server shutdown: %v", err)
 	}
 }

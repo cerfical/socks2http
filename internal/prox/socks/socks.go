@@ -24,8 +24,8 @@ type tcp4Addr struct {
 	IP   [4]byte
 }
 
-func Connect(proxyConn net.Conn, destHost addr.Host, timeout time.Duration) error {
-	tcpAddr, err := resolveHost(destHost)
+func Connect(proxyConn net.Conn, destAddr *addr.Addr, timeout time.Duration) error {
+	tcpAddr, err := resolveAddr(destAddr)
 	if err != nil {
 		return fmt.Errorf("address resolution failed: %w", err)
 	}
@@ -36,7 +36,7 @@ func Connect(proxyConn net.Conn, destHost addr.Host, timeout time.Duration) erro
 	return nil
 }
 
-func resolveHost(host addr.Host) (tcp4Addr, error) {
+func resolveAddr(host *addr.Addr) (tcp4Addr, error) {
 	ip, err := net.ResolveIPAddr("ip4", host.Hostname)
 	if err != nil {
 		return tcp4Addr{}, err

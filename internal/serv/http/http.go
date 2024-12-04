@@ -10,16 +10,16 @@ import (
 	"socks2http/internal/prox"
 )
 
-func Run(servHost addr.Host, proxy prox.Proxy, logger log.Logger) error {
+func Run(servAddr *addr.Addr, proxy *prox.Proxy, logger log.Logger) error {
 	server := httpServer{proxy, logger}
-	if err := http.ListenAndServe(servHost.String(), &server); err != nil {
+	if err := http.ListenAndServe(servAddr.Host(), &server); err != nil {
 		return err
 	}
 	return nil
 }
 
 type httpServer struct {
-	proxy  prox.Proxy
+	proxy  *prox.Proxy
 	logger log.Logger
 }
 
@@ -42,15 +42,15 @@ func (s *httpServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 }
 
 func (s *httpServer) handleRequest(clientConn net.Conn, req *http.Request) {
-	destHost, err := extractHost(req.URL)
+	destAddr, err := extractAddr(req.URL)
 	if err != nil {
 		s.logger.Error("extracting destination host from %q: %v", req.URL, err)
 		return
 	}
 
-	servConn, err := s.proxy.Open(destHost)
+	servConn, err := s.proxy.Open(destAddr)
 	if err != nil {
-		s.logger.Error("opening proxy to %v: %v", destHost, err)
+		s.logger.Error("opening proxy to %v: %v", destAddr, err)
 		return
 	}
 	defer func() {
@@ -61,21 +61,21 @@ func (s *httpServer) handleRequest(clientConn net.Conn, req *http.Request) {
 
 	if req.Method == http.MethodConnect {
 		for err := range tunnel(clientConn, servConn) {
-			s.logger.Error("tunnel to %v: %v", destHost, err)
+			s.logger.Error("tunnel to %v: %v", destAddr, err)
 		}
 	} else {
 		if err := sendRequest(clientConn, servConn, req); err != nil {
-			s.logger.Error("sending request to %v: %v", destHost, err)
+			s.logger.Error("sending request to %v: %v", destAddr, err)
 		}
 	}
 }
 
-func extractHost(url *url.URL) (addr.Host, error) {
+func extractAddr(url *url.URL) (*addr.Addr, error) {
 	port, err := makePort(url.Port(), url.Scheme)
 	if err != nil {
-		return addr.Host{}, err
+		return nil, err
 	}
-	return addr.Host{Hostname: url.Hostname(), Port: port}, nil
+	return &addr.Addr{Hostname: url.Hostname(), Port: port}, nil
 }
 
 func makePort(portStr, scheme string) (uint16, error) {
