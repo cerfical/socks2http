@@ -12,13 +12,12 @@ func main() {
 		log.Fatal("command line: %v", err)
 	}
 
-	server := serv.Server{
-		ProxyAddr: args.ProxyAddr,
-		Timeout:   args.Timeout,
-		Logger:    log.NewLogger(args.LogLevel),
+	server, err := serv.NewServer(args.ServerAddr, args.ProxyAddr, args.Timeout, log.NewLogger(args.LogLevel))
+	if err != nil {
+		log.Fatal("server init: %v", err)
 	}
 
-	if err := server.Run(&args.ServerAddr); err != nil {
+	if err := server.Run(); err != nil {
 		log.Fatal("server shutdown: %v", err)
 	}
 }

@@ -9,8 +9,8 @@ import (
 )
 
 type Args struct {
-	ServerAddr addr.Addr
-	ProxyAddr  addr.Addr
+	ServerAddr *addr.Addr
+	ProxyAddr  *addr.Addr
 	LogLevel   log.LogLevel
 	Timeout    time.Duration
 }
@@ -45,8 +45,8 @@ func Parse() (*Args, error) {
 	}
 
 	return &Args{
-		ServerAddr: *servAddr,
-		ProxyAddr:  *proxyAddr,
+		ServerAddr: servAddr,
+		ProxyAddr:  proxyAddr,
 		LogLevel:   logLevel,
 		Timeout:    *timeout,
 	}, nil

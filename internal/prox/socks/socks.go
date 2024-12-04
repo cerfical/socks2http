@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"socks2http/internal/addr"
-	"time"
 	"unsafe"
 )
 
@@ -24,7 +23,7 @@ type tcp4Addr struct {
 	IP   [4]byte
 }
 
-func Connect(proxyConn net.Conn, destAddr *addr.Addr, timeout time.Duration) error {
+func Connect(proxyConn net.Conn, destAddr *addr.Addr) error {
 	tcpAddr, err := resolveAddr(destAddr)
 	if err != nil {
 		return fmt.Errorf("address resolution failed: %w", err)
