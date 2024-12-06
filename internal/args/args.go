@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"socks2http/internal/addr"
 	"socks2http/internal/log"
+	"strings"
 	"time"
 )
 
@@ -17,7 +18,7 @@ type Args struct {
 
 func Parse() (*Args, error) {
 	servAddrFlag := flag.String("serv", "http", "listen address for the server")
-	proxyAddrFlag := flag.String("proxy", "direct", "a proxy server to use")
+	proxyAddrFlag := flag.String("prox", "direct", "a proxy server to use")
 	timeout := flag.Duration("timeout", 0, "time to wait for a connection")
 	logLevelFlag := flag.String("log", "error", "severity of logging messages")
 	flag.Parse()
@@ -31,12 +32,12 @@ func Parse() (*Args, error) {
 
 	servAddr, err := addr.ParseAddr(*servAddrFlag)
 	if err != nil {
-		return nil, fmt.Errorf("server address: %w", err)
+		return nil, fmt.Errorf("proxy server: %w", err)
 	}
 
 	proxyAddr, err := addr.ParseAddr(*proxyAddrFlag)
 	if err != nil {
-		return nil, fmt.Errorf("proxy chain: %w", err)
+		return nil, fmt.Errorf("proxy client: %w", err)
 	}
 
 	logLevel, err := parseLogLevel(*logLevelFlag)
@@ -53,7 +54,7 @@ func Parse() (*Args, error) {
 }
 
 func parseLogLevel(logLevel string) (res log.LogLevel, err error) {
-	switch logLevel {
+	switch logLevel := strings.ToLower(logLevel); logLevel {
 	case "fatal":
 		res = log.LogFatal
 	case "error":
