@@ -90,7 +90,7 @@ func (s *httpServer) sendRequest(clientConn, servConn net.Conn, req *http.Reques
 }
 
 func extractAddr(url *url.URL) (*addr.Addr, error) {
-	scheme := addr.ProtoScheme(url.Scheme)
+	scheme := addr.Scheme(url.Scheme)
 	port, err := makePort(url.Port(), url.Scheme)
 	if err != nil {
 		return nil, err

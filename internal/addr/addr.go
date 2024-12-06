@@ -9,25 +9,25 @@ import (
 )
 
 type Addr struct {
+	Scheme   Scheme
 	Hostname string
-	Scheme   ProtoScheme
 	Port     uint16
 }
 
 func (a *Addr) Host() string {
-	var suffix string
+	port := ""
 	if a.Port != 0 {
-		suffix = ":" + strconv.FormatUint(uint64(a.Port), 10)
+		port = ":" + strconv.FormatUint(uint64(a.Port), 10)
 	}
-	return a.Hostname + suffix
+	return a.Hostname + port
 }
 
 func (a *Addr) String() string {
-	prefix := a.Scheme
-	if prefix != "" {
-		prefix += "://"
+	scheme := a.Scheme
+	if scheme != "" {
+		scheme += "://"
 	}
-	return fmt.Sprintf("%v%v", prefix, a.Host())
+	return scheme.String() + a.Host()
 }
 
 func ParseAddr(addr string) (*Addr, error) {
@@ -36,7 +36,7 @@ func ParseAddr(addr string) (*Addr, error) {
 		return nil, err
 	}
 
-	var scheme ProtoScheme
+	var scheme Scheme
 	if raddr.scheme != "" {
 		scheme, err = ParseScheme(raddr.scheme)
 		if err != nil {
@@ -44,9 +44,9 @@ func ParseAddr(addr string) (*Addr, error) {
 		}
 	}
 
-	portNum := scheme.Port()
+	port := scheme.Port()
 	if raddr.port != "" {
-		portNum, err = ParsePort(raddr.port)
+		port, err = ParsePort(raddr.port)
 		if err != nil {
 			return nil, fmt.Errorf("port number %q: %w", raddr.port, err)
 		}
@@ -54,8 +54,8 @@ func ParseAddr(addr string) (*Addr, error) {
 
 	return &Addr{
 		Scheme:   scheme,
-		Hostname: cmp.Or(raddr.hostname, "localhost"),
-		Port:     portNum,
+		Hostname: cmp.Or(strings.ToLower(raddr.hostname), "localhost"),
+		Port:     port,
 	}, nil
 }
 
@@ -65,69 +65,50 @@ type rawAddr struct {
 	port     string
 }
 
-var addrRgx = regexp.MustCompile(`\A(?:(?<SCHEME>[^:]+):)?(?://)?(?<HOSTNAME>[^:]+)?(?::(?<PORT>[^:]+))?\z`)
+var rgxStr = fmt.Sprintf(`\A(((?<SCHEME>%[1]v)://(?<HOSTNAME>%[1]v)(:(?<PORT>%[1]v))?)|((?<STR1>%[1]v)(:(?<STR2>%[1]v))?))\z`, `[^:]+`)
+var rgx = regexp.MustCompile(rgxStr)
 
-func parseRawAddr(addr string) (raddr rawAddr, err error) {
-	matches := addrRgx.FindStringSubmatch(addr)
+func parseRawAddr(addr string) (*rawAddr, error) {
+	matches := rgx.FindStringSubmatch(addr)
 	if matches == nil {
-		err = fmt.Errorf("invalid network address %q", addr)
-	} else {
-		raddr = makeRawAddr(
-			matches[addrRgx.SubexpIndex("SCHEME")],
-			matches[addrRgx.SubexpIndex("HOSTNAME")],
-			matches[addrRgx.SubexpIndex("PORT")],
-		)
+		return nil, fmt.Errorf("invalid network address %q", addr)
 	}
-	return
-}
 
-func makeRawAddr(scheme, hostname, port string) (raddr rawAddr) {
-	// normalize all names to lowercase
-	scheme = strings.ToLower(scheme)
-	hostname = strings.ToLower(hostname)
-	port = strings.ToLower(port)
+	raddr := &rawAddr{
+		scheme:   matches[rgx.SubexpIndex("SCHEME")],
+		hostname: matches[rgx.SubexpIndex("HOSTNAME")],
+		port:     matches[rgx.SubexpIndex("PORT")],
+	}
 
-	if hostname != "" {
-		if scheme != "" {
-			if port == "" {
-				return makeRawAddr2(scheme, hostname)
+	// if address a regular URL
+	if raddr.scheme != "" {
+		return raddr, nil
+	}
+
+	str2 := matches[rgx.SubexpIndex("STR2")]
+	str1 := matches[rgx.SubexpIndex("STR1")]
+
+	if str2 != "" {
+		if IsValidScheme(str1) {
+			raddr.scheme = str1
+			if IsValidPort(str2) {
+				raddr.port = str2
+			} else {
+				raddr.hostname = str2
 			}
-		} else if port != "" {
-			return makeRawAddr2(hostname, port)
 		} else {
-			return makeRawAddr1(hostname)
-		}
-	}
-
-	raddr.scheme = scheme
-	raddr.hostname = hostname
-	raddr.port = port
-	return
-}
-
-func makeRawAddr1(str string) (raddr rawAddr) {
-	switch {
-	case IsValidScheme(str):
-		raddr.scheme = str
-	case IsValidPort(str):
-		raddr.port = str
-	default:
-		raddr.hostname = str
-	}
-	return
-}
-
-func makeRawAddr2(str1, str2 string) (raddr rawAddr) {
-	if IsValidScheme(str1) {
-		raddr.scheme = str1
-		if IsValidPort(str2) {
+			raddr.hostname = str1
 			raddr.port = str2
-		} else {
-			raddr.hostname = str2
 		}
 	} else {
-		raddr.hostname = str1
-		raddr.port = str2
+		switch {
+		case IsValidScheme(str1):
+			raddr.scheme = str1
+		case IsValidPort(str1):
+			raddr.port = str1
+		default:
+			raddr.hostname = str1
+		}
 	}
-	return
+	return raddr, nil
 }

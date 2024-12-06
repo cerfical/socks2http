@@ -5,15 +5,15 @@ import (
 	"strings"
 )
 
-type ProtoScheme string
+type Scheme string
 
 const (
-	Direct ProtoScheme = "direct"
-	SOCKS4 ProtoScheme = "socks4"
-	HTTP   ProtoScheme = "http"
+	Direct Scheme = "direct"
+	SOCKS4 Scheme = "socks4"
+	HTTP   Scheme = "http"
 )
 
-func (s ProtoScheme) Port() uint16 {
+func (s Scheme) Port() uint16 {
 	switch s {
 	case SOCKS4:
 		return 1080
@@ -24,14 +24,14 @@ func (s ProtoScheme) Port() uint16 {
 	}
 }
 
-func (s ProtoScheme) String() string {
+func (s Scheme) String() string {
 	return string(s)
 }
 
-func ParseScheme(scheme string) (ProtoScheme, error) {
-	switch ProtoScheme(scheme) {
+func ParseScheme(scheme string) (Scheme, error) {
+	switch scheme := Scheme(strings.ToLower(scheme)); scheme {
 	case Direct, SOCKS4, HTTP, "":
-		return ProtoScheme(strings.ToLower(scheme)), nil
+		return scheme, nil
 	}
 	return "", fmt.Errorf("unsupported protocol scheme %q", scheme)
 }
