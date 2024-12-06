@@ -11,7 +11,7 @@ import (
 	"socks2http/internal/prox"
 )
 
-func Run(servAddr *addr.Addr, proxy *prox.Proxy, logger log.Logger) error {
+func Run(servAddr *addr.Addr, proxy *prox.Proxy, logger *log.Logger) error {
 	server := httpServer{proxy, logger}
 	if err := http.ListenAndServe(servAddr.Host(), &server); err != nil {
 		return err
@@ -21,7 +21,7 @@ func Run(servAddr *addr.Addr, proxy *prox.Proxy, logger log.Logger) error {
 
 type httpServer struct {
 	proxy  *prox.Proxy
-	logger log.Logger
+	logger *log.Logger
 }
 
 func (s *httpServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {

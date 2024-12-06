@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func NewServer(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration, logger log.Logger) (*Server, error) {
+func NewServer(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration, logger *log.Logger) (*Server, error) {
 	proxy, err := prox.NewProxy(proxyAddr, timeout)
 	if err != nil {
 		return nil, err
@@ -19,7 +19,7 @@ func NewServer(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration,
 	server := &Server{
 		addr:   servAddr,
 		proxy:  proxy,
-		logger: cmp.Or(logger, log.NilLogger),
+		logger: logger,
 	}
 
 	// set defaults if no proper values are provided
@@ -41,7 +41,7 @@ func NewServer(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration,
 type Server struct {
 	addr   *addr.Addr
 	proxy  *prox.Proxy
-	logger log.Logger
+	logger *log.Logger
 	run    func() error
 }
 
