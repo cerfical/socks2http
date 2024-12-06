@@ -1,6 +1,6 @@
 package log
 
-func NewLogger(logLevel LogLevel) *Logger {
+func New(logLevel LogLevel) *Logger {
 	return &Logger{
 		logLevel: logLevel,
 	}

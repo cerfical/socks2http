@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func NewProxy(proxyAddr *addr.Addr, timeout time.Duration) (*Proxy, error) {
+func New(proxyAddr *addr.Addr, timeout time.Duration) (*Proxy, error) {
 	proxy := &Proxy{
 		addr:    proxyAddr,
 		timeout: timeout,

@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-func NewServer(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration, logger *log.Logger) (*Server, error) {
-	proxy, err := prox.NewProxy(proxyAddr, timeout)
+func New(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration, logger *log.Logger) (*Server, error) {
+	proxy, err := prox.New(proxyAddr, timeout)
 	if err != nil {
 		return nil, err
 	}

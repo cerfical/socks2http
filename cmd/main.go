@@ -12,7 +12,7 @@ func main() {
 		log.Fatal("command line: %v", err)
 	}
 
-	server, err := serv.NewServer(args.ServerAddr, args.ProxyAddr, args.Timeout, log.NewLogger(args.LogLevel))
+	server, err := serv.New(args.ServerAddr, args.ProxyAddr, args.Timeout, log.New(args.LogLevel))
 	if err != nil {
 		log.Fatal("server init: %v", err)
 	}
