@@ -14,8 +14,8 @@ var (
 	// NotNil checks for non-nil values.
 	NotNil Checker = notNilCheck{}
 
-	// Nil checks for nil values.
-	Nil Checker = nilCheck{}
+	// IsNil checks for nil values.
+	IsNil Checker = isNilCheck{}
 )
 
 type notNilCheck struct{}
@@ -28,12 +28,12 @@ func (notNilCheck) String() string {
 	return "<not-nil>"
 }
 
-type nilCheck struct{}
+type isNilCheck struct{}
 
-func (nilCheck) Check(v any) bool {
+func (isNilCheck) Check(v any) bool {
 	return v == nil
 }
 
-func (nilCheck) String() string {
+func (isNilCheck) String() string {
 	return "<nil>"
 }
