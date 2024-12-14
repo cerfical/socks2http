@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"socks2http/internal/test/checks"
 	"strings"
 	"testing"
 )
@@ -27,9 +28,19 @@ func (vs testValues) String() string {
 		if i != 0 {
 			fmt.Fprint(&builder, ", ")
 		}
-		fmt.Fprintf(&builder, "%#v", v)
+		fmt.Fprint(&builder, sprintAny(v.Interface()))
 	}
 	return builder.String()
+}
+
+func sprintAny(v any) string {
+	switch v := v.(type) {
+	case string:
+		return fmt.Sprintf("%q", v)
+	case error:
+		return fmt.Sprintf("errors.New(%q)", v)
+	}
+	return fmt.Sprintf("%v", v)
 }
 
 // On specifies input arguments to pass to the function.
@@ -75,14 +86,14 @@ func (t *Test) Case(arg, result any) *Test {
 	return t.On(arg).Want(result)
 }
 
-// AssertEqual checks whether the function satisfies the test by comparing expected and actual results for equality.
-// If f is not a function, AssertEqual panics.
-func (test *Test) AssertEqual(t *testing.T, f any) {
+// Assert runs test cases for a function without exiting on failure.
+// If f is not a function, Assert panics.
+func (test *Test) Assert(t *testing.T, f any) {
 	fv := reflect.ValueOf(f)
 	for _, test := range test.cases {
 		got := testValues(fv.Call(test.input))
 		dumpFuncCall := func() {
-			t.Errorf("%v(%v) = {%v}, want {%v}", funcName(fv), test.input, got, test.want)
+			t.Errorf("%v(%v)\ngot: %v\nwant: %v", funcName(fv), test.input, got, test.want)
 		}
 
 		if len(test.want) != len(got) {
@@ -91,7 +102,15 @@ func (test *Test) AssertEqual(t *testing.T, f any) {
 		}
 
 		for i := range got {
-			if !got[i].Equal(test.want[i]) {
+			if c, ok := test.want[i].Interface().(checks.Checker); ok {
+				if c.Check(got[i].Interface()) {
+					continue
+				}
+				dumpFuncCall()
+				break
+			}
+
+			if want := test.want[i].Convert(got[i].Type()); !got[i].Equal(want) {
 				dumpFuncCall()
 				break
 			}
