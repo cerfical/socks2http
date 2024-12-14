@@ -9,18 +9,9 @@ import (
 	"testing"
 )
 
-// New creates a new [Test] to exercise a function f.
-// If f is not a function, attempts to evaluate the test will panic.
-func New(t *testing.T, f any) *Test {
-	return &Test{t: t, f: reflect.ValueOf(f)}
-}
-
-// Test describes a set of test cases for a given function.
+// Test describes a set of test cases for a function.
 type Test struct {
-	t      *testing.T
-	f      reflect.Value
-	cases  []testCase
-	pcases []testCase
+	cases []testCase
 }
 
 type testCase struct {
@@ -45,16 +36,14 @@ func (vs testValues) String() string {
 // If there was a [Want] call, attaches to it to produce a test case.
 func (t *Test) On(args ...any) *Test {
 	input := makeValues(args)
-	if len(t.pcases) > 0 {
+	if len(t.cases) > 0 {
 		// if there is an incomplete test case, augment it with input arguments
-		if c := t.pcases[len(t.pcases)-1]; c.input == nil {
+		if c := &t.cases[len(t.cases)-1]; c.input == nil {
 			c.input = input
-			t.cases = append(t.cases, c)
-			t.pcases = t.pcases[:len(t.pcases)-1]
 			return t
 		}
 	}
-	t.pcases = append(t.pcases, testCase{input: input})
+	t.cases = append(t.cases, testCase{input: input})
 	return t
 }
 
@@ -62,16 +51,14 @@ func (t *Test) On(args ...any) *Test {
 // If there was an [On] call, attaches to it to produce a test case.
 func (t *Test) Want(results ...any) *Test {
 	want := makeValues(results)
-	if len(t.pcases) > 0 {
+	if len(t.cases) > 0 {
 		// if there is an incomplete test case, augment it with expected results
-		if c := t.pcases[len(t.pcases)-1]; c.want == nil {
+		if c := &t.cases[len(t.cases)-1]; c.want == nil {
 			c.want = want
-			t.cases = append(t.cases, c)
-			t.pcases = t.pcases[:len(t.pcases)-1]
 			return t
 		}
 	}
-	t.pcases = append(t.pcases, testCase{want: want})
+	t.cases = append(t.cases, testCase{want: want})
 	return t
 }
 
@@ -83,19 +70,19 @@ func makeValues(v []any) []reflect.Value {
 	return args
 }
 
-// AssertEqual checks whether the function passes the [Test] by comparing expected and actual results for equality.
-func (t *Test) AssertEqual() {
-	if len(t.pcases) > 0 {
-		for _, c := range t.pcases {
-			t.t.Logf("malformed test case: %v(%v), want {%v}", funcName(t.f), c.input, c.want)
-		}
-		t.t.FailNow()
-	}
+// Case adds a simple test case with a single input and a single result.
+func (t *Test) Case(arg, result any) *Test {
+	return t.On(arg).Want(result)
+}
 
-	for _, test := range t.cases {
-		got := testValues(t.f.Call(test.input))
+// AssertEqual checks whether the function satisfies the test by comparing expected and actual results for equality.
+// If f is not a function, AssertEqual panics.
+func (test *Test) AssertEqual(t *testing.T, f any) {
+	fv := reflect.ValueOf(f)
+	for _, test := range test.cases {
+		got := testValues(fv.Call(test.input))
 		dumpFuncCall := func() {
-			t.t.Errorf("%v(%v) = {%v}, want {%v}", funcName(t.f), test.input, got, test.want)
+			t.Errorf("%v(%v) = {%v}, want {%v}", funcName(fv), test.input, got, test.want)
 		}
 
 		if len(test.want) != len(got) {
