@@ -8,6 +8,16 @@ import (
 	"strings"
 )
 
+// Addr represents a reduced set of [net/url.URL] network addresses.
+type Addr struct {
+	scheme   string
+	hostname string
+	port     uint16
+}
+
+// New creates a new [Addr] from the specified [net/url.URL] components.
+// By default, assumes HTTP protocol scheme and localhost.
+// If port is zero, it is inferred from the scheme.
 func New(scheme, hostname string, port uint16) *Addr {
 	s := strings.ToLower(cmp.Or(scheme, HTTP))
 	h := strings.ToLower(cmp.Or(hostname, "localhost"))
@@ -20,6 +30,19 @@ func New(scheme, hostname string, port uint16) *Addr {
 	}
 }
 
+// Parse constructs a new [Addr] from a string.
+// The syntax is similar to the one of [net/url.URL], but is greatly simplified for ease of use.
+//
+// For example, the address http://localhost:8080 can be represented as:
+//   - http://localhost:8080
+//   - http:localhost
+//   - http:8080
+//   - localhost:8080
+//   - http
+//   - localhost
+//   - 8080
+//
+// Empty components will be set according to [New].
 func Parse(addr string) (*Addr, error) {
 	raddr, ok := parseRaw(addr)
 	if !ok {
@@ -36,12 +59,6 @@ func Parse(addr string) (*Addr, error) {
 	}
 
 	return New(raddr.scheme, raddr.hostname, port), nil
-}
-
-type Addr struct {
-	scheme   string
-	hostname string
-	port     uint16
 }
 
 func (a *Addr) Scheme() string {

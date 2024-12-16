@@ -1,9 +1,14 @@
 package addr
 
 const (
+	// Direct is a pseudo-scheme that requests a direct connection to a server without an intermediate proxy.
 	Direct = "direct"
+
+	// SOCKS4 requests the SOCKS4 protocol.
 	SOCKS4 = "socks4"
-	HTTP   = "http"
+
+	// HTTP requests the HTTP protocol.
+	HTTP = "http"
 )
 
 func isValidScheme(scheme string) bool {
