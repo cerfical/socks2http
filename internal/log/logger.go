@@ -1,45 +1,40 @@
 package log
 
 import (
-	"fmt"
-	"io"
-	"os"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
-const (
-	LogFatal LogLevel = iota
-	LogError
-	LogInfo
-)
+func New(lvl Level) *Logger {
+	out := zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
+		w.TimeFormat = time.DateTime
+	})
 
-type LogLevel uint8
+	return &Logger{
+		log: zerolog.New(out).
+			Level(zerolog.Level(lvl)).
+			With().
+			Timestamp().
+			Logger(),
+	}
+}
 
 type Logger struct {
-	logLevel LogLevel
+	log zerolog.Logger
 }
 
-func (l *Logger) Fatal(format string, v ...any) {
-	l.putEntry(LogFatal, format, v...)
-	os.Exit(1)
+func (l *Logger) Fatalf(format string, v ...any) {
+	l.log.Fatal().
+		Msgf(format, v...)
 }
 
-func (l *Logger) Error(format string, v ...any) {
-	l.putEntry(LogError, format, v...)
+func (l *Logger) Errorf(format string, v ...any) {
+	l.log.Error().
+		Msgf(format, v...)
 }
 
-func (l *Logger) Info(format string, v ...any) {
-	l.putEntry(LogInfo, format, v...)
-}
-
-func (l *Logger) putEntry(level LogLevel, format string, v ...any) {
-	if l == nil || level > l.logLevel {
-		return
-	}
-
-	today := time.Now().Format(time.DateTime)
-	prefix := fmt.Sprintf("[%v]: ", today)
-	entry := prefix + fmt.Sprintf(format, v...) + "\n"
-
-	_, _ = io.WriteString(os.Stderr, entry)
+func (l *Logger) Infof(format string, v ...any) {
+	l.log.Info().
+		Msgf(format, v...)
 }

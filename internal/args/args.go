@@ -13,7 +13,7 @@ import (
 type Args struct {
 	ServerAddr *addr.Addr
 	ProxyAddr  *addr.Addr
-	LogLevel   log.LogLevel
+	LogLevel   log.Level
 	Timeout    time.Duration
 }
 
@@ -21,7 +21,7 @@ func Parse() (*Args, error) {
 	servAddrFlag := flag.String("serv", "http", "listen address for the server")
 	proxyAddrFlag := flag.String("prox", "direct", "a proxy server to use")
 	timeout := flag.Duration("timeout", 0, "time to wait for a connection")
-	logLevelFlag := flag.String("log", "error", "severity of logging messages")
+	logLevelFlag := flag.String("log", "info", "severity of logging messages")
 	flag.Parse()
 
 	if narg := flag.NArg(); narg > 0 {
@@ -54,16 +54,15 @@ func Parse() (*Args, error) {
 	}, nil
 }
 
-func parseLogLevel(logLevel string) (res log.LogLevel, err error) {
-	switch logLevel := strings.ToLower(logLevel); logLevel {
+func parseLogLevel(lvl string) (log.Level, error) {
+	switch logLevel := strings.ToLower(lvl); logLevel {
 	case "fatal":
-		res = log.LogFatal
+		return log.FatalLevel, nil
 	case "error":
-		res = log.LogError
+		return log.ErrorLevel, nil
 	case "info":
-		res = log.LogInfo
+		return log.InfoLevel, nil
 	default:
-		err = fmt.Errorf("unknown log level %q", logLevel)
+		return 0, fmt.Errorf("unknown log level %q", logLevel)
 	}
-	return
 }

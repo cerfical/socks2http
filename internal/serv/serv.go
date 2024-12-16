@@ -46,11 +46,11 @@ func (s *Server) Addr() *addr.Addr {
 }
 
 func (s *Server) Run() error {
-	s.logger.Info("starting server on %v", s.Addr())
+	s.logger.Infof("starting server on %v", s.Addr())
 	if proxyAddr := s.proxy.Addr(); proxyAddr.Scheme() != addr.Direct {
-		s.logger.Info("using proxy %v", proxyAddr)
+		s.logger.Infof("using proxy %v", proxyAddr)
 	} else {
-		s.logger.Info("not using proxy")
+		s.logger.Infof("not using proxy")
 	}
 	return s.run()
 }

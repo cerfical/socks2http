@@ -27,16 +27,16 @@ type httpServer struct {
 
 func (s *httpServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	requestLine := fmt.Sprintf("%v %v %v", req.Method, req.RequestURI, req.Proto)
-	s.logger.Info(requestLine)
+	s.logger.Infof(requestLine)
 
 	clientConn, _, err := wr.(http.Hijacker).Hijack()
 	if err != nil {
-		s.logger.Error("opening a client connection: %v", err)
+		s.logger.Errorf("opening a client connection: %v", err)
 		return
 	}
 	defer func() {
 		if err := clientConn.Close(); err != nil {
-			s.logger.Error("closing client connection: %v", err)
+			s.logger.Errorf("closing client connection: %v", err)
 		}
 	}()
 
@@ -46,28 +46,28 @@ func (s *httpServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 func (s *httpServer) handleRequest(clientConn net.Conn, req *http.Request) {
 	destAddr, err := addrFromURL(req.URL)
 	if err != nil {
-		s.logger.Error("parsing destination %v: %v", req.URL, err)
+		s.logger.Errorf("parsing destination %v: %v", req.URL, err)
 		return
 	}
 
 	servConn, err := s.proxy.Open(destAddr)
 	if err != nil {
-		s.logger.Error("opening proxy to %v: %v", destAddr, err)
+		s.logger.Errorf("opening proxy to %v: %v", destAddr, err)
 		return
 	}
 	defer func() {
 		if err := servConn.Close(); err != nil {
-			s.logger.Error("closing proxy %v: %v", s.proxy.Addr(), err)
+			s.logger.Errorf("closing proxy %v: %v", s.proxy.Addr(), err)
 		}
 	}()
 
 	if req.Method == http.MethodConnect {
 		for err := range tunnel(clientConn, servConn) {
-			s.logger.Error("tunneling %v: %v", destAddr, err)
+			s.logger.Errorf("tunneling %v: %v", destAddr, err)
 		}
 	} else {
 		if err := s.sendRequest(clientConn, servConn, req); err != nil {
-			s.logger.Error("requesting %v: %v", destAddr, err)
+			s.logger.Errorf("requesting %v: %v", destAddr, err)
 		}
 	}
 }
