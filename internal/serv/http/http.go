@@ -44,7 +44,7 @@ func (s *httpServer) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 }
 
 func (s *httpServer) handleRequest(clientConn net.Conn, req *http.Request) {
-	destAddr, err := extractAddr(req.URL)
+	destAddr, err := addrFromURL(req.URL)
 	if err != nil {
 		s.logger.Error("parsing destination %v: %v", req.URL, err)
 		return
@@ -74,7 +74,7 @@ func (s *httpServer) handleRequest(clientConn net.Conn, req *http.Request) {
 
 func (s *httpServer) sendRequest(clientConn, servConn net.Conn, req *http.Request) error {
 	// if the connection goes through an HTTP proxy
-	if s.proxy.Addr().Scheme == addr.HTTP {
+	if s.proxy.Addr().Scheme() == addr.HTTP {
 		// write the request as expected by the proxy
 		if err := req.WriteProxy(servConn); err != nil {
 			return err
@@ -90,27 +90,20 @@ func (s *httpServer) sendRequest(clientConn, servConn net.Conn, req *http.Reques
 	return err
 }
 
-func extractAddr(url *url.URL) (*addr.Addr, error) {
-	scheme := addr.Scheme(url.Scheme)
-	port, err := makePort(url.Port(), url.Scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	return &addr.Addr{
-		Scheme:   scheme,
-		Hostname: url.Hostname(),
-		Port:     port,
-	}, nil
-}
-
-func makePort(portStr, scheme string) (uint16, error) {
-	if portStr == "" {
-		port, err := net.LookupPort("tcp", scheme)
+func addrFromURL(url *url.URL) (*addr.Addr, error) {
+	var port uint16
+	if p := url.Port(); p != "" {
+		p, err := addr.ParsePort(p)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
-		return uint16(port), nil
+		port = p
+	} else {
+		p, err := net.LookupPort("tcp", url.Scheme)
+		if err != nil {
+			return nil, err
+		}
+		port = uint16(p)
 	}
-	return addr.ParsePort(portStr)
+	return addr.New(url.Scheme, url.Hostname(), port), nil
 }

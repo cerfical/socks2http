@@ -31,14 +31,14 @@ func Parse() (*Args, error) {
 		*servAddrFlag = flag.Arg(0)
 	}
 
-	servAddr, err := addr.ParseAddr(*servAddrFlag)
+	servAddr, err := addr.Parse(*servAddrFlag)
 	if err != nil {
-		return nil, fmt.Errorf("proxy server: %w", err)
+		return nil, fmt.Errorf("proxy server address %q: %w", *servAddrFlag, err)
 	}
 
-	proxyAddr, err := addr.ParseAddr(*proxyAddrFlag)
+	proxyAddr, err := addr.Parse(*proxyAddrFlag)
 	if err != nil {
-		return nil, fmt.Errorf("proxy client: %w", err)
+		return nil, fmt.Errorf("proxy client address %q: %w", *proxyAddrFlag, err)
 	}
 
 	logLevel, err := parseLogLevel(*logLevelFlag)
