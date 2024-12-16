@@ -1,10 +1,11 @@
 package addr_test
 
 import (
-	"socks2http/internal/addr"
-	"socks2http/internal/test"
-	"socks2http/internal/test/checks"
 	"testing"
+
+	"github.com/cerfical/socks2http/internal/addr"
+	"github.com/cerfical/socks2http/internal/test"
+	"github.com/cerfical/socks2http/internal/test/checks"
 )
 
 func TestIsValidPort(t *testing.T) {

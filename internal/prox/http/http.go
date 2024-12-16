@@ -6,7 +6,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"socks2http/internal/addr"
+
+	"github.com/cerfical/socks2http/internal/addr"
 )
 
 func Connect(proxyConn net.Conn, destAddr *addr.Addr) error {

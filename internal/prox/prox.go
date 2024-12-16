@@ -4,10 +4,11 @@ import (
 	"cmp"
 	"fmt"
 	"net"
-	"socks2http/internal/addr"
-	"socks2http/internal/prox/http"
-	"socks2http/internal/prox/socks"
 	"time"
+
+	"github.com/cerfical/socks2http/internal/addr"
+	"github.com/cerfical/socks2http/internal/prox/http"
+	"github.com/cerfical/socks2http/internal/prox/socks"
 )
 
 func New(proxyAddr *addr.Addr, timeout time.Duration) (*Proxy, error) {

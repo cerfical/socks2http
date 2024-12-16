@@ -6,9 +6,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"socks2http/internal/addr"
-	"socks2http/internal/log"
-	"socks2http/internal/prox"
+
+	"github.com/cerfical/socks2http/internal/addr"
+	"github.com/cerfical/socks2http/internal/log"
+	"github.com/cerfical/socks2http/internal/prox"
 )
 
 func Run(servAddr *addr.Addr, proxy *prox.Proxy, logger *log.Logger) error {

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"socks2http/internal/args"
-	"socks2http/internal/log"
-	"socks2http/internal/serv"
+	"github.com/cerfical/socks2http/internal/args"
+	"github.com/cerfical/socks2http/internal/log"
+	"github.com/cerfical/socks2http/internal/serv"
 )
 
 func main() {

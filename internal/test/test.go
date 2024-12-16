@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
-	"socks2http/internal/test/checks"
 	"strings"
 	"testing"
+
+	"github.com/cerfical/socks2http/internal/test/checks"
 )
 
 // Test describes a set of test cases for a function.

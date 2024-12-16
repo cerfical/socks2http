@@ -3,10 +3,11 @@ package args
 import (
 	"flag"
 	"fmt"
-	"socks2http/internal/addr"
-	"socks2http/internal/log"
 	"strings"
 	"time"
+
+	"github.com/cerfical/socks2http/internal/addr"
+	"github.com/cerfical/socks2http/internal/log"
 )
 
 type Args struct {

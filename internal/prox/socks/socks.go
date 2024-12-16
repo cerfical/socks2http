@@ -5,8 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"socks2http/internal/addr"
 	"unsafe"
+
+	"github.com/cerfical/socks2http/internal/addr"
 )
 
 const (

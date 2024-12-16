@@ -3,11 +3,12 @@ package serv
 import (
 	"cmp"
 	"fmt"
-	"socks2http/internal/addr"
-	"socks2http/internal/log"
-	"socks2http/internal/prox"
-	"socks2http/internal/serv/http"
 	"time"
+
+	"github.com/cerfical/socks2http/internal/addr"
+	"github.com/cerfical/socks2http/internal/log"
+	"github.com/cerfical/socks2http/internal/prox"
+	"github.com/cerfical/socks2http/internal/serv/http"
 )
 
 func New(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration, logger *log.Logger) (*Server, error) {
