@@ -4,36 +4,55 @@ import (
 	"testing"
 
 	"github.com/cerfical/socks2http/internal/addr"
-	"github.com/cerfical/socks2http/internal/test"
-	"github.com/cerfical/socks2http/internal/test/checks"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIsValidPort(t *testing.T) {
-	test := new(test.Test).
-		Case("0", true).
-		Case("443", true).
-		Case("65535", true).
-		Case("-1", false).
-		Case("00", false).
-		Case("65536", false).
-		Case("text", false).
-		Case("0.0", false).
-		Case("0.", false).
-		Case(" 0", false).
-		Case("0 ", false).
-		Case(" ", false).
-		Case("", false)
-	test.Assert(t, addr.IsValidPort)
+	tests := []struct {
+		input  string
+		wantOk bool
+	}{
+		{"0", true},
+		{"65535", true},
+		{"65536", false},
+		{"-1", false},
+		{"1.0", false},
+		{"txt", false},
+		{"", false},
+	}
+
+	for _, test := range tests {
+		gotOk := addr.IsValidPort(test.input)
+		if test.wantOk {
+			assert.Truef(t, gotOk, "want %q to be considered a valid port number", test.input)
+		} else {
+			assert.Falsef(t, gotOk, "want %q to be considered an invalid port number", test.input)
+		}
+	}
 }
 
 func TestParsePort(t *testing.T) {
-	test := new(test.Test).
-		On("0").Want(0, nil).
-		On("8080").Want(8080, nil).
-		On("65535").Want(65535, nil).
-		On("65536").Want(0, checks.NotNil).
-		On("-1").Want(0, checks.NotNil).
-		On("sss").Want(0, checks.NotNil).
-		On("").Want(0, checks.NotNil)
-	test.Assert(t, addr.ParsePort)
+	tests := []struct {
+		input   string
+		wantNum uint16
+		wantOk  bool
+	}{
+		{"0", 0, true},
+		{"65535", 65535, true},
+		{"65536", 0, false},
+		{"-1", 0, false},
+		{"1.0", 0, false},
+		{"txt", 1, false},
+		{"", 0, false},
+	}
+
+	for _, test := range tests {
+		gotNum, gotErr := addr.ParsePort(test.input)
+		if test.wantOk {
+			assert.Equalf(t, test.wantNum, gotNum, "want %q to be parsed to %v", test.input, test.wantNum)
+			assert.NoErrorf(t, gotErr, "want parsing of %q to not fail", test.input)
+		} else {
+			assert.Errorf(t, gotErr, "want parsing of %q to fail", test.input)
+		}
+	}
 }

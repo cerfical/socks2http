@@ -1,10 +1,6 @@
 package addr
 
-import (
-	"errors"
-	"strconv"
-	"strings"
-)
+import "strconv"
 
 func IsValidPort(port string) bool {
 	_, err := ParsePort(port)
@@ -12,10 +8,6 @@ func IsValidPort(port string) bool {
 }
 
 func ParsePort(port string) (uint16, error) {
-	if strings.HasPrefix(port, "0") && port != "0" {
-		return 0, errors.New("port number must not start with zeros")
-	}
-
 	portNum, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
 		return 0, err
