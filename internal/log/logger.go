@@ -6,35 +6,37 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func New(lvl Level) *Logger {
+func New() *Logger {
 	out := zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
 		w.TimeFormat = time.DateTime
 	})
 
 	return &Logger{
-		log: zerolog.New(out).
-			Level(zerolog.Level(lvl)).
-			With().
+		logger: zerolog.New(out).With().
 			Timestamp().
 			Logger(),
 	}
 }
 
 type Logger struct {
-	log zerolog.Logger
+	logger zerolog.Logger
 }
 
 func (l *Logger) Fatalf(format string, v ...any) {
-	l.log.Fatal().
+	l.logger.Fatal().
 		Msgf(format, v...)
 }
 
 func (l *Logger) Errorf(format string, v ...any) {
-	l.log.Error().
+	l.logger.Error().
 		Msgf(format, v...)
 }
 
 func (l *Logger) Infof(format string, v ...any) {
-	l.log.Info().
+	l.logger.Info().
 		Msgf(format, v...)
+}
+
+func (l *Logger) With() *Context {
+	return &Context{l.logger.With()}
 }

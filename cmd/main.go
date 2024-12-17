@@ -7,17 +7,23 @@ import (
 )
 
 func main() {
+	logger := log.New()
+
 	args, err := args.Parse()
 	if err != nil {
-		log.Fatal("command line: %v", err)
+		logger.Fatalf("command line: %v", err)
 	}
 
-	server, err := serv.New(args.ServerAddr, args.ProxyAddr, args.Timeout, log.New(args.LogLevel))
+	logger = logger.With().
+		Level(args.LogLevel).
+		Logger()
+
+	server, err := serv.New(args.ServerAddr, args.ProxyAddr, args.Timeout, logger)
 	if err != nil {
-		log.Fatal("server init: %v", err)
+		logger.Fatalf("server init: %v", err)
 	}
 
 	if err := server.Run(); err != nil {
-		log.Fatal("server shutdown: %v", err)
+		logger.Fatalf("server shutdown: %v", err)
 	}
 }
