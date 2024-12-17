@@ -3,12 +3,7 @@ package addr
 import "strconv"
 
 // ParsePort converts a string to a valid port number.
-// Empty string is assumed to be port 0.
 func ParsePort(port string) (uint16, error) {
-	if port == "" {
-		return 0, nil
-	}
-
 	portNum, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
 		return 0, err

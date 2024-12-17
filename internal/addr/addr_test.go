@@ -8,7 +8,7 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	httpAddr := addr.New(addr.HTTP, "", 0)
+	httpAddr := addr.New(addr.HTTP, "localhost", 8080)
 	tests := []struct {
 		input string
 		want  *addr.Addr
@@ -23,9 +23,9 @@ func TestParse(t *testing.T) {
 		{"8080", httpAddr},
 		{"http", httpAddr},
 		{"HTTP", httpAddr},
-		{"socks4", addr.New(addr.SOCKS4, "", 0)},
-		{"direct", addr.New(addr.Direct, "", 0)},
-		{"http://localhost:65535", addr.New(addr.HTTP, "", 65535)},
+		{"socks4", addr.New(addr.SOCKS4, "localhost", 1080)},
+		{"direct", addr.New(addr.Direct, "localhost", 0)},
+		{"http://localhost:65535", addr.New(addr.HTTP, "localhost", 65535)},
 		{"http://localhost:65536", nil},
 		{"invalidscheme://localhost:8080", nil},
 		{"http:localhost:8080", nil},

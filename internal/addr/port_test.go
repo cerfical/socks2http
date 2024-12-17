@@ -13,9 +13,9 @@ func TestParsePort(t *testing.T) {
 		wantNum uint16
 		wantOk  bool
 	}{
-		{"", 0, true},
 		{"0", 0, true},
 		{"65535", 65535, true},
+		{"", 0, false},
 		{"65536", 0, false},
 		{"-1", 0, false},
 		{"1.0", 0, false},

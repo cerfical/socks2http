@@ -1,11 +1,9 @@
 package addr
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 // Addr represents a reduced set of [net/url.URL] network addresses.
@@ -16,17 +14,12 @@ type Addr struct {
 }
 
 // New creates a new [Addr] from the specified [net/url.URL] components.
-// By default, assumes HTTP protocol scheme and localhost.
-// If port is zero, it is inferred from the scheme.
+// Does not perform validation of the supplied arguments.
 func New(scheme, hostname string, port uint16) *Addr {
-	s := strings.ToLower(cmp.Or(scheme, HTTP))
-	h := strings.ToLower(cmp.Or(hostname, "localhost"))
-	p := cmp.Or(port, defaultProxyPort(s))
-
 	return &Addr{
-		scheme:   s,
-		hostname: h,
-		port:     p,
+		scheme:   scheme,
+		hostname: hostname,
+		port:     port,
 	}
 }
 
@@ -42,23 +35,35 @@ func New(scheme, hostname string, port uint16) *Addr {
 //   - localhost
 //   - 8080
 //
-// Empty components will be set according to [New].
+// By default, assumes HTTP protocol scheme and localhost for the hostname.
+// If no port was specified, it is inferred from the scheme.
 func Parse(addr string) (*Addr, error) {
 	raddr, ok := parseRaw(addr)
 	if !ok {
 		return nil, errors.New("malformed network address")
 	}
 
-	port, err := ParsePort(raddr.port)
-	if err != nil {
-		return nil, err
-	}
-
-	if raddr.scheme != "" && !isValidScheme(raddr.scheme) {
+	// make sure the scheme has some reasonable non-empty value
+	if raddr.scheme == "" {
+		raddr.scheme = HTTP
+	} else if !isValidScheme(raddr.scheme) {
 		return nil, fmt.Errorf("unsupported protocol scheme %q", raddr.scheme)
 	}
 
-	return New(raddr.scheme, raddr.hostname, port), nil
+	if raddr.hostname == "" {
+		raddr.hostname = "localhost"
+	}
+
+	portNum := defaultProxyPort(raddr.scheme)
+	if raddr.port != "" {
+		p, err := ParsePort(raddr.port)
+		if err != nil {
+			return nil, err
+		}
+		portNum = p
+	}
+
+	return New(raddr.scheme, raddr.hostname, portNum), nil
 }
 
 func (a *Addr) Scheme() string {
