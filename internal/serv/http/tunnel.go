@@ -50,12 +50,12 @@ func startTransfer(dest, src net.Conn) <-chan error {
 		// when a transfer error occurs, deadlines preemptively terminate Read() and Write() calls
 		// to prevent goroutines from being blocked indefinitely
 		if err := conn.SetDeadline(time.Now()); err != nil {
-			errChan <- fmt.Errorf("aborting: %w", err)
+			errChan <- fmt.Errorf("aborting connection: %w", err)
 		}
 
 		// also reset participating TCP connections
 		if err := conn.(*net.TCPConn).SetLinger(0); err != nil {
-			errChan <- fmt.Errorf("connection reset: %w", err)
+			errChan <- fmt.Errorf("resetting connection: %w", err)
 		}
 	}
 
