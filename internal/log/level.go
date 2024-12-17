@@ -2,7 +2,7 @@ package log
 
 import "github.com/rs/zerolog"
 
-type Level int
+type Level zerolog.Level
 
 const (
 	FatalLevel = Level(zerolog.FatalLevel)

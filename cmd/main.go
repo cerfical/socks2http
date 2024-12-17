@@ -8,15 +8,11 @@ import (
 
 func main() {
 	logger := log.New()
-
 	args, err := args.Parse()
 	if err != nil {
 		logger.Fatalf("command line: %v", err)
 	}
-
-	logger = logger.With().
-		Level(args.LogLevel).
-		Logger()
+	logger = logger.WithLevel(args.LogLevel)
 
 	server, err := serv.New(args.ServerAddr, args.ProxyAddr, args.Timeout, logger)
 	if err != nil {

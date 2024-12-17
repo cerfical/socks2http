@@ -37,6 +37,23 @@ func (l *Logger) Infof(format string, v ...any) {
 		Msgf(format, v...)
 }
 
-func (l *Logger) With() *Context {
-	return &Context{l.logger.With()}
+func (l *Logger) WithLevel(lvl Level) *Logger {
+	return &Logger{l.logger.Level(zerolog.Level(lvl))}
+}
+
+func (l *Logger) WithAttr(key, val string) *Logger {
+	ctx := l.logger.With().Str(key, val)
+	return &Logger{ctx.Logger()}
+}
+
+func (l *Logger) WithAttrs(attrs ...string) *Logger {
+	if len(attrs)%2 != 0 {
+		panic("expected an even number of arguments")
+	}
+
+	ctxLogger := l
+	for i := 0; i < len(attrs); i += 2 {
+		ctxLogger = l.WithAttr(attrs[i], attrs[i+1])
+	}
+	return ctxLogger
 }

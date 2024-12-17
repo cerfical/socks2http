@@ -22,14 +22,11 @@ type server struct {
 }
 
 func (s *server) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
-	logger := s.logger.With().
-		Str("uri", req.RequestURI).
-		Logger()
-
-	logger.With().
-		Str("method", req.Method).
-		Str("proto", req.Proto).Logger().
-		Infof("new request")
+	logger := s.logger.WithAttr("uri", req.RequestURI)
+	logger.WithAttrs(
+		"method", req.Method,
+		"proto", req.Proto,
+	).Infof("new request")
 
 	clientConn, _, err := wr.(http.Hijacker).Hijack()
 	if err != nil {
