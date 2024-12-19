@@ -15,7 +15,7 @@ import (
 type requestHandler struct {
 	clientConn net.Conn
 	request    *http.Request
-	proxy      *cli.Proxy
+	proxy      *cli.ProxyClient
 	logger     *log.Logger
 }
 

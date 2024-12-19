@@ -10,13 +10,13 @@ import (
 	"github.com/cerfical/socks2http/internal/prox/serv/http"
 )
 
-func New(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration, logger *log.Logger) (*Server, error) {
+func New(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration, logger *log.Logger) (*ProxyServer, error) {
 	proxy, err := cli.New(proxyAddr, timeout)
 	if err != nil {
 		return nil, err
 	}
 
-	server := &Server{
+	server := &ProxyServer{
 		addr:   servAddr,
 		proxy:  proxy,
 		logger: logger,
@@ -34,18 +34,18 @@ func New(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration, logge
 	return server, nil
 }
 
-type Server struct {
+type ProxyServer struct {
 	addr   *addr.Addr
-	proxy  *cli.Proxy
+	proxy  *cli.ProxyClient
 	logger *log.Logger
 	run    func() error
 }
 
-func (s *Server) Addr() *addr.Addr {
+func (s *ProxyServer) Addr() *addr.Addr {
 	return s.addr
 }
 
-func (s *Server) Run() error {
+func (s *ProxyServer) Run() error {
 	s.logger.Infof("starting server on %v", s.Addr())
 	if proxyAddr := s.proxy.Addr(); proxyAddr.Scheme != addr.Direct {
 		s.logger.Infof("using proxy %v", proxyAddr)
