@@ -50,7 +50,7 @@ func (h *requestHandler) run() {
 
 func (h *requestHandler) sendRequest(servConn net.Conn) error {
 	// if the connection goes through an HTTP proxy
-	if h.proxy.Addr().Scheme() == addr.HTTP {
+	if h.proxy.Addr().Scheme == addr.HTTP {
 		// write the request as expected by the proxy
 		if err := h.request.WriteProxy(servConn); err != nil {
 			return err
@@ -81,5 +81,5 @@ func addrFromURL(url *url.URL) (*addr.Addr, error) {
 		}
 		port = uint16(p)
 	}
-	return addr.New(url.Scheme, url.Hostname(), port), nil
+	return &addr.Addr{Scheme: url.Scheme, Hostname: url.Hostname(), Port: port}, nil
 }

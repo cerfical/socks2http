@@ -17,8 +17,8 @@ type Args struct {
 
 func Parse() (*Args, error) {
 	var servAddr, proxAddr addr.Addr
-	flag.TextVar(&servAddr, "serv", addr.New("http", "localhost", 8080), "listen address for the server")
-	flag.TextVar(&proxAddr, "prox", addr.New("direct", "", 0), "a proxy server to use")
+	flag.TextVar(&servAddr, "serv", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: 8080}, "listen address for the server")
+	flag.TextVar(&proxAddr, "prox", &addr.Addr{Scheme: "direct"}, "a proxy server to use")
 	timeout := flag.Duration("timeout", 0, "time to wait for a connection")
 
 	var logLevel log.Level

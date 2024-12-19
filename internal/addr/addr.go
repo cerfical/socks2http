@@ -8,44 +8,24 @@ import (
 
 // Addr represents a reduced set of [net/url.URL] network addresses.
 type Addr struct {
-	scheme   string
-	hostname string
-	port     uint16
-}
+	// Scheme represents the scheme [Addr] component.
+	Scheme string
 
-// New creates a new [Addr] from the specified [net/url.URL] components.
-// Does not perform validation of the supplied arguments.
-func New(scheme, hostname string, port uint16) *Addr {
-	return &Addr{
-		scheme:   scheme,
-		hostname: hostname,
-		port:     port,
-	}
-}
+	// Hostname represents the hostname [Addr] component.
+	Hostname string
 
-// Scheme returns the scheme component of [Addr].
-func (a *Addr) Scheme() string {
-	return a.scheme
-}
-
-// Hostname returns the hostname component of [Addr].
-func (a *Addr) Hostname() string {
-	return a.hostname
-}
-
-// Port returns the port component of [Addr].
-func (a *Addr) Port() uint16 {
-	return a.port
+	// Port represents the port [Addr] component.
+	Port uint16
 }
 
 // Host presents [Addr] as a "<hostname>:<port>" string.
 func (a *Addr) Host() string {
-	return a.Hostname() + ":" + a.portString()
+	return a.Hostname + ":" + a.portString()
 }
 
 // String presents [Addr] as a "<scheme>://<hostname>:<port>" string.
 func (a *Addr) String() string {
-	return a.Scheme() + "://" + a.Host()
+	return a.Scheme + "://" + a.Host()
 }
 
 // UnmarshalText creates a new [Addr] from a compact text representation.
@@ -68,7 +48,7 @@ func (a *Addr) UnmarshalText(text []byte) error {
 		return errors.New("malformed network address")
 	}
 
-	// make sure the scheme has some reasonable non-empty value
+	// make sure the scheme has a reasonable non-empty value
 	if raddr.scheme == "" {
 		raddr.scheme = HTTP
 	} else if !isValidScheme(raddr.scheme) {
@@ -88,16 +68,16 @@ func (a *Addr) UnmarshalText(text []byte) error {
 		portNum = p
 	}
 
-	a.scheme = raddr.scheme
-	a.hostname = raddr.hostname
-	a.port = portNum
+	a.Scheme = raddr.scheme
+	a.Hostname = raddr.hostname
+	a.Port = portNum
 	return nil
 }
 
 // MarshalText converts [Addr] into a compact text representation.
 func (a *Addr) MarshalText() ([]byte, error) {
 	var str string
-	switch s, hn := a.Scheme(), a.Hostname(); {
+	switch s, hn := a.Scheme, a.Hostname; {
 	case s != "" && hn != "":
 		str = s + "://" + hn
 	case s != "":
@@ -113,5 +93,5 @@ func (a *Addr) MarshalText() ([]byte, error) {
 }
 
 func (a *Addr) portString() string {
-	return strconv.Itoa(int(a.Port()))
+	return strconv.Itoa(int(a.Port))
 }

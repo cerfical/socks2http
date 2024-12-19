@@ -37,11 +37,11 @@ func Connect(proxyConn net.Conn, destAddr *addr.Addr) error {
 }
 
 func resolveAddr(host *addr.Addr) (tcp4Addr, error) {
-	ip, err := net.ResolveIPAddr("ip4", host.Hostname())
+	ip, err := net.ResolveIPAddr("ip4", host.Hostname)
 	if err != nil {
 		return tcp4Addr{}, err
 	}
-	return tcp4Addr{Port: host.Port(), IP: [4]byte(ip.IP)}, nil
+	return tcp4Addr{Port: host.Port, IP: [4]byte(ip.IP)}, nil
 }
 
 func sendConnectRequest(socksConn net.Conn, destAddr tcp4Addr) error {

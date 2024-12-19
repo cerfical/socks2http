@@ -8,7 +8,7 @@ import (
 )
 
 func TestAddr_UnmarshalText(t *testing.T) {
-	httpAddr := addr.New(addr.HTTP, "localhost", 8080)
+	httpAddr := &addr.Addr{Scheme: addr.HTTP, Hostname: "localhost", Port: 8080}
 	tests := []struct {
 		name  string
 		input string
@@ -24,10 +24,10 @@ func TestAddr_UnmarshalText(t *testing.T) {
 		{"port", "8080", httpAddr},
 		{"http_scheme", "http", httpAddr},
 		{"upper_scheme", "HTTP", httpAddr},
-		{"socks4_scheme", "socks4", addr.New(addr.SOCKS4, "localhost", 1080)},
-		{"direct_scheme", "direct", addr.New(addr.Direct, "localhost", 0)},
-		{"max_port", "65535", addr.New(addr.HTTP, "localhost", 65535)},
-		{"min_port", "0", addr.New(addr.HTTP, "localhost", 0)},
+		{"socks4_scheme", "socks4", &addr.Addr{Scheme: addr.SOCKS4, Hostname: "localhost", Port: 1080}},
+		{"direct_scheme", "direct", &addr.Addr{Scheme: addr.Direct, Hostname: "localhost"}},
+		{"max_port", "65535", &addr.Addr{Scheme: addr.HTTP, Hostname: "localhost", Port: 65535}},
+		{"min_port", "0", &addr.Addr{Scheme: addr.HTTP, Hostname: "localhost"}},
 		{"no_out_of_range_port", "http://localhost:65536", nil},
 		{"no_invalid_scheme", "invalidscheme://localhost:8080", nil},
 		{"no_invalid", "http:localhost:0", nil},
@@ -55,10 +55,14 @@ func TestAddr_MarshalText(t *testing.T) {
 		input *addr.Addr
 		want  string
 	}{
-		{"zero_value", addr.New("", "", 0), "0"},
-		{"hostname_port", addr.New("", "localhost", 0), "localhost:0"},
-		{"scheme_port", addr.New("http", "", 0), "http:0"},
-		{"scheme_hostname_port", addr.New("http", "localhost", 0), "http://localhost:0"},
+		{"zero_value", &addr.Addr{}, "0"},
+		{"port", &addr.Addr{Port: 80}, "80"},
+		{"hostname", &addr.Addr{Hostname: "localhost"}, "localhost:0"},
+		{"hostname_port", &addr.Addr{Hostname: "localhost", Port: 80}, "localhost:80"},
+		{"scheme", &addr.Addr{Scheme: "http"}, "http:0"},
+		{"scheme_port", &addr.Addr{Scheme: "http", Port: 80}, "http:80"},
+		{"scheme_hostname", &addr.Addr{Scheme: "http", Hostname: "localhost"}, "http://localhost:0"},
+		{"scheme_hostname_port", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: 80}, "http://localhost:80"},
 	}
 
 	for _, test := range tests {
@@ -77,8 +81,10 @@ func TestAddr_Host(t *testing.T) {
 		input *addr.Addr
 		want  string
 	}{
-		{"zero_value", addr.New("", "", 0), ":0"},
-		{"hostname_port", addr.New("", "localhost", 0), "localhost:0"},
+		{"zero_value", &addr.Addr{}, ":0"},
+		{"port", &addr.Addr{Port: 80}, ":80"},
+		{"hostname", &addr.Addr{Hostname: "localhost"}, "localhost:0"},
+		{"hostname_port", &addr.Addr{Hostname: "localhost", Port: 80}, "localhost:80"},
 	}
 
 	for _, test := range tests {
@@ -95,10 +101,14 @@ func TestAddr_String(t *testing.T) {
 		input *addr.Addr
 		want  string
 	}{
-		{"zero_value", addr.New("", "", 0), "://:0"},
-		{"hostname_port", addr.New("", "localhost", 0), "://localhost:0"},
-		{"scheme_port", addr.New("http", "", 0), "http://:0"},
-		{"scheme_hostname_port", addr.New("http", "localhost", 0), "http://localhost:0"},
+		{"zero_value", &addr.Addr{}, "://:0"},
+		{"port", &addr.Addr{Port: 80}, "://:80"},
+		{"hostname", &addr.Addr{Hostname: "localhost"}, "://localhost:0"},
+		{"hostname_port", &addr.Addr{Hostname: "localhost", Port: 80}, "://localhost:80"},
+		{"scheme", &addr.Addr{Scheme: "http"}, "http://:0"},
+		{"scheme_port", &addr.Addr{Scheme: "http", Port: 80}, "http://:80"},
+		{"scheme_hostname", &addr.Addr{Scheme: "http", Hostname: "localhost"}, "http://localhost:0"},
+		{"scheme_hostname_port", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: 80}, "http://localhost:80"},
 	}
 
 	for _, test := range tests {

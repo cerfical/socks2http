@@ -16,7 +16,7 @@ func New(proxyAddr *addr.Addr, timeout time.Duration) (*Proxy, error) {
 		timeout: timeout,
 	}
 
-	switch proxy.addr.Scheme() {
+	switch proxy.addr.Scheme {
 	case addr.Direct:
 		proxy.connect = func(net.Conn, *addr.Addr) error {
 			return nil
@@ -26,7 +26,7 @@ func New(proxyAddr *addr.Addr, timeout time.Duration) (*Proxy, error) {
 	case addr.HTTP:
 		proxy.connect = http.Connect
 	default:
-		return nil, fmt.Errorf("unsupported client protocol scheme %q", proxy.addr.Scheme())
+		return nil, fmt.Errorf("unsupported client protocol scheme %q", proxy.addr.Scheme)
 	}
 
 	return proxy, nil
@@ -34,7 +34,7 @@ func New(proxyAddr *addr.Addr, timeout time.Duration) (*Proxy, error) {
 
 func Direct(timeout time.Duration) *Proxy {
 	return &Proxy{
-		addr:    addr.New(addr.Direct, "", 0),
+		addr:    &addr.Addr{Scheme: addr.Direct},
 		timeout: timeout,
 	}
 }
@@ -47,7 +47,7 @@ type Proxy struct {
 
 func (p *Proxy) Open(destAddr *addr.Addr) (net.Conn, error) {
 	// if direct connection was requested, do not use a proxy
-	if p.addr.Scheme() == addr.Direct {
+	if p.addr.Scheme == addr.Direct {
 		return net.DialTimeout("tcp", destAddr.Host(), p.timeout)
 	}
 

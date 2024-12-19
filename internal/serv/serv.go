@@ -22,13 +22,13 @@ func New(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration, logge
 		logger: logger,
 	}
 
-	switch server.addr.Scheme() {
+	switch server.addr.Scheme {
 	case addr.HTTP:
 		server.run = func() error {
 			return http.Run(server.addr, proxy, logger)
 		}
 	default:
-		return nil, fmt.Errorf("unsupported server protocol scheme %q", server.addr.Scheme())
+		return nil, fmt.Errorf("unsupported server protocol scheme %q", server.addr.Scheme)
 	}
 
 	return server, nil
@@ -47,7 +47,7 @@ func (s *Server) Addr() *addr.Addr {
 
 func (s *Server) Run() error {
 	s.logger.Infof("starting server on %v", s.Addr())
-	if proxyAddr := s.proxy.Addr(); proxyAddr.Scheme() != addr.Direct {
+	if proxyAddr := s.proxy.Addr(); proxyAddr.Scheme != addr.Direct {
 		s.logger.Infof("using proxy %v", proxyAddr)
 	} else {
 		s.logger.Infof("not using proxy")

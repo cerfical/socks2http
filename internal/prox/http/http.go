@@ -11,7 +11,7 @@ import (
 )
 
 func Connect(proxyConn net.Conn, destAddr *addr.Addr) error {
-	if destAddr.Scheme() == addr.HTTP {
+	if destAddr.Scheme == addr.HTTP {
 		// with plain HTTP no preliminary connection is needed
 		return nil
 	}
