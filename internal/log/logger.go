@@ -24,19 +24,19 @@ type Logger struct {
 	logger zerolog.Logger
 }
 
-// Fatalf logs an [fmt]-formatted [FatalLevel] message.
+// Fatalf logs an [fmt]-formatted [Fatal] message.
 func (l *Logger) Fatalf(format string, v ...any) {
 	l.logger.Fatal().
 		Msgf(format, v...)
 }
 
-// Errorf logs an [fmt]-formatted [ErrorLevel] message.
+// Errorf logs an [fmt]-formatted [Error] message.
 func (l *Logger) Errorf(format string, v ...any) {
 	l.logger.Error().
 		Msgf(format, v...)
 }
 
-// Infof logs an [fmt]-formatted [InfoLevel] message.
+// Infof logs an [fmt]-formatted [Info] message.
 func (l *Logger) Infof(format string, v ...any) {
 	l.logger.Info().
 		Msgf(format, v...)

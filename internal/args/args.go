@@ -3,7 +3,6 @@ package args
 import (
 	"flag"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/cerfical/socks2http/internal/addr"
@@ -41,9 +40,9 @@ func Parse() (*Args, error) {
 		return nil, fmt.Errorf("proxy client address %q: %w", *proxyAddrFlag, err)
 	}
 
-	logLevel, err := parseLogLevel(*logLevelFlag)
-	if err != nil {
-		return nil, fmt.Errorf("log: %w", err)
+	logLevel, ok := parseLogLevel(*logLevelFlag)
+	if !ok {
+		return nil, fmt.Errorf("unknown log level %q", *logLevelFlag)
 	}
 
 	return &Args{
@@ -54,15 +53,17 @@ func Parse() (*Args, error) {
 	}, nil
 }
 
-func parseLogLevel(lvl string) (log.Level, error) {
-	switch logLevel := strings.ToLower(lvl); logLevel {
+func parseLogLevel(lvl string) (log.Level, bool) {
+	switch lvl {
 	case "fatal":
-		return log.FatalLevel, nil
+		return log.Fatal, true
 	case "error":
-		return log.ErrorLevel, nil
+		return log.Error, true
 	case "info":
-		return log.InfoLevel, nil
+		return log.Info, true
+	case "none":
+		return log.None, true
 	default:
-		return 0, fmt.Errorf("unknown log level %q", logLevel)
+		return 0, false
 	}
 }

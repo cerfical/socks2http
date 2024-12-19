@@ -6,12 +6,15 @@ import "github.com/rs/zerolog"
 type Level zerolog.Level
 
 const (
-	// FatalLevel describe errors that cannot be handled gracefully and typically cause an application to exit.
-	FatalLevel = Level(zerolog.FatalLevel)
+	// Fatal describe errors that cannot be handled gracefully and typically cause an application to exit.
+	Fatal = Level(zerolog.FatalLevel)
 
-	// ErrorLevel describe errors that can either be recovered or safely ignored.
-	ErrorLevel = Level(zerolog.ErrorLevel)
+	// Error describe errors that can either be recovered or safely ignored.
+	Error = Level(zerolog.ErrorLevel)
 
-	// InfoLevel provides informational messages that may be useful to the end user.
-	InfoLevel = Level(zerolog.InfoLevel)
+	// Info provides informational messages that may be useful to the end user.
+	Info = Level(zerolog.InfoLevel)
+
+	// None disables logging.
+	None = Level(zerolog.Disabled)
 )
