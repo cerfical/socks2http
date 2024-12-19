@@ -7,89 +7,104 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUnmarshalText(t *testing.T) {
+func TestAddr_UnmarshalText(t *testing.T) {
 	httpAddr := addr.New(addr.HTTP, "localhost", 8080)
 	tests := []struct {
+		name  string
 		input string
 		want  *addr.Addr
 	}{
-		{"http://localhost:8080", httpAddr},
-		{"http://localhost", httpAddr},
-		{"http:8080", httpAddr},
-		{"http:localhost", httpAddr},
-		{"localhost:8080", httpAddr},
-		{"localhost", httpAddr},
-		{"LOCALHOST", httpAddr},
-		{"8080", httpAddr},
-		{"http", httpAddr},
-		{"HTTP", httpAddr},
-		{"socks4", addr.New(addr.SOCKS4, "localhost", 1080)},
-		{"direct", addr.New(addr.Direct, "localhost", 0)},
-		{"http://localhost:65535", addr.New(addr.HTTP, "localhost", 65535)},
-		{"http://localhost:65536", nil},
-		{"invalidscheme://localhost:8080", nil},
-		{"http:localhost:8080", nil},
+		{"scheme_hostname_port_url", "http://localhost:8080", httpAddr},
+		{"scheme_hostname_url", "http://localhost", httpAddr},
+		{"scheme_port", "http:8080", httpAddr},
+		{"scheme_hostname", "http:localhost", httpAddr},
+		{"hostname_port", "localhost:8080", httpAddr},
+		{"hostname", "localhost", httpAddr},
+		{"upper_hostname", "LOCALHOST", httpAddr},
+		{"port", "8080", httpAddr},
+		{"http_scheme", "http", httpAddr},
+		{"upper_scheme", "HTTP", httpAddr},
+		{"socks4_scheme", "socks4", addr.New(addr.SOCKS4, "localhost", 1080)},
+		{"direct_scheme", "direct", addr.New(addr.Direct, "localhost", 0)},
+		{"max_port", "65535", addr.New(addr.HTTP, "localhost", 65535)},
+		{"min_port", "0", addr.New(addr.HTTP, "localhost", 0)},
+		{"no_out_of_range_port", "http://localhost:65536", nil},
+		{"no_invalid_scheme", "invalidscheme://localhost:8080", nil},
+		{"no_invalid", "http:localhost:0", nil},
 	}
 
 	for _, test := range tests {
-		gotAddr := &addr.Addr{}
-		gotErr := gotAddr.UnmarshalText([]byte(test.input))
+		t.Run(test.name, func(t *testing.T) {
+			got := &addr.Addr{}
+			err := got.UnmarshalText([]byte(test.input))
 
-		if test.want != nil {
-			assert.Equalf(t, test.want, gotAddr, "Want %q to be unmarshalled into %#v", test.input, test.want)
-			assert.NoErrorf(t, gotErr, "Want unmarshalling of %q to not fail", test.input)
-		} else {
-			assert.Errorf(t, gotErr, "Want unmarshalling of %q to fail", test.input)
-		}
+			if test.want != nil {
+				if assert.NoErrorf(t, err, "") {
+					assert.Equalf(t, test.want, got, "")
+				}
+			} else {
+				assert.Errorf(t, err, "")
+			}
+		})
 	}
 }
 
-func TestMarshalText(t *testing.T) {
+func TestAddr_MarshalText(t *testing.T) {
 	tests := []struct {
+		name  string
 		input *addr.Addr
 		want  string
 	}{
-		{addr.New("", "", 0), "0"},
-		{addr.New("", "localhost", 0), "localhost:0"},
-		{addr.New("http", "", 0), "http:0"},
-		{addr.New("http", "localhost", 0), "http://localhost:0"},
+		{"zero_value", addr.New("", "", 0), "0"},
+		{"hostname_port", addr.New("", "localhost", 0), "localhost:0"},
+		{"scheme_port", addr.New("http", "", 0), "http:0"},
+		{"scheme_hostname_port", addr.New("http", "localhost", 0), "http://localhost:0"},
 	}
 
 	for _, test := range tests {
-		got, err := test.input.MarshalText()
-		assert.NoErrorf(t, err, "Want marshalling of %q to not fail", test.input)
-		assert.Equalf(t, test.want, got, "Want %#v to produce %q", test.input, test.want)
+		t.Run(test.name, func(t *testing.T) {
+			got, err := test.input.MarshalText()
+			if assert.NoErrorf(t, err, "") {
+				assert.Equalf(t, []byte(test.want), got, "")
+			}
+		})
 	}
 }
 
-func TestHost(t *testing.T) {
+func TestAddr_Host(t *testing.T) {
 	tests := []struct {
+		name  string
 		input *addr.Addr
 		want  string
 	}{
-		{addr.New("", "", 0), ":0"},
-		{addr.New("", "localhost", 0), "localhost:0"},
+		{"zero_value", addr.New("", "", 0), ":0"},
+		{"hostname_port", addr.New("", "localhost", 0), "localhost:0"},
 	}
 
 	for _, test := range tests {
-		got := test.input.Host()
-		assert.Equalf(t, test.want, got, "Want %#v to produce %q", test.input, test.want)
+		t.Run(test.name, func(t *testing.T) {
+			got := test.input.Host()
+			assert.Equalf(t, test.want, got, "")
+		})
 	}
 }
 
-func TestString(t *testing.T) {
+func TestAddr_String(t *testing.T) {
 	tests := []struct {
+		name  string
 		input *addr.Addr
 		want  string
 	}{
-		{addr.New("", "", 0), "://:0"},
-		{addr.New("", "localhost", 0), "://localhost:0"},
-		{addr.New("http", "", 0), "http://:0"},
-		{addr.New("http", "localhost", 0), "http://localhost:0"},
+		{"zero_value", addr.New("", "", 0), "://:0"},
+		{"hostname_port", addr.New("", "localhost", 0), "://localhost:0"},
+		{"scheme_port", addr.New("http", "", 0), "http://:0"},
+		{"scheme_hostname_port", addr.New("http", "localhost", 0), "http://localhost:0"},
 	}
 
 	for _, test := range tests {
-		got := test.input.String()
-		assert.Equalf(t, test.want, got, "Want %#v to produce %q", test.input, test.want)
+		t.Run(test.name, func(t *testing.T) {
+			got := test.input.String()
+			assert.Equalf(t, test.want, got, "")
+		})
 	}
 }

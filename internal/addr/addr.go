@@ -38,12 +38,12 @@ func (a *Addr) Port() uint16 {
 	return a.port
 }
 
-// Host presents [Addr] as a string "<hostname>:<port>".
+// Host presents [Addr] as a "<hostname>:<port>" string.
 func (a *Addr) Host() string {
 	return a.Hostname() + ":" + a.portString()
 }
 
-// String presents [Addr] as a string "<scheme>://<hostname>:<port>".
+// String presents [Addr] as a "<scheme>://<hostname>:<port>" string.
 func (a *Addr) String() string {
 	return a.Scheme() + "://" + a.Host()
 }

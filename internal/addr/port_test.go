@@ -9,26 +9,30 @@ import (
 
 func TestParsePort(t *testing.T) {
 	tests := []struct {
-		input   string
-		wantNum uint16
-		wantOk  bool
+		name  string
+		input string
+		want  uint16
+		ok    bool
 	}{
-		{"0", 0, true},
-		{"65535", 65535, true},
-		{"", 0, false},
-		{"65536", 0, false},
-		{"-1", 0, false},
-		{"1.0", 0, false},
-		{"txt", 1, false},
+		{"min", "0", 0, true},
+		{"max", "65535", 65535, true},
+		{"no_empty", "", 0, false},
+		{"no_out_of_range", "65536", 0, false},
+		{"no_negative", "-1", 0, false},
+		{"no_float", "1.0", 0, false},
+		{"no_letters", "txt", 1, false},
 	}
 
 	for _, test := range tests {
-		gotNum, gotErr := addr.ParsePort(test.input)
-		if test.wantOk {
-			assert.Equalf(t, test.wantNum, gotNum, "want %q to be parsed to %v", test.input, test.wantNum)
-			assert.NoErrorf(t, gotErr, "want parsing of %q to not fail", test.input)
-		} else {
-			assert.Errorf(t, gotErr, "want parsing of %q to fail", test.input)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			got, err := addr.ParsePort(test.input)
+			if test.ok {
+				if assert.NoErrorf(t, err, "") {
+					assert.Equalf(t, test.want, got, "")
+				}
+			} else {
+				assert.Errorf(t, err, "")
+			}
+		})
 	}
 }
