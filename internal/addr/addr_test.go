@@ -41,3 +41,35 @@ func TestParse(t *testing.T) {
 		}
 	}
 }
+
+func TestHost(t *testing.T) {
+	tests := []struct {
+		input *addr.Addr
+		want  string
+	}{
+		{addr.New("", "", 0), ":0"},
+		{addr.New("", "localhost", 0), "localhost:0"},
+	}
+
+	for _, test := range tests {
+		got := test.input.Host()
+		assert.Equalf(t, test.want, got, "Want %#v to produce %q", test.input, test.want)
+	}
+}
+
+func TestString(t *testing.T) {
+	tests := []struct {
+		input *addr.Addr
+		want  string
+	}{
+		{addr.New("", "", 0), "://:0"},
+		{addr.New("", "localhost", 0), "://localhost:0"},
+		{addr.New("http", "", 0), "http://:0"},
+		{addr.New("http", "localhost", 0), "http://localhost:0"},
+	}
+
+	for _, test := range tests {
+		got := test.input.String()
+		assert.Equalf(t, test.want, got, "Want %#v to produce %q", test.input, test.want)
+	}
+}

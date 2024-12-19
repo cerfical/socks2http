@@ -66,22 +66,27 @@ func Parse(addr string) (*Addr, error) {
 	return New(raddr.scheme, raddr.hostname, portNum), nil
 }
 
+// Scheme returns the scheme component of [Addr].
 func (a *Addr) Scheme() string {
 	return a.scheme
 }
 
+// Hostname returns the hostname component of [Addr].
 func (a *Addr) Hostname() string {
 	return a.hostname
 }
 
+// Port returns the port component of [Addr].
 func (a *Addr) Port() uint16 {
 	return a.port
 }
 
+// Host presents [Addr] as a string "<hostname>:<port>".
 func (a *Addr) Host() string {
 	return a.Hostname() + ":" + strconv.Itoa(int(a.Port()))
 }
 
+// String presents [Addr] as a string "<scheme>://<hostname>:<port>".
 func (a *Addr) String() string {
 	return a.Scheme() + "://" + a.Host()
 }
