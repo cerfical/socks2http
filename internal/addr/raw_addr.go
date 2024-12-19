@@ -11,7 +11,7 @@ type rawAddr struct {
 	port     string
 }
 
-var rgx = regexp.MustCompile(`\A(((?<SCHEME>[^:]+)://(?<HOSTNAME>[^:]+)(:(?<PORT>[^:]+))?)|((?<STR1>[^:]+)(:(?<STR2>[^:]+))?))\z`)
+var rgx = regexp.MustCompile(`\A((?<SCHEME>[^:]+)://(?<HOSTNAME>[^:]+)(:(?<PORT>[^:]+))?|(?<STR1>[^:]+)(:(?<STR2>[^:]+))?)\z`)
 
 func parseRaw(addr string) (*rawAddr, bool) {
 	matches := rgx.FindStringSubmatch(addr)
