@@ -1,10 +1,32 @@
 package addr
 
 import (
+	"cmp"
 	"errors"
-	"fmt"
+	"regexp"
 	"strconv"
+	"strings"
 )
+
+const (
+	// Direct is a pseudo-scheme that requests a direct connection to a server without an intermediate proxy.
+	Direct = "direct"
+
+	// SOCKS4 requests the SOCKS4 protocol.
+	SOCKS4 = "socks4"
+
+	// HTTP requests the HTTP protocol.
+	HTTP = "http"
+)
+
+// ParsePort converts a string to a valid port number.
+func ParsePort(port string) (uint16, error) {
+	portNum, err := strconv.ParseUint(port, 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return uint16(portNum), nil
+}
 
 // Addr represents a reduced set of [net/url.URL] network addresses.
 type Addr struct {
@@ -20,78 +42,80 @@ type Addr struct {
 
 // Host presents [Addr] as a "<hostname>:<port>" string.
 func (a *Addr) Host() string {
-	return a.Hostname + ":" + a.portString()
+	return a.Hostname + ":" + strconv.Itoa(int(a.Port))
 }
 
-// String presents [Addr] as a "<scheme>://<hostname>:<port>" string.
-func (a *Addr) String() string {
-	return a.Scheme + "://" + a.Host()
-}
-
-// UnmarshalText creates a new [Addr] from a compact text representation.
-// The syntax is similar to the one of [net/url.URL], but is greatly simplified for ease of use.
+// UnmarshalText creates a new [Addr] from a text representation.
+// The syntax is similar to [net/url.URL], but simplified for ease of use.
 //
 // For example, the address http://localhost:8080 can be represented as:
 //   - http://localhost:8080
-//   - http:localhost
-//   - http:8080
-//   - localhost:8080
-//   - http
-//   - localhost
-//   - 8080
+//   - http://localhost
+//   - http::8080
+//   - //localhost:8080
+//   - //localhost
+//   - :8080
+//   - http:
 //
 // By default, assumes HTTP protocol scheme and localhost for the hostname.
-// If no port was specified, it is inferred from the scheme.
+// If no port is specified, it is inferred from the scheme.
 func (a *Addr) UnmarshalText(text []byte) error {
-	raddr, ok := parseRaw(string(text))
-	if !ok {
+	matches := rgx.FindStringSubmatch(string(text))
+	if matches == nil {
 		return errors.New("malformed network address")
 	}
 
-	// make sure the scheme has a reasonable non-empty value
-	if raddr.scheme == "" {
-		raddr.scheme = HTTP
-	} else if !isValidScheme(raddr.scheme) {
-		return fmt.Errorf("unsupported protocol scheme %q", raddr.scheme)
-	}
+	scheme := strings.ToLower(string(matches[rgx.SubexpIndex("SCHEME")]))
+	hostname := strings.ToLower(string(matches[rgx.SubexpIndex("HOSTNAME")]))
+	port := string(matches[rgx.SubexpIndex("PORT")])
 
-	if raddr.hostname == "" {
-		raddr.hostname = "localhost"
-	}
+	// provide some reasonable non-empty default values
+	scheme = cmp.Or(scheme, HTTP)
+	hostname = cmp.Or(hostname, "localhost")
 
-	portNum := defaultProxyPort(raddr.scheme)
-	if raddr.port != "" {
-		p, err := ParsePort(raddr.port)
+	portNum := defaultProxyPort(scheme)
+	if port != "" {
+		p, err := ParsePort(port)
 		if err != nil {
 			return err
 		}
 		portNum = p
 	}
 
-	a.Scheme = raddr.scheme
-	a.Hostname = raddr.hostname
+	a.Scheme = scheme
+	a.Hostname = hostname
 	a.Port = portNum
 	return nil
 }
 
-// MarshalText converts [Addr] into a compact text representation.
-func (a *Addr) MarshalText() ([]byte, error) {
-	var str string
-	switch s, hn := a.Scheme, a.Hostname; {
-	case s != "" && hn != "":
-		str = s + "://" + hn
-	case s != "":
-		str = s
-	default:
-		str = hn
-	}
+var rgx = regexp.MustCompile(`\A(((?<SCHEME>[^:]+):)?(//(?<HOSTNAME>[^:/]+))?(:(?<PORT>[^:]+))?)\z`)
 
-	if str != "" {
-		str += ":"
+func defaultProxyPort(scheme string) uint16 {
+	switch scheme {
+	case SOCKS4:
+		return 1080
+	case HTTP:
+		return 8080
+	default:
+		return 0
 	}
-	return []byte(str + a.portString()), nil
 }
 
-func (a *Addr) portString() string {
-	return strconv.Itoa(int(a.Port))
+// MarshalText converts [Addr] into a compact text representation.
+func (a *Addr) MarshalText() ([]byte, error) {
+	return []byte(a.String()), nil
+}
+
+// String presents [Addr] as a "<scheme>://<hostname>:<port>" string.
+func (a *Addr) String() string {
+	s := a.Scheme
+	if s != "" {
+		s = s + ":"
+	}
+
+	h := a.Host()
+	if strings.HasPrefix(h, ":") {
+		return s + h
+	}
+	return s + "//" + h
 }
