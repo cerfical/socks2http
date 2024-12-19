@@ -41,7 +41,11 @@ func resolveAddr(host *addr.Addr) (tcp4Addr, error) {
 	if err != nil {
 		return tcp4Addr{}, err
 	}
-	return tcp4Addr{Port: host.Port, IP: [4]byte(ip.IP)}, nil
+	port, err := addr.ParsePort(host.Port)
+	if err != nil {
+		return tcp4Addr{}, fmt.Errorf("not a TCP port number %q: %w", host.Port, err)
+	}
+	return tcp4Addr{Port: port, IP: [4]byte(ip.IP)}, nil
 }
 
 func sendConnectRequest(socksConn net.Conn, destAddr tcp4Addr) error {

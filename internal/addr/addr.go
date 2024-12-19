@@ -37,12 +37,12 @@ type Addr struct {
 	Hostname string
 
 	// Port represents the port [Addr] component.
-	Port uint16
+	Port string
 }
 
 // Host presents [Addr] as a "<hostname>:<port>" string.
 func (a *Addr) Host() string {
-	return a.Hostname + ":" + strconv.Itoa(int(a.Port))
+	return a.Hostname + ":" + a.Port
 }
 
 // UnmarshalText creates a new [Addr] from a text representation.
@@ -60,44 +60,45 @@ func (a *Addr) Host() string {
 // By default, assumes HTTP protocol scheme and localhost for the hostname.
 // If no port is specified, it is inferred from the scheme.
 func (a *Addr) UnmarshalText(text []byte) error {
-	matches := rgx.FindStringSubmatch(string(text))
+	matches := rgx.FindSubmatch(text)
 	if matches == nil {
 		return errors.New("malformed network address")
 	}
 
-	scheme := strings.ToLower(string(matches[rgx.SubexpIndex("SCHEME")]))
-	hostname := strings.ToLower(string(matches[rgx.SubexpIndex("HOSTNAME")]))
+	scheme := string(matches[rgx.SubexpIndex("SCHEME")])
+	hostname := string(matches[rgx.SubexpIndex("HOSTNAME")])
 	port := string(matches[rgx.SubexpIndex("PORT")])
 
 	// provide some reasonable non-empty default values
-	scheme = cmp.Or(scheme, HTTP)
-	hostname = cmp.Or(hostname, "localhost")
-
-	portNum := defaultProxyPort(scheme)
-	if port != "" {
-		p, err := ParsePort(port)
-		if err != nil {
-			return err
-		}
-		portNum = p
-	}
+	scheme = strings.ToLower(cmp.Or(scheme, HTTP))
+	hostname = strings.ToLower(cmp.Or(hostname, defaultHostnameForScheme(scheme)))
+	port = strings.ToLower(cmp.Or(port, defaultProxyPortForScheme(scheme)))
 
 	a.Scheme = scheme
 	a.Hostname = hostname
-	a.Port = portNum
+	a.Port = port
 	return nil
 }
 
 var rgx = regexp.MustCompile(`\A(((?<SCHEME>[^:]+):)?(//(?<HOSTNAME>[^:/]+))?(:(?<PORT>[^:]+))?)\z`)
 
-func defaultProxyPort(scheme string) uint16 {
+func defaultHostnameForScheme(scheme string) string {
+	switch scheme {
+	case Direct:
+		return ""
+	default:
+		return "localhost"
+	}
+}
+
+func defaultProxyPortForScheme(scheme string) string {
 	switch scheme {
 	case SOCKS4:
-		return 1080
+		return "1080"
 	case HTTP:
-		return 8080
+		return "8080"
 	default:
-		return 0
+		return ""
 	}
 }
 
@@ -108,14 +109,15 @@ func (a *Addr) MarshalText() ([]byte, error) {
 
 // String presents [Addr] as a "<scheme>://<hostname>:<port>" string.
 func (a *Addr) String() string {
-	s := a.Scheme
-	if s != "" {
-		s = s + ":"
+	str := a.Scheme
+	if str != "" {
+		str = str + ":"
 	}
-
-	h := a.Host()
-	if strings.HasPrefix(h, ":") {
-		return s + h
+	if a.Hostname != "" {
+		str = str + "//" + a.Hostname
 	}
-	return s + "//" + h
+	if a.Port != "" {
+		str = str + ":" + a.Port
+	}
+	return str
 }

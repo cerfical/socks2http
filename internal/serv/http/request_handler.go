@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/cerfical/socks2http/internal/addr"
 	"github.com/cerfical/socks2http/internal/log"
@@ -67,19 +68,13 @@ func (h *requestHandler) sendRequest(servConn net.Conn) error {
 }
 
 func addrFromURL(url *url.URL) (*addr.Addr, error) {
-	var port uint16
-	if p := url.Port(); p != "" {
-		p, err := addr.ParsePort(p)
-		if err != nil {
-			return nil, err
-		}
-		port = p
-	} else {
+	port := url.Port()
+	if port == "" {
 		p, err := net.LookupPort("tcp", url.Scheme)
 		if err != nil {
 			return nil, err
 		}
-		port = uint16(p)
+		port = strconv.Itoa(p)
 	}
 	return &addr.Addr{Scheme: url.Scheme, Hostname: url.Hostname(), Port: port}, nil
 }
