@@ -8,28 +8,33 @@ import (
 	"github.com/cerfical/socks2http/internal/log"
 )
 
+// Args represents a set of accepted command line options.
 type Args struct {
-	ServerAddr *addr.Addr
-	ProxyAddr  *addr.Addr
-	LogLevel   log.Level
-	Timeout    time.Duration
+	// ServerAddr is a listen address of the proxy server.
+	ServerAddr addr.Addr
+
+	// ProxyAddr is an address for the proxy client to connect to.
+	ProxyAddr addr.Addr
+
+	// LogLevel specifies global logging level.
+	LogLevel log.Level
+
+	// Timeout specifies a timeout for IO operations.
+	Timeout time.Duration
 }
 
-func Parse() (*Args, error) {
-	var servAddr, proxAddr addr.Addr
-	flag.TextVar(&servAddr, "serv", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: 8080}, "listen address for the server")
-	flag.TextVar(&proxAddr, "prox", &addr.Addr{Scheme: "direct"}, "a proxy server to use")
-	timeout := flag.Duration("timeout", 0, "time to wait for a connection")
+// Parse parses [Args] from a list of string arguments, exiting on failure.
+func Parse(args []string) *Args {
+	a := &Args{}
 
-	var logLevel log.Level
-	flag.TextVar(&logLevel, "log", log.Info, "severity `level` of logging messages")
+	flags := flag.NewFlagSet("options", flag.ExitOnError)
+	flags.TextVar(&a.ServerAddr, "serv", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: 8080}, "listen `address` for the server")
+	flags.TextVar(&a.ProxyAddr, "prox", &addr.Addr{Scheme: "direct"}, "`address` of an additional intermediate proxy")
+	flags.TextVar(&a.LogLevel, "log", log.Info, "severity `level` of logging messages")
+	flags.DurationVar(&a.Timeout, "timeout", 0, "connection timeout duration")
 
-	flag.Parse()
+	// ignore errors, due to flag.ExitOnError
+	_ = flags.Parse(args)
 
-	return &Args{
-		ServerAddr: &servAddr,
-		ProxyAddr:  &proxAddr,
-		LogLevel:   logLevel,
-		Timeout:    *timeout,
-	}, nil
+	return a
 }

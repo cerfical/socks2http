@@ -1,20 +1,18 @@
 package main
 
 import (
+	"os"
+
 	"github.com/cerfical/socks2http/internal/args"
 	"github.com/cerfical/socks2http/internal/log"
 	"github.com/cerfical/socks2http/internal/serv"
 )
 
 func main() {
-	logger := log.New()
-	args, err := args.Parse()
-	if err != nil {
-		logger.Fatalf("command line: %v", err)
-	}
-	logger = logger.WithLevel(args.LogLevel)
+	args := args.Parse(os.Args[1:])
 
-	server, err := serv.New(args.ServerAddr, args.ProxyAddr, args.Timeout, logger)
+	logger := log.New().WithLevel(args.LogLevel)
+	server, err := serv.New(&args.ServerAddr, &args.ProxyAddr, args.Timeout, logger)
 	if err != nil {
 		logger.Fatalf("server init: %v", err)
 	}
