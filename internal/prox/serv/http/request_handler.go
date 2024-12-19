@@ -9,13 +9,13 @@ import (
 
 	"github.com/cerfical/socks2http/internal/addr"
 	"github.com/cerfical/socks2http/internal/log"
-	"github.com/cerfical/socks2http/internal/prox"
+	"github.com/cerfical/socks2http/internal/prox/cli"
 )
 
 type requestHandler struct {
 	clientConn net.Conn
 	request    *http.Request
-	proxy      *prox.Proxy
+	proxy      *cli.Proxy
 	logger     *log.Logger
 }
 

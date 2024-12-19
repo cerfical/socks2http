@@ -6,12 +6,12 @@ import (
 
 	"github.com/cerfical/socks2http/internal/addr"
 	"github.com/cerfical/socks2http/internal/log"
-	"github.com/cerfical/socks2http/internal/prox"
-	"github.com/cerfical/socks2http/internal/serv/http"
+	"github.com/cerfical/socks2http/internal/prox/cli"
+	"github.com/cerfical/socks2http/internal/prox/serv/http"
 )
 
 func New(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration, logger *log.Logger) (*Server, error) {
-	proxy, err := prox.New(proxyAddr, timeout)
+	proxy, err := cli.New(proxyAddr, timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func New(servAddr *addr.Addr, proxyAddr *addr.Addr, timeout time.Duration, logge
 
 type Server struct {
 	addr   *addr.Addr
-	proxy  *prox.Proxy
+	proxy  *cli.Proxy
 	logger *log.Logger
 	run    func() error
 }

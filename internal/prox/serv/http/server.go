@@ -5,10 +5,10 @@ import (
 
 	"github.com/cerfical/socks2http/internal/addr"
 	"github.com/cerfical/socks2http/internal/log"
-	"github.com/cerfical/socks2http/internal/prox"
+	"github.com/cerfical/socks2http/internal/prox/cli"
 )
 
-func Run(servAddr *addr.Addr, proxy *prox.Proxy, logger *log.Logger) error {
+func Run(servAddr *addr.Addr, proxy *cli.Proxy, logger *log.Logger) error {
 	s := server{proxy, logger}
 	if err := http.ListenAndServe(servAddr.Host(), &s); err != nil {
 		return err
@@ -17,7 +17,7 @@ func Run(servAddr *addr.Addr, proxy *prox.Proxy, logger *log.Logger) error {
 }
 
 type server struct {
-	proxy  *prox.Proxy
+	proxy  *cli.Proxy
 	logger *log.Logger
 }
 

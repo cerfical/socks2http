@@ -1,4 +1,4 @@
-package prox
+package cli
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/cerfical/socks2http/internal/addr"
-	"github.com/cerfical/socks2http/internal/prox/http"
-	"github.com/cerfical/socks2http/internal/prox/socks"
+	"github.com/cerfical/socks2http/internal/prox/cli/http"
+	"github.com/cerfical/socks2http/internal/prox/cli/socks"
 )
 
 func New(proxyAddr *addr.Addr, timeout time.Duration) (*Proxy, error) {
