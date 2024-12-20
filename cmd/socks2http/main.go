@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	args := args.Parse(os.Args[1:])
+	args := args.Parse(os.Args)
 
 	logger := log.New().WithLevel(args.LogLevel)
 	server, err := serv.New(&args.ServerAddr, &args.ProxyAddr, args.Timeout, logger)
