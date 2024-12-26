@@ -30,7 +30,7 @@ func New(proxyAddr *addr.Addr, timeout time.Duration) (*ProxyClient, error) {
 	case addr.HTTP:
 		proxy.connect = http.Connect
 	default:
-		return nil, clientError(fmt.Errorf("unsupported protocol scheme %q", proxy.addr.Scheme))
+		return nil, fmt.Errorf("unsupported client protocol scheme %q", proxy.addr.Scheme)
 	}
 	return proxy, nil
 }
@@ -44,22 +44,26 @@ func (p *ProxyClient) Open(destAddr *addr.Addr) (net.Conn, error) {
 	// otherwise, establish a connection with an intermediate proxy
 	proxyConn, err := net.DialTimeout("tcp", p.addr.Host(), 0)
 	if err != nil {
-		return nil, clientError(fmt.Errorf("connecting to %v: %w", p.addr, err))
+		return nil, fmt.Errorf("connecting to %v: %w", p.addr, err)
 	}
 
 	// and send a command for the proxy to connect to the destination server
 	if err := p.connect(proxyConn, destAddr); err != nil {
 		// ignore the Close() errors
 		proxyConn.Close()
-		return nil, clientError(fmt.Errorf("connecting to %v: %w", p.addr, err))
+		return nil, fmt.Errorf("connecting to %v: %w", destAddr, err)
 	}
 	return proxyConn, nil
 }
 
-func clientError(err error) error {
-	return fmt.Errorf("proxy client: %w", err)
-}
-
 func (p *ProxyClient) Addr() *addr.Addr {
 	return p.addr
+}
+
+func (p *ProxyClient) IsDirect() bool {
+	return p.Proto() == addr.Direct
+}
+
+func (p *ProxyClient) Proto() string {
+	return p.addr.Scheme
 }

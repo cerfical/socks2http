@@ -91,7 +91,7 @@ func addrFromURL(url *url.URL) (*addr.Addr, error) {
 
 func (h *requestHandler) forwardRequest(req *http.Request, servConn net.Conn) error {
 	// if the connection goes through an HTTP proxy
-	if h.prox.Addr().Scheme == addr.HTTP {
+	if h.prox.Proto() == addr.HTTP {
 		// write the request as expected by the proxy
 		if err := req.WriteProxy(servConn); err != nil {
 			return err

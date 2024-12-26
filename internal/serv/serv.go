@@ -44,10 +44,10 @@ type ProxyServer struct {
 
 func (s *ProxyServer) Run() error {
 	s.log.Infof("starting a server on %v", s.addr)
-	if proxyAddr := s.prox.Addr(); proxyAddr.Scheme != addr.Direct {
-		s.log.Infof("using a proxy %v", proxyAddr)
-	} else {
+	if s.prox.IsDirect() {
 		s.log.Infof("not using a proxy")
+	} else {
+		s.log.Infof("using a proxy %v", s.prox.Addr())
 	}
 
 	listener, err := net.Listen("tcp", s.addr.Host())
@@ -74,8 +74,4 @@ func (s *ProxyServer) Run() error {
 			s.handleRequest(cliConn, s.prox, log)
 		}()
 	}
-}
-
-func (s *ProxyServer) Addr() *addr.Addr {
-	return s.addr
 }
