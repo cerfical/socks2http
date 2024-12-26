@@ -61,7 +61,7 @@ func (l *Logger) WithAttrs(attrs ...string) *Logger {
 
 	ctxLogger := l
 	for i := 0; i < len(attrs); i += 2 {
-		ctxLogger = l.WithAttr(attrs[i], attrs[i+1])
+		ctxLogger = ctxLogger.WithAttr(attrs[i], attrs[i+1])
 	}
 	return ctxLogger
 }
