@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/cerfical/socks2http/internal/addr"
+	"github.com/cerfical/socks2http/internal/cli"
 	"github.com/cerfical/socks2http/internal/log"
-	"github.com/cerfical/socks2http/internal/prox/cli"
-	"github.com/cerfical/socks2http/internal/prox/serv/http"
+	"github.com/cerfical/socks2http/internal/serv/http"
 )
 
 func New(servAddr *addr.Addr, proxAddr *addr.Addr, timeout time.Duration, log *log.Logger) (*ProxyServer, error) {

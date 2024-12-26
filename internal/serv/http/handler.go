@@ -10,8 +10,8 @@ import (
 	"strconv"
 
 	"github.com/cerfical/socks2http/internal/addr"
+	"github.com/cerfical/socks2http/internal/cli"
 	"github.com/cerfical/socks2http/internal/log"
-	"github.com/cerfical/socks2http/internal/prox/cli"
 )
 
 func NewHandler(prox *cli.ProxyClient, log *log.Logger) *Handler {

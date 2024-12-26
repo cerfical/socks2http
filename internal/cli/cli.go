@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/cerfical/socks2http/internal/addr"
-	"github.com/cerfical/socks2http/internal/prox/cli/http"
-	"github.com/cerfical/socks2http/internal/prox/cli/socks"
+	"github.com/cerfical/socks2http/internal/cli/http"
+	"github.com/cerfical/socks2http/internal/cli/socks"
 )
 
 type ProxyClient struct {
