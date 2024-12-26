@@ -3,6 +3,7 @@ package serv
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/cerfical/socks2http/internal/addr"
@@ -11,7 +12,7 @@ import (
 	"github.com/cerfical/socks2http/internal/serv/http"
 )
 
-func New(servAddr *addr.Addr, proxAddr *addr.Addr, timeout time.Duration, log *log.Logger) (*ProxyServer, error) {
+func New(servAddr, proxAddr *addr.Addr, timeout time.Duration, log *log.Logger) (*ProxyServer, error) {
 	prox, err := cli.New(proxAddr, timeout)
 	if err != nil {
 		return nil, err
@@ -23,25 +24,22 @@ func New(servAddr *addr.Addr, proxAddr *addr.Addr, timeout time.Duration, log *l
 		log:  log,
 	}
 
-	switch server.addr.Scheme {
+	switch servAddr.Scheme {
 	case addr.HTTP:
-		server.handler = http.NewHandler(prox, log)
+		server.handleRequest = http.HandleRequest
 	default:
-		return nil, fmt.Errorf("unsupported server protocol scheme %q", server.addr.Scheme)
+		return nil, fmt.Errorf("unsupported server protocol scheme %q", servAddr.Scheme)
 	}
 
 	return server, nil
 }
 
 type ProxyServer struct {
-	addr    *addr.Addr
-	prox    *cli.ProxyClient
-	log     *log.Logger
-	handler RequestHandler
-}
-
-type RequestHandler interface {
-	Handle(cliConn net.Conn)
+	addr          *addr.Addr
+	prox          *cli.ProxyClient
+	log           *log.Logger
+	handleRequest func(net.Conn, *cli.ProxyClient, *log.Logger)
+	numReq        int
 }
 
 func (s *ProxyServer) Run() error {
@@ -58,19 +56,22 @@ func (s *ProxyServer) Run() error {
 	}
 
 	for {
+		log := s.log.WithAttr("id", strconv.Itoa(s.numReq))
+		s.numReq++
+
 		cliConn, err := listener.Accept()
 		if err != nil {
-			s.log.Errorf("opening a client connection: %v", err)
+			log.Errorf("opening a client connection: %v", err)
 			continue
 		}
 
 		go func() {
 			defer func() {
 				if err := cliConn.Close(); err != nil {
-					s.log.Errorf("closing a client connection: %v", err)
+					log.Errorf("closing a client connection: %v", err)
 				}
 			}()
-			s.handler.Handle(cliConn)
+			s.handleRequest(cliConn, s.prox, log)
 		}()
 	}
 }
