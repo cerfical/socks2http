@@ -5,10 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"unsafe"
+)
+
+const (
+	AccessGranted = 90
+	AccessDenied  = 91
+	NoIdentd      = 92
+	AuthFailed    = 93
 )
 
 func ReadReply(r io.Reader) error {
-	rep := reply{}
+	rep := Reply{}
 	if err := binary.Read(r, binary.BigEndian, &rep); err != nil {
 		return err
 	}
@@ -22,33 +30,38 @@ func ReadReply(r io.Reader) error {
 	return nil
 }
 
-type reply struct {
+func checkReplyCode(code byte) error {
+	msg := ""
+	switch code {
+	case AccessGranted:
+		return nil
+	case AccessDenied:
+		msg = "access denied"
+	case NoIdentd:
+		msg = "failed to connect to identd service"
+	case AuthFailed:
+		msg = "identd authentication failed"
+	default:
+		msg = fmt.Sprintf("unexpected reply code %v", code)
+	}
+	return errors.New(msg)
+}
+
+type Reply struct {
 	Version byte
 	Code    byte
 	_       uint16
 	_       [4]byte
 }
 
-func checkReplyCode(code byte) error {
-	const (
-		accessGranted   = 90
-		accessRejected  = 91
-		noIdentdService = 92
-		authFailed      = 93
-	)
-
-	msg := ""
-	switch code {
-	case accessGranted:
-		return nil
-	case accessRejected:
-		msg = "access rejected"
-	case noIdentdService:
-		msg = "failed to connect to identd service"
-	case authFailed:
-		msg = "identd authentication failed"
-	default:
-		msg = fmt.Sprintf("unexpected reply code %v", code)
+func (r *Reply) Write(w io.Writer) error {
+	bytes := make([]byte, unsafe.Sizeof(*r))
+	if _, err := binary.Encode(bytes, binary.BigEndian, r); err != nil {
+		return err
 	}
-	return errors.New(msg)
+
+	if _, err := w.Write(bytes); err != nil {
+		return err
+	}
+	return nil
 }

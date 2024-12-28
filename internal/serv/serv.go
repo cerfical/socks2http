@@ -9,7 +9,6 @@ import (
 	"github.com/cerfical/socks2http/internal/addr"
 	"github.com/cerfical/socks2http/internal/cli"
 	"github.com/cerfical/socks2http/internal/log"
-	"github.com/cerfical/socks2http/internal/serv/http"
 )
 
 func New(servAddr, proxAddr *addr.Addr, timeout time.Duration, log *log.Logger) (*ProxyServer, error) {
@@ -26,7 +25,9 @@ func New(servAddr, proxAddr *addr.Addr, timeout time.Duration, log *log.Logger) 
 
 	switch servAddr.Scheme {
 	case addr.HTTP:
-		server.handleRequest = http.HandleRequest
+		server.handleRequest = handleHTTPRequest
+	case addr.SOCKS4:
+		server.handleRequest = handleSOCKS4Request
 	default:
 		return nil, fmt.Errorf("unsupported server protocol scheme %q", servAddr.Scheme)
 	}

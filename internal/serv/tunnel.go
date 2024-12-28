@@ -1,23 +1,16 @@
-package http
+package serv
 
 import (
 	"errors"
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"os"
 	"time"
 )
 
 func tunnel(clientConn, servConn net.Conn) <-chan error {
 	errChan := make(chan error)
-
-	okResp := http.Response{StatusCode: http.StatusOK, ProtoMajor: 1, ProtoMinor: 1}
-	if err := okResp.Write(clientConn); err != nil {
-		errChan <- err
-		return errChan
-	}
 
 	go func() {
 		defer close(errChan)

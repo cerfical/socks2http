@@ -13,12 +13,12 @@ func Connect(conn net.Conn, dest *addr.Addr) error {
 		return fmt.Errorf("resolve address %v: %w", dest, err)
 	}
 
-	req := Request{
+	req := Request{Header{
 		Version:  V4,
 		Command:  ConnectCommand,
 		DestIP:   ipv4,
 		DestPort: dest.Port,
-	}
+	}, ""}
 
 	if err := req.Write(conn); err != nil {
 		return err

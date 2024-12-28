@@ -1,4 +1,4 @@
-package http
+package serv
 
 import (
 	"bufio"
@@ -11,9 +11,10 @@ import (
 	"github.com/cerfical/socks2http/internal/addr"
 	"github.com/cerfical/socks2http/internal/cli"
 	"github.com/cerfical/socks2http/internal/log"
+	"github.com/cerfical/socks2http/internal/socks"
 )
 
-func HandleRequest(cliConn net.Conn, prox *cli.ProxyClient, log *log.Logger) {
+func handleHTTPRequest(cliConn net.Conn, prox *cli.ProxyClient, log *log.Logger) {
 	handler := requestHandler{cliConn, prox, log}
 	handler.run()
 }
@@ -62,6 +63,12 @@ func (h *requestHandler) run() {
 	}()
 
 	if req.Method == http.MethodConnect {
+		okResp := http.Response{StatusCode: http.StatusOK, ProtoMajor: 1, ProtoMinor: 1}
+		if err := okResp.Write(h.cliConn); err != nil {
+			h.log.Errorf("%v", err)
+			return
+		}
+
 		for err := range tunnel(h.cliConn, servConn) {
 			h.log.Errorf("%v", err)
 		}
@@ -110,4 +117,35 @@ func (h *requestHandler) forwardRequest(req *http.Request, servConn net.Conn) er
 
 	_, err := io.Copy(h.cliConn, servConn)
 	return err
+}
+
+func handleSOCKS4Request(cliConn net.Conn, prox *cli.ProxyClient, log *log.Logger) {
+	req, err := socks.ReadRequest(cliConn)
+	if err != nil {
+		log.Errorf("%v", err)
+		return
+	}
+
+	addr := addr.Addr{Hostname: req.DestIP.String(), Port: req.DestPort}
+	servConn, err := prox.Open(&addr)
+	if err != nil {
+		log.Errorf("open a server connection: %v", err)
+		return
+	}
+
+	defer func() {
+		if err := servConn.Close(); err != nil {
+			log.Errorf("close a server connection: %v", err)
+		}
+	}()
+
+	okRep := socks.Reply{Code: socks.AccessGranted}
+	if err := okRep.Write(cliConn); err != nil {
+		log.Errorf("%v", err)
+		return
+	}
+
+	for err := range tunnel(cliConn, servConn) {
+		log.Errorf("%v", err)
+	}
 }

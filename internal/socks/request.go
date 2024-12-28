@@ -1,8 +1,11 @@
 package socks
 
 import (
+	"bufio"
 	"encoding/binary"
+	"fmt"
 	"io"
+	"unsafe"
 
 	"github.com/cerfical/socks2http/internal/addr"
 )
@@ -12,23 +15,61 @@ const (
 	ConnectCommand = 1
 )
 
+func ReadRequest(r io.Reader) (*Request, error) {
+	req := Request{}
+	if err := binary.Read(r, binary.BigEndian, &req.Header); err != nil {
+		return nil, err
+	}
+
+	if req.Version != V4 {
+		return nil, fmt.Errorf("invalid version number %v", req.Version)
+	}
+
+	if req.Command != ConnectCommand {
+		return nil, fmt.Errorf("invalid command code %v", req.Command)
+	}
+
+	br, ok := r.(io.ByteReader)
+	if !ok {
+		br = bufio.NewReader(r)
+	}
+
+	// read a null-terminated username string
+	user := []byte{}
+	for {
+		b, err := br.ReadByte()
+		if err != nil {
+			return nil, err
+		}
+
+		if b == 0 {
+			break
+		}
+		user = append(user, b)
+	}
+	req.User = string(user)
+
+	return &req, nil
+}
+
 type Request struct {
+	Header
+	User string
+}
+
+type Header struct {
 	Version  byte
 	Command  byte
 	DestPort uint16
 	DestIP   addr.IPv4Addr
-	User     string
 }
 
 func (r *Request) Write(w io.Writer) error {
-	// preallocate buffer large enough to hold the serialized request
-	bytes := make([]byte, 0, 2+2+4+len(r.User)+1)
-
-	bytes = append(bytes, r.Version, r.Command)              // 2 bytes
-	bytes = binary.BigEndian.AppendUint16(bytes, r.DestPort) // 2 bytes
-	bytes = append(bytes, r.DestIP[:]...)                    // 4 bytes
-	bytes = append(bytes, []byte(r.User)...)                 // len(User) bytes
-	bytes = append(bytes, 0)                                 // 1 byte
+	bytes := make([]byte, unsafe.Sizeof(r.Header))
+	if _, err := binary.Encode(bytes, binary.BigEndian, &r.Header); err != nil {
+		return err
+	}
+	bytes = append(bytes, append([]byte(r.User), 0)...)
 
 	if _, err := w.Write(bytes); err != nil {
 		return err
