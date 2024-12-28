@@ -12,7 +12,7 @@ import (
 
 const (
 	V4             = 4
-	ConnectCommand = 1
+	RequestConnect = 1
 )
 
 func ReadRequest(r io.Reader) (*Request, error) {
@@ -25,7 +25,7 @@ func ReadRequest(r io.Reader) (*Request, error) {
 		return nil, fmt.Errorf("invalid version number %v", req.Version)
 	}
 
-	if req.Command != ConnectCommand {
+	if req.Command != RequestConnect {
 		return nil, fmt.Errorf("invalid command code %v", req.Command)
 	}
 

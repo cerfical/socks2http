@@ -129,6 +129,10 @@ func handleSOCKS4Request(cliConn net.Conn, prox *cli.ProxyClient, log *log.Logge
 	addr := addr.Addr{Hostname: req.DestIP.String(), Port: req.DestPort}
 	servConn, err := prox.Open(&addr)
 	if err != nil {
+		errRep := socks.Reply{Code: socks.RequestRejectedOrFailed}
+		if err := errRep.Write(cliConn); err != nil {
+			log.Errorf("%v", err)
+		}
 		log.Errorf("open a server connection: %v", err)
 		return
 	}
@@ -139,7 +143,7 @@ func handleSOCKS4Request(cliConn net.Conn, prox *cli.ProxyClient, log *log.Logge
 		}
 	}()
 
-	okRep := socks.Reply{Code: socks.AccessGranted}
+	okRep := socks.Reply{Code: socks.RequestGranted}
 	if err := okRep.Write(cliConn); err != nil {
 		log.Errorf("%v", err)
 		return

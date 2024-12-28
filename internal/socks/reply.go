@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"unsafe"
 )
 
 const (
-	AccessGranted = 90
-	AccessDenied  = 91
-	NoIdentd      = 92
-	AuthFailed    = 93
+	RequestGranted            = 90
+	RequestRejectedOrFailed   = 91
+	RequestRejectedNoAuth     = 92
+	RequestRejectedAuthFailed = 93
 )
 
 func ReadReply(r io.Reader) error {
@@ -33,14 +32,14 @@ func ReadReply(r io.Reader) error {
 func checkReplyCode(code byte) error {
 	msg := ""
 	switch code {
-	case AccessGranted:
+	case RequestGranted:
 		return nil
-	case AccessDenied:
-		msg = "access denied"
-	case NoIdentd:
-		msg = "failed to connect to identd service"
-	case AuthFailed:
-		msg = "identd authentication failed"
+	case RequestRejectedOrFailed:
+		msg = "request rejected or failed"
+	case RequestRejectedNoAuth:
+		msg = "request rejected: failed to connect to authentication service"
+	case RequestRejectedAuthFailed:
+		msg = "request rejected: authentication failure"
 	default:
 		msg = fmt.Sprintf("unexpected reply code %v", code)
 	}
@@ -55,12 +54,7 @@ type Reply struct {
 }
 
 func (r *Reply) Write(w io.Writer) error {
-	bytes := make([]byte, unsafe.Sizeof(*r))
-	if _, err := binary.Encode(bytes, binary.BigEndian, r); err != nil {
-		return err
-	}
-
-	if _, err := w.Write(bytes); err != nil {
+	if err := binary.Write(w, binary.BigEndian, r); err != nil {
 		return err
 	}
 	return nil

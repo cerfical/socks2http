@@ -15,7 +15,7 @@ func Connect(conn net.Conn, dest *addr.Addr) error {
 
 	req := Request{Header{
 		Version:  V4,
-		Command:  ConnectCommand,
+		Command:  RequestConnect,
 		DestIP:   ipv4,
 		DestPort: dest.Port,
 	}, ""}
