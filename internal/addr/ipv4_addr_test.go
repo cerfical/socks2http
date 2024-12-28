@@ -29,3 +29,10 @@ func TestLookupIPv4(t *testing.T) {
 		})
 	}
 }
+
+func TestIPv4Addr_String(t *testing.T) {
+	want := "1.2.3.4"
+	input := addr.IPv4Addr{1, 2, 3, 4}
+
+	assert.Equal(t, want, input.String())
+}

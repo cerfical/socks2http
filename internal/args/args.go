@@ -28,7 +28,7 @@ func Parse(args []string) *Args {
 	a := &Args{}
 
 	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
-	flags.TextVar(&a.ServerAddr, "serv", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: "8080"}, "listen `address` for the server")
+	flags.TextVar(&a.ServerAddr, "serv", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: 8080}, "listen `address` for the server")
 	flags.TextVar(&a.ProxyAddr, "prox", &addr.Addr{Scheme: "direct"}, "`address` of an additional intermediate proxy")
 	flags.TextVar(&a.LogLevel, "log", log.Info, "severity `level` of logging messages")
 	flags.DurationVar(&a.Timeout, "timeout", 0, "connection timeout duration")

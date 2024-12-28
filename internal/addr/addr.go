@@ -3,6 +3,8 @@ package addr
 import (
 	"cmp"
 	"errors"
+	"fmt"
+	"net"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,15 +21,6 @@ const (
 	HTTP = "http"
 )
 
-// ParsePort converts a string to a valid port number.
-func ParsePort(port string) (uint16, error) {
-	portNum, err := strconv.ParseUint(port, 10, 16)
-	if err != nil {
-		return 0, err
-	}
-	return uint16(portNum), nil
-}
-
 // Addr represents a reduced set of [net/url.URL] network addresses.
 type Addr struct {
 	// Scheme represents the scheme [Addr] component.
@@ -37,12 +30,16 @@ type Addr struct {
 	Hostname string
 
 	// Port represents the port [Addr] component.
-	Port string
+	Port uint16
 }
 
-// Host presents [Addr] as a "<hostname>:<port>" string.
+// Host presents [Addr] as a <hostname>:<port> string.
 func (a *Addr) Host() string {
-	return a.Hostname + ":" + a.Port
+	p := ""
+	if a.Port != 0 {
+		p = strconv.Itoa(int(a.Port))
+	}
+	return net.JoinHostPort(a.Hostname, p)
 }
 
 // UnmarshalText creates a new [Addr] from a text representation.
@@ -74,9 +71,19 @@ func (a *Addr) UnmarshalText(text []byte) error {
 	hostname = strings.ToLower(cmp.Or(hostname, defaultHostnameForScheme(scheme)))
 	port = strings.ToLower(cmp.Or(port, defaultProxyPortForScheme(scheme)))
 
+	if port != "" {
+		p, err := ParsePort(port)
+		if err != nil {
+			return fmt.Errorf("parse port number %v: %w", port, err)
+		}
+		a.Port = p
+	} else {
+		a.Port = 0
+	}
+
 	a.Scheme = scheme
 	a.Hostname = hostname
-	a.Port = port
+
 	return nil
 }
 
@@ -107,17 +114,21 @@ func (a *Addr) MarshalText() ([]byte, error) {
 	return []byte(a.String()), nil
 }
 
-// String presents [Addr] as a "<scheme>://<hostname>:<port>" string.
+// String presents [Addr] as a <scheme>://<hostname>:<port> string.
 func (a *Addr) String() string {
-	str := a.Scheme
-	if str != "" {
-		str = str + ":"
+	s := a.Scheme
+	if s != "" {
+		s = s + ":"
 	}
-	if a.Hostname != "" {
-		str = str + "//" + a.Hostname
+
+	switch {
+	case a.Hostname != "" && a.Port != 0:
+		return s + "//" + a.Host()
+	case a.Hostname != "":
+		return s + "//" + a.Hostname
+	case a.Port != 0:
+		return s + a.Host()
+	default:
+		return s
 	}
-	if a.Port != "" {
-		str = str + ":" + a.Port
-	}
-	return str
 }

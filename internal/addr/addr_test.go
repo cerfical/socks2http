@@ -7,38 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestParsePort(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  uint16
-		ok    bool
-	}{
-		{"min", "0", 0, true},
-		{"max", "65535", 65535, true},
-		{"no_empty", "", 0, false},
-		{"no_out_of_range", "65536", 0, false},
-		{"no_negative", "-1", 0, false},
-		{"no_float", "1.0", 0, false},
-		{"no_letters", "txt", 1, false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got, err := addr.ParsePort(test.input)
-			if test.ok {
-				if assert.NoErrorf(t, err, "") {
-					assert.Equalf(t, test.want, got, "")
-				}
-			} else {
-				assert.Errorf(t, err, "")
-			}
-		})
-	}
-}
-
 func TestAddr_UnmarshalText(t *testing.T) {
-	httpAddr := &addr.Addr{Scheme: addr.HTTP, Hostname: "localhost", Port: "8080"}
+	httpAddr := &addr.Addr{Scheme: addr.HTTP, Hostname: "localhost", Port: 8080}
 	tests := []struct {
 		name  string
 		input string
@@ -53,22 +23,22 @@ func TestAddr_UnmarshalText(t *testing.T) {
 		{"port", ":8080", httpAddr},
 		{"http_scheme", "http:", httpAddr},
 		{"upper_scheme", "HTTP:", httpAddr},
-		{"socks4_scheme", "socks4:", &addr.Addr{Scheme: addr.SOCKS4, Hostname: "localhost", Port: "1080"}},
+		{"socks4_scheme", "socks4:", &addr.Addr{Scheme: addr.SOCKS4, Hostname: "localhost", Port: 1080}},
 		{"direct_scheme", "direct:", &addr.Addr{Scheme: addr.Direct}},
-		{"max_port", ":65535", &addr.Addr{Scheme: addr.HTTP, Hostname: "localhost", Port: "65535"}},
-		{"min_port", ":0", &addr.Addr{Scheme: addr.HTTP, Hostname: "localhost", Port: "0"}},
-		{"out_of_range_port", ":65536", &addr.Addr{Scheme: addr.HTTP, Hostname: "localhost", Port: "65536"}},
+		{"max_port", ":65535", &addr.Addr{Scheme: addr.HTTP, Hostname: "localhost", Port: 65535}},
+		{"min_port", ":0", &addr.Addr{Scheme: addr.HTTP, Hostname: "localhost", Port: 0}},
+		{"no_out_of_range_port", ":65536", nil},
 		{"no_malformed", "http:localhost:0", nil},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			got := &addr.Addr{}
-			err := got.UnmarshalText([]byte(test.input))
+			err := got.UnmarshalText([]byte(tt.input))
 
-			if test.want != nil {
+			if tt.want != nil {
 				if assert.NoErrorf(t, err, "") {
-					assert.Equalf(t, test.want, got, "")
+					assert.Equalf(t, tt.want, got, "")
 				}
 			} else {
 				assert.Errorf(t, err, "")
@@ -84,20 +54,20 @@ func TestAddr_MarshalText(t *testing.T) {
 		want  string
 	}{
 		{"zero_value", &addr.Addr{}, ""},
-		{"port", &addr.Addr{Port: "80"}, ":80"},
+		{"port", &addr.Addr{Port: 80}, ":80"},
 		{"hostname", &addr.Addr{Hostname: "localhost"}, "//localhost"},
-		{"hostname_port", &addr.Addr{Hostname: "localhost", Port: "80"}, "//localhost:80"},
+		{"hostname_port", &addr.Addr{Hostname: "localhost", Port: 80}, "//localhost:80"},
 		{"scheme", &addr.Addr{Scheme: "http"}, "http:"},
-		{"scheme_port", &addr.Addr{Scheme: "http", Port: "80"}, "http::80"},
+		{"scheme_port", &addr.Addr{Scheme: "http", Port: 80}, "http::80"},
 		{"scheme_hostname", &addr.Addr{Scheme: "http", Hostname: "localhost"}, "http://localhost"},
-		{"scheme_hostname_port", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: "80"}, "http://localhost:80"},
+		{"scheme_hostname_port", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: 80}, "http://localhost:80"},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got, err := test.input.MarshalText()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.input.MarshalText()
 			if assert.NoErrorf(t, err, "") {
-				assert.Equalf(t, test.want, string(got), "")
+				assert.Equalf(t, tt.want, string(got), "")
 			}
 		})
 	}
@@ -110,15 +80,15 @@ func TestAddr_Host(t *testing.T) {
 		want  string
 	}{
 		{"zero_value", &addr.Addr{}, ":"},
-		{"port", &addr.Addr{Port: "80"}, ":80"},
+		{"port", &addr.Addr{Port: 80}, ":80"},
 		{"hostname", &addr.Addr{Hostname: "localhost"}, "localhost:"},
-		{"hostname_port", &addr.Addr{Hostname: "localhost", Port: "80"}, "localhost:80"},
+		{"hostname_port", &addr.Addr{Hostname: "localhost", Port: 80}, "localhost:80"},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := test.input.Host()
-			assert.Equalf(t, test.want, got, "")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.input.Host()
+			assert.Equalf(t, tt.want, got, "")
 		})
 	}
 }
@@ -130,19 +100,19 @@ func TestAddr_String(t *testing.T) {
 		want  string
 	}{
 		{"zero_value", &addr.Addr{}, ""},
-		{"port", &addr.Addr{Port: "80"}, ":80"},
+		{"port", &addr.Addr{Port: 80}, ":80"},
 		{"hostname", &addr.Addr{Hostname: "localhost"}, "//localhost"},
-		{"hostname_port", &addr.Addr{Hostname: "localhost", Port: "80"}, "//localhost:80"},
+		{"hostname_port", &addr.Addr{Hostname: "localhost", Port: 80}, "//localhost:80"},
 		{"scheme", &addr.Addr{Scheme: "http"}, "http:"},
-		{"scheme_port", &addr.Addr{Scheme: "http", Port: "80"}, "http::80"},
+		{"scheme_port", &addr.Addr{Scheme: "http", Port: 80}, "http::80"},
 		{"scheme_hostname", &addr.Addr{Scheme: "http", Hostname: "localhost"}, "http://localhost"},
-		{"scheme_hostname_port", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: "80"}, "http://localhost:80"},
+		{"scheme_hostname_port", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: 80}, "http://localhost:80"},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := test.input.String()
-			assert.Equalf(t, test.want, got, "")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.input.String()
+			assert.Equalf(t, tt.want, got, "")
 		})
 	}
 }

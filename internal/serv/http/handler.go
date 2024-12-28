@@ -82,10 +82,15 @@ func addrFromURL(url *url.URL) (*addr.Addr, error) {
 		port = strconv.Itoa(p)
 	}
 
+	p, err := addr.ParsePort(port)
+	if err != nil {
+		return nil, err
+	}
+
 	return &addr.Addr{
 		Scheme:   url.Scheme,
 		Hostname: url.Hostname(),
-		Port:     port,
+		Port:     p,
 	}, nil
 }
 
