@@ -7,7 +7,7 @@ import (
 
 	"github.com/cerfical/socks2http/internal/addr"
 	"github.com/cerfical/socks2http/internal/cli/http"
-	"github.com/cerfical/socks2http/internal/cli/socks"
+	"github.com/cerfical/socks2http/internal/socks"
 )
 
 type ProxyClient struct {
