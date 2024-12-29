@@ -2,6 +2,7 @@ package serv
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"time"
@@ -17,30 +18,20 @@ func New(servAddr, proxAddr *addr.Addr, timeout time.Duration, log *log.Logger) 
 		return nil, err
 	}
 
-	server := &ProxyServer{
-		addr: servAddr,
-		prox: prox,
-		log:  log,
+	requestReader, ok := newRequester(servAddr.Scheme)
+	if !ok {
+		return nil, fmt.Errorf("unsupported server protocol scheme %v", servAddr.Scheme)
 	}
 
-	switch servAddr.Scheme {
-	case addr.HTTP:
-		server.handleRequest = handleHTTPRequest
-	case addr.SOCKS4:
-		server.handleRequest = handleSOCKS4Request
-	default:
-		return nil, fmt.Errorf("unsupported server protocol scheme %q", servAddr.Scheme)
-	}
-
-	return server, nil
+	return &ProxyServer{requestReader, servAddr, prox, log, 0}, nil
 }
 
 type ProxyServer struct {
-	addr          *addr.Addr
-	prox          *cli.ProxyClient
-	log           *log.Logger
-	handleRequest func(net.Conn, *cli.ProxyClient, *log.Logger)
-	numReq        int
+	requester
+	addr   *addr.Addr
+	prox   *cli.ProxyClient
+	log    *log.Logger
+	numReq int
 }
 
 func (s *ProxyServer) Run() error {
@@ -60,19 +51,45 @@ func (s *ProxyServer) Run() error {
 		log := s.log.WithAttr("id", strconv.Itoa(s.numReq))
 		s.numReq++
 
+		closeWithMsgf := func(c io.Closer, fmt string, args ...any) {
+			if err := c.Close(); err != nil {
+				log.Errorf(fmt, args...)
+			}
+		}
+
 		cliConn, err := listener.Accept()
 		if err != nil {
-			log.Errorf("opening a client connection: %v", err)
+			log.Errorf("open a new client connection: %v", err)
 			continue
 		}
 
+		// handle the request
 		go func() {
-			defer func() {
-				if err := cliConn.Close(); err != nil {
-					log.Errorf("closing a client connection: %v", err)
+			defer closeWithMsgf(cliConn, "close the client connection: %v", err)
+
+			req, err := s.requester.request(cliConn)
+			if err != nil {
+				log.Errorf("parse the request: %v", err)
+				return
+			}
+			defer closeWithMsgf(req, "clean up the request data: %v", err)
+
+			servConn, err := s.prox.Open(req.destHost())
+			if err != nil {
+				log.Errorf("open a new server connection: %v", err)
+				if err := req.writeReply(false); err != nil {
+					log.Errorf("reject the request: %v", err)
 				}
-			}()
-			s.handleRequest(cliConn, s.prox, log)
+				return
+			}
+			defer closeWithMsgf(servConn, "close the server connection: %v", err)
+
+			if err := req.writeReply(true); err != nil {
+				log.Errorf("grant the request: %v", err)
+				return
+			}
+
+			req.do(s.addr.Scheme, servConn, log)
 		}()
 	}
 }
