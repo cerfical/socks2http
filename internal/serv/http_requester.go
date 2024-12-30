@@ -21,12 +21,12 @@ func (httpRequester) request(cliConn net.Conn) (request, error) {
 		return nil, err
 	}
 
-	destHost, err := addrFromURL(req.URL)
+	destAddr, err := addrFromURL(req.URL)
 	if err != nil {
 		return nil, fmt.Errorf("parse the request URI: %v", err)
 	}
 
-	return &httpRequest{*destHost, cliConn, req}, nil
+	return &httpRequest{*destAddr, cliConn, req}, nil
 }
 
 func addrFromURL(url *url.URL) (*addr.Addr, error) {
@@ -70,7 +70,7 @@ func (r *httpRequest) writeReply(ok bool) error {
 	return nil
 }
 
-func (r *httpRequest) do(proto string, servConn net.Conn, log *log.Logger) {
+func (r *httpRequest) perform(proto string, servConn net.Conn, log *log.Logger) {
 	log.WithAttrs(
 		"method", r.Method,
 		"uri", r.RequestURI,
@@ -106,7 +106,7 @@ func (r *httpRequest) forwardRequest(proto string, servConn net.Conn) error {
 	return err
 }
 
-func (r *httpRequest) destHost() *addr.Addr {
+func (r *httpRequest) destAddr() *addr.Addr {
 	return &r.dest
 }
 

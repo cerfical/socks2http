@@ -2,6 +2,7 @@ package serv
 
 import (
 	"net"
+	"strconv"
 
 	"github.com/cerfical/socks2http/internal/addr"
 	"github.com/cerfical/socks2http/internal/log"
@@ -19,12 +20,13 @@ func (socksRequester) request(cliConn net.Conn) (request, error) {
 	return &socksRequest{addr.Addr{
 		Hostname: req.DestIP.String(),
 		Port:     req.DestPort,
-	}, cliConn}, nil
+	}, cliConn, req}, nil
 }
 
 type socksRequest struct {
 	dest    addr.Addr
 	cliConn net.Conn
+	*socks.Request
 }
 
 func (r *socksRequest) writeReply(ok bool) error {
@@ -37,13 +39,18 @@ func (r *socksRequest) writeReply(ok bool) error {
 	return rep.Write(r.cliConn)
 }
 
-func (r *socksRequest) do(_ string, servConn net.Conn, log *log.Logger) {
+func (r *socksRequest) perform(_ string, servConn net.Conn, log *log.Logger) {
+	log.WithAttrs(
+		"command", "CONNECT",
+		"host", r.destAddr().Host(),
+	).Infof("incoming request")
+
 	for err := range tunnel(r.cliConn, servConn) {
 		log.Errorf("%v", err)
 	}
 }
 
-func (r *socksRequest) destHost() *addr.Addr {
+func (r *socksRequest) destAddr() *addr.Addr {
 	return &r.dest
 }
 

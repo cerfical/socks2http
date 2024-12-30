@@ -69,12 +69,12 @@ func (s *ProxyServer) Run() error {
 
 			req, err := s.requester.request(cliConn)
 			if err != nil {
-				log.Errorf("parse the request: %v", err)
+				log.Errorf("parse the incoming request: %v", err)
 				return
 			}
 			defer closeWithMsgf(req, "clean up the request data: %v", err)
 
-			servConn, err := s.prox.Open(req.destHost())
+			servConn, err := s.prox.Open(req.destAddr())
 			if err != nil {
 				log.Errorf("open a new server connection: %v", err)
 				if err := req.writeReply(false); err != nil {
@@ -89,7 +89,7 @@ func (s *ProxyServer) Run() error {
 				return
 			}
 
-			req.do(s.addr.Scheme, servConn, log)
+			req.perform(s.addr.Scheme, servConn, log)
 		}()
 	}
 }

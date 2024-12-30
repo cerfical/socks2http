@@ -25,8 +25,8 @@ type requester interface {
 type request interface {
 	writeReply(ok bool) error
 
-	do(proto string, servConn net.Conn, log *log.Logger)
+	perform(proto string, servConn net.Conn, log *log.Logger)
 
-	destHost() *addr.Addr
+	destAddr() *addr.Addr
 	Close() error
 }
