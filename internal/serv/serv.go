@@ -1,6 +1,7 @@
 package serv
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -69,7 +70,10 @@ func (s *ProxyServer) Run() error {
 
 			req, err := s.requester.request(cliConn)
 			if err != nil {
-				log.Errorf("parse the incoming request: %v", err)
+				// ignore end-of-input errors
+				if !errors.Is(err, io.EOF) {
+					log.Errorf("parse the incoming request: %v", err)
+				}
 				return
 			}
 			defer closeWithMsgf(req, "clean up the request data: %v", err)
