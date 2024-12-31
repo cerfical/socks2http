@@ -1,6 +1,7 @@
 package socks_test
 
 import (
+	"bufio"
 	"bytes"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestReadRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := socks.ReadRequest(bytes.NewReader(tt.input))
+			got, err := socks.ReadRequest(bufio.NewReader(bytes.NewReader(tt.input)))
 
 			assert.Equal(t, tt.want, got)
 			if tt.ok {

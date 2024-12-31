@@ -1,8 +1,8 @@
 package serv
 
 import (
+	"bufio"
 	"net"
-	"strconv"
 
 	"github.com/cerfical/socks2http/internal/addr"
 	"github.com/cerfical/socks2http/internal/log"
@@ -12,7 +12,8 @@ import (
 type socksRequester struct{}
 
 func (socksRequester) request(cliConn net.Conn) (request, error) {
-	req, err := socks.ReadRequest(cliConn)
+	cliRead := bufio.NewReaderSize(cliConn, 17)
+	req, err := socks.ReadRequest(cliRead)
 	if err != nil {
 		return nil, err
 	}
@@ -20,11 +21,12 @@ func (socksRequester) request(cliConn net.Conn) (request, error) {
 	return &socksRequest{addr.Addr{
 		Hostname: req.DestIP.String(),
 		Port:     req.DestPort,
-	}, cliConn, req}, nil
+	}, cliRead, cliConn, req}, nil
 }
 
 type socksRequest struct {
 	dest    addr.Addr
+	cliBufr *bufio.Reader
 	cliConn net.Conn
 	*socks.Request
 }
@@ -44,10 +46,7 @@ func (r *socksRequest) perform(_ string, servConn net.Conn, log *log.Logger) {
 		"command", "CONNECT",
 		"host", r.destAddr().Host(),
 	).Infof("incoming request")
-
-	for err := range tunnel(r.cliConn, servConn) {
-		log.Errorf("%v", err)
-	}
+	tunnel(r.cliBufr, r.cliConn, servConn, log)
 }
 
 func (r *socksRequest) destAddr() *addr.Addr {

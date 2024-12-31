@@ -15,7 +15,7 @@ const (
 	RequestConnect = 1
 )
 
-func ReadRequest(r io.Reader) (*Request, error) {
+func ReadRequest(r *bufio.Reader) (*Request, error) {
 	req := Request{}
 	if err := binary.Read(r, binary.BigEndian, &req.Header); err != nil {
 		return nil, err
@@ -29,15 +29,10 @@ func ReadRequest(r io.Reader) (*Request, error) {
 		return nil, fmt.Errorf("invalid command code %v", req.Command)
 	}
 
-	br, ok := r.(io.ByteReader)
-	if !ok {
-		br = bufio.NewReader(r)
-	}
-
 	// read a null-terminated username string
 	user := []byte{}
 	for {
-		b, err := br.ReadByte()
+		b, err := r.ReadByte()
 		if err != nil {
 			return nil, err
 		}

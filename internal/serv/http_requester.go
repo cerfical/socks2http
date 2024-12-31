@@ -16,7 +16,8 @@ import (
 type httpRequester struct{}
 
 func (httpRequester) request(cliConn net.Conn) (request, error) {
-	req, err := http.ReadRequest(bufio.NewReader(cliConn))
+	cliBufr := bufio.NewReader(cliConn)
+	req, err := http.ReadRequest(cliBufr)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +27,7 @@ func (httpRequester) request(cliConn net.Conn) (request, error) {
 		return nil, fmt.Errorf("parse the request URI: %v", err)
 	}
 
-	return &httpRequest{*destAddr, cliConn, req}, nil
+	return &httpRequest{*destAddr, cliBufr, cliConn, req}, nil
 }
 
 func addrFromURL(url *url.URL) (*addr.Addr, error) {
@@ -53,6 +54,7 @@ func addrFromURL(url *url.URL) (*addr.Addr, error) {
 
 type httpRequest struct {
 	dest    addr.Addr
+	cliBufr *bufio.Reader
 	cliConn net.Conn
 	*http.Request
 }
@@ -78,12 +80,10 @@ func (r *httpRequest) perform(proto string, servConn net.Conn, log *log.Logger) 
 	).Infof("incoming request")
 
 	if r.Method == http.MethodConnect {
-		for err := range tunnel(r.cliConn, servConn) {
-			log.Errorf("%v", err)
-		}
+		tunnel(r.cliBufr, r.cliConn, servConn, log)
 	} else {
 		if err := r.forwardRequest(proto, servConn); err != nil {
-			log.Errorf("%v", err)
+			log.Errorf("forward the request: %v", err)
 		}
 	}
 }
