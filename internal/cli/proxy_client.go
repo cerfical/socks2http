@@ -2,23 +2,19 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/cerfical/socks2http/internal/addr"
 	"github.com/cerfical/socks2http/internal/socks"
 )
 
-func New(proxyAddr *addr.Addr, timeout time.Duration) (*ProxyClient, error) {
-	prox := &ProxyClient{
-		addr:    proxyAddr,
-		timeout: timeout,
-	}
-
+func New(proxyAddr *addr.Addr) (*ProxyClient, error) {
+	prox := &ProxyClient{addr: proxyAddr}
 	switch prox.addr.Scheme {
 	case addr.Direct:
 		prox.connect = nil
@@ -80,29 +76,36 @@ func httpConnect(proxConn net.Conn, destAddr *addr.Addr) (err error) {
 
 type ProxyClient struct {
 	addr    *addr.Addr
-	timeout time.Duration
 	connect connectFunc
 }
 
 type connectFunc func(net.Conn, *addr.Addr) error
 
-func (p *ProxyClient) Open(destAddr *addr.Addr) (net.Conn, error) {
+func (p *ProxyClient) Open(ctx context.Context, destAddr *addr.Addr) (net.Conn, error) {
 	// if direct connection was requested, do not use a proxy
+	d := net.Dialer{}
 	if p.addr.Scheme == addr.Direct {
-		conn, err := net.DialTimeout("tcp", destAddr.Host(), p.timeout)
+		conn, err := d.DialContext(ctx, "tcp", destAddr.Host())
 		if err != nil {
 			return nil, fmt.Errorf("connect to %v: %w", destAddr.Host(), err)
 		}
 		return conn, nil
 	}
 
-	// otherwise, establish a connection with an intermediate proxy
-	proxConn, err := net.DialTimeout("tcp", p.addr.Host(), p.timeout)
+	// establish a connection with an intermediate proxy
+	proxConn, err := d.DialContext(ctx, "tcp", p.addr.Host())
 	if err != nil {
 		return nil, fmt.Errorf("connect to %v: %w", p.addr.Host(), err)
 	}
 
-	// and send a command for the proxy to connect to the destination server
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := proxConn.SetDeadline(deadline); err != nil {
+			_ = proxConn.Close()
+			return nil, fmt.Errorf("set connection I/O timeouts: %w", err)
+		}
+	}
+
+	// send a command for the proxy to connect to the destination server
 	if err := p.connect(proxConn, destAddr); err != nil {
 		_ = proxConn.Close()
 		return nil, fmt.Errorf("connect to %v: %w", destAddr.Host(), err)

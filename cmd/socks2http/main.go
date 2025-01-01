@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/cerfical/socks2http/internal/args"
@@ -17,7 +18,7 @@ func main() {
 		logger.Fatalf("server init: %v", err)
 	}
 
-	if err := server.Run(); err != nil {
+	if err := server.Run(context.Background()); err != nil {
 		logger.Fatalf("server shutdown: %v", err)
 	}
 }
