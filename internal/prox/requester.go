@@ -1,4 +1,4 @@
-package serv
+package prox
 
 import (
 	"net"

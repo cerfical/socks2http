@@ -1,4 +1,4 @@
-package cli
+package prox
 
 import (
 	"bufio"
@@ -13,8 +13,8 @@ import (
 	"github.com/cerfical/socks2http/internal/socks"
 )
 
-func New(proxyAddr *addr.Addr) (*ProxyClient, error) {
-	prox := &ProxyClient{addr: proxyAddr}
+func NewClient(proxyAddr *addr.Addr) (*Client, error) {
+	prox := &Client{addr: proxyAddr}
 	switch prox.addr.Scheme {
 	case addr.Direct:
 		prox.connect = nil
@@ -74,14 +74,14 @@ func httpConnect(proxConn net.Conn, destAddr *addr.Addr) (err error) {
 	return nil
 }
 
-type ProxyClient struct {
+type Client struct {
 	addr    *addr.Addr
 	connect connectFunc
 }
 
 type connectFunc func(net.Conn, *addr.Addr) error
 
-func (p *ProxyClient) Open(ctx context.Context, destAddr *addr.Addr) (net.Conn, error) {
+func (p *Client) Open(ctx context.Context, destAddr *addr.Addr) (net.Conn, error) {
 	// if direct connection was requested, do not use a proxy
 	d := net.Dialer{}
 	if p.addr.Scheme == addr.Direct {
@@ -114,14 +114,14 @@ func (p *ProxyClient) Open(ctx context.Context, destAddr *addr.Addr) (net.Conn, 
 	return proxConn, nil
 }
 
-func (p *ProxyClient) Addr() *addr.Addr {
+func (p *Client) Addr() *addr.Addr {
 	return p.addr
 }
 
-func (p *ProxyClient) IsDirect() bool {
+func (p *Client) IsDirect() bool {
 	return p.Proto() == addr.Direct
 }
 
-func (p *ProxyClient) Proto() string {
+func (p *Client) Proto() string {
 	return p.addr.Scheme
 }

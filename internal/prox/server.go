@@ -1,4 +1,4 @@
-package serv
+package prox
 
 import (
 	"context"
@@ -10,12 +10,11 @@ import (
 	"time"
 
 	"github.com/cerfical/socks2http/internal/addr"
-	"github.com/cerfical/socks2http/internal/cli"
 	"github.com/cerfical/socks2http/internal/log"
 )
 
-func New(servAddr, proxAddr *addr.Addr, timeout time.Duration, log *log.Logger) (*ProxyServer, error) {
-	prox, err := cli.New(proxAddr)
+func NewServer(servAddr, proxAddr *addr.Addr, timeout time.Duration, log *log.Logger) (*Server, error) {
+	prox, err := NewClient(proxAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -25,19 +24,19 @@ func New(servAddr, proxAddr *addr.Addr, timeout time.Duration, log *log.Logger) 
 		return nil, fmt.Errorf("unsupported server protocol scheme %v", servAddr.Scheme)
 	}
 
-	return &ProxyServer{req, servAddr, prox, timeout, log, 0}, nil
+	return &Server{req, servAddr, prox, timeout, log, 0}, nil
 }
 
-type ProxyServer struct {
+type Server struct {
 	requester
 	addr    *addr.Addr
-	prox    *cli.ProxyClient
+	prox    *Client
 	timeout time.Duration
 	log     *log.Logger
 	numReq  int
 }
 
-func (s *ProxyServer) Run(ctx context.Context) error {
+func (s *Server) Run(ctx context.Context) error {
 	s.log.Infof("starting a server on %v", s.addr)
 	if s.prox.IsDirect() {
 		s.log.Infof("not using a proxy")
@@ -73,7 +72,7 @@ func (s *ProxyServer) Run(ctx context.Context) error {
 	}
 }
 
-func (s *ProxyServer) handleConn(ctx context.Context, cliConn net.Conn, log *log.Logger) {
+func (s *Server) handleConn(ctx context.Context, cliConn net.Conn, log *log.Logger) {
 	closeWithMsg := func(c io.Closer, msg string) {
 		if err := c.Close(); err != nil {
 			log.Errorf("%v: %v", msg, err)
