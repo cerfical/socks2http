@@ -3,6 +3,7 @@ package prox
 import (
 	"bufio"
 	"io"
+	"net"
 
 	"github.com/cerfical/socks2http/internal/addr"
 	"github.com/cerfical/socks2http/internal/log"
@@ -11,7 +12,7 @@ import (
 
 type socksHandler struct{}
 
-func (socksHandler) parseRequest(r *bufio.Reader) (request, error) {
+func (socksHandler) readRequest(r *bufio.Reader) (request, error) {
 	req, err := socks.ReadRequest(r)
 	if err != nil {
 		return nil, err
@@ -26,10 +27,6 @@ func (socksHandler) parseRequest(r *bufio.Reader) (request, error) {
 type socksRequest struct {
 	*socks.Request
 	dest addr.Addr
-}
-
-func (r *socksRequest) isConnect() bool {
-	return true
 }
 
 func (r *socksRequest) destAddr() *addr.Addr {
@@ -53,11 +50,8 @@ func (*socksRequest) writeReject(w io.Writer) error {
 	return rep.Write(w)
 }
 
-func (r *socksRequest) write(w io.Writer) error {
-	return nil
-}
-func (r *socksRequest) writeProxy(w io.Writer) error {
-	return nil
+func (r *socksRequest) do(cliConn, servConn net.Conn, _ string) error {
+	return tunnel(cliConn, servConn)
 }
 
 func (r *socksRequest) Close() error {

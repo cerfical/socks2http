@@ -40,27 +40,27 @@ func httpConnect(proxyConn net.Conn, destAddr *addr.Addr) (err error) {
 		URL:    &url.URL{Host: destAddr.Host()},
 	}
 	if err := connReq.Write(proxyConn); err != nil {
-		return fmt.Errorf("write a connect request: %w", err)
+		return err
 	}
 
 	resp, err := http.ReadResponse(bufio.NewReader(proxyConn), &connReq)
 	if err != nil {
-		return fmt.Errorf("read a connect response: %w", err)
+		return err
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("clean up response data: %w", closeErr)
+			err = closeErr
 		}
 	}()
 
 	// discard the response body
 	if _, err := io.ReadAll(resp.Body); err != nil {
-		return fmt.Errorf("read response data: %w", err)
+		return err
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		code, msg := resp.StatusCode, http.StatusText(resp.StatusCode)
-		return fmt.Errorf("connect request failed: %v %v", code, msg)
+		return fmt.Errorf("%v %v", code, msg)
 	}
 	return nil
 }
@@ -76,14 +76,14 @@ func (c *Client) Open(ctx context.Context, destAddr *addr.Addr) (net.Conn, error
 		d := net.Dialer{}
 		servConn, err := d.DialContext(ctx, "tcp", destAddr.Host())
 		if err != nil {
-			return nil, fmt.Errorf("connect to %v: %w", destAddr.Host(), err)
+			return nil, fmt.Errorf("connecting to server: %w", err)
 		}
 		return servConn, nil
 	}
 
 	proxyConn, err := c.connectProxy(ctx, destAddr)
 	if err != nil {
-		return nil, fmt.Errorf("open a proxy connection: %w", err)
+		return nil, fmt.Errorf("opening a proxy connection: %w", err)
 	}
 	return proxyConn, nil
 }
@@ -92,19 +92,19 @@ func (c *Client) connectProxy(ctx context.Context, destAddr *addr.Addr) (net.Con
 	d := net.Dialer{}
 	proxyConn, err := d.DialContext(ctx, "tcp", c.addr.Host())
 	if err != nil {
-		return nil, fmt.Errorf("connect to proxy %v: %w", c.addr.Host(), err)
+		return nil, fmt.Errorf("connecting to proxy: %w", err)
 	}
 
 	if deadline, ok := ctx.Deadline(); ok {
 		if err := proxyConn.SetDeadline(deadline); err != nil {
 			_ = proxyConn.Close()
-			return nil, fmt.Errorf("set proxy I/O timeouts: %w", err)
+			return nil, err
 		}
 	}
 
 	if err := c.writeConnect(proxyConn, destAddr); err != nil {
 		_ = proxyConn.Close()
-		return nil, fmt.Errorf("connect to server %v: %w", destAddr.Host(), err)
+		return nil, fmt.Errorf("connecting to server: %w", err)
 	}
 
 	return proxyConn, nil

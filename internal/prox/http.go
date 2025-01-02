@@ -15,7 +15,7 @@ import (
 
 type httpHandler struct{}
 
-func (httpHandler) parseRequest(r *bufio.Reader) (request, error) {
+func (httpHandler) readRequest(r *bufio.Reader) (request, error) {
 	req, err := http.ReadRequest(r)
 	if err != nil {
 		return nil, err
@@ -56,10 +56,6 @@ type httpRequest struct {
 	dest addr.Addr
 }
 
-func (r *httpRequest) isConnect() bool {
-	return r.Method == http.MethodConnect
-}
-
 func (r *httpRequest) destAddr() *addr.Addr {
 	return &r.dest
 }
@@ -81,27 +77,44 @@ func (r *httpRequest) writeReject(w io.Writer) error {
 }
 
 func (r *httpRequest) writeReply(w io.Writer, ok bool) error {
-	resp := http.Response{ProtoMajor: 1, ProtoMinor: 1}
-	if ok {
-		resp.StatusCode = http.StatusOK
-	} else {
-		resp.StatusCode = http.StatusForbidden
+	if r.Method == http.MethodConnect {
+		resp := http.Response{ProtoMajor: 1, ProtoMinor: 1}
+		if ok {
+			resp.StatusCode = http.StatusOK
+		} else {
+			resp.StatusCode = http.StatusForbidden
+		}
+		return resp.Write(w)
 	}
-	return resp.Write(w)
+	return nil
 }
 
-func (r *httpRequest) write(w io.Writer) error {
-	return r.Write(w)
+func (r *httpRequest) do(cliConn, servConn net.Conn, proxyProto string) error {
+	if r.Method == http.MethodConnect {
+		return tunnel(cliConn, servConn)
+	}
+	return r.forward(cliConn, servConn, proxyProto)
 }
 
-func (r *httpRequest) writeProxy(w io.Writer) error {
-	return r.WriteProxy(w)
+func (r *httpRequest) forward(cliConn, servConn net.Conn, proxyProto string) error {
+	if proxyProto == addr.HTTP {
+		if err := r.WriteProxy(servConn); err != nil {
+			return err
+		}
+	} else {
+		if err := r.Write(servConn); err != nil {
+			return err
+		}
+	}
+
+	_, err := io.Copy(cliConn, servConn)
+	return err
 }
 
 func (r *httpRequest) Close() (err error) {
 	defer func() {
-		if errClose := r.Body.Close(); errClose != nil && err == nil {
-			err = errClose
+		if closeErr := r.Body.Close(); closeErr != nil && err == nil {
+			err = closeErr
 		}
 	}()
 
