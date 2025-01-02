@@ -14,30 +14,21 @@ import (
 )
 
 func NewClient(proxyAddr *addr.Addr) (*Client, error) {
-	prox := &Client{addr: proxyAddr}
-	switch prox.addr.Scheme {
+	c := &Client{addr: proxyAddr}
+	switch c.addr.Scheme {
 	case addr.Direct:
-		prox.connect = nil
+		c.writeConnect = nil
 	case addr.SOCKS4:
-		prox.connect = connectWithMsg(socks.Connect, "socks connect")
+		c.writeConnect = socks.Connect
 	case addr.HTTP:
-		prox.connect = connectWithMsg(httpConnect, "http connect")
+		c.writeConnect = httpConnect
 	default:
-		return nil, fmt.Errorf("unsupported client protocol scheme %v", prox.addr.Scheme)
+		return nil, fmt.Errorf("unsupported client protocol scheme %v", c.addr.Scheme)
 	}
-	return prox, nil
+	return c, nil
 }
 
-func connectWithMsg(connect connectFunc, msg string) connectFunc {
-	return func(proxConn net.Conn, destAddr *addr.Addr) (err error) {
-		if err := connect(proxConn, destAddr); err != nil {
-			return fmt.Errorf("%v: %w", msg, err)
-		}
-		return nil
-	}
-}
-
-func httpConnect(proxConn net.Conn, destAddr *addr.Addr) (err error) {
+func httpConnect(proxyConn net.Conn, destAddr *addr.Addr) (err error) {
 	// with plain HTTP no preliminary connection is needed
 	if destAddr.Scheme == addr.HTTP {
 		return nil
@@ -48,11 +39,11 @@ func httpConnect(proxConn net.Conn, destAddr *addr.Addr) (err error) {
 		Method: http.MethodConnect,
 		URL:    &url.URL{Host: destAddr.Host()},
 	}
-	if err := connReq.Write(proxConn); err != nil {
+	if err := connReq.Write(proxyConn); err != nil {
 		return fmt.Errorf("write a connect request: %w", err)
 	}
 
-	resp, err := http.ReadResponse(bufio.NewReader(proxConn), &connReq)
+	resp, err := http.ReadResponse(bufio.NewReader(proxyConn), &connReq)
 	if err != nil {
 		return fmt.Errorf("read a connect response: %w", err)
 	}
@@ -75,53 +66,46 @@ func httpConnect(proxConn net.Conn, destAddr *addr.Addr) (err error) {
 }
 
 type Client struct {
-	addr    *addr.Addr
-	connect connectFunc
+	addr         *addr.Addr
+	writeConnect func(net.Conn, *addr.Addr) error
 }
 
-type connectFunc func(net.Conn, *addr.Addr) error
-
-func (p *Client) Open(ctx context.Context, destAddr *addr.Addr) (net.Conn, error) {
+func (c *Client) Open(ctx context.Context, destAddr *addr.Addr) (net.Conn, error) {
 	// if direct connection was requested, do not use a proxy
-	d := net.Dialer{}
-	if p.addr.Scheme == addr.Direct {
-		conn, err := d.DialContext(ctx, "tcp", destAddr.Host())
+	if c.addr.Scheme == addr.Direct {
+		d := net.Dialer{}
+		servConn, err := d.DialContext(ctx, "tcp", destAddr.Host())
 		if err != nil {
 			return nil, fmt.Errorf("connect to %v: %w", destAddr.Host(), err)
 		}
-		return conn, nil
+		return servConn, nil
 	}
 
-	// establish a connection with an intermediate proxy
-	proxConn, err := d.DialContext(ctx, "tcp", p.addr.Host())
+	proxyConn, err := c.connectProxy(ctx, destAddr)
 	if err != nil {
-		return nil, fmt.Errorf("connect to %v: %w", p.addr.Host(), err)
+		return nil, fmt.Errorf("open a proxy connection: %w", err)
+	}
+	return proxyConn, nil
+}
+
+func (c *Client) connectProxy(ctx context.Context, destAddr *addr.Addr) (net.Conn, error) {
+	d := net.Dialer{}
+	proxyConn, err := d.DialContext(ctx, "tcp", c.addr.Host())
+	if err != nil {
+		return nil, fmt.Errorf("connect to proxy %v: %w", c.addr.Host(), err)
 	}
 
 	if deadline, ok := ctx.Deadline(); ok {
-		if err := proxConn.SetDeadline(deadline); err != nil {
-			_ = proxConn.Close()
-			return nil, fmt.Errorf("set connection I/O timeouts: %w", err)
+		if err := proxyConn.SetDeadline(deadline); err != nil {
+			_ = proxyConn.Close()
+			return nil, fmt.Errorf("set proxy I/O timeouts: %w", err)
 		}
 	}
 
-	// send a command for the proxy to connect to the destination server
-	if err := p.connect(proxConn, destAddr); err != nil {
-		_ = proxConn.Close()
-		return nil, fmt.Errorf("connect to %v: %w", destAddr.Host(), err)
+	if err := c.writeConnect(proxyConn, destAddr); err != nil {
+		_ = proxyConn.Close()
+		return nil, fmt.Errorf("connect to server %v: %w", destAddr.Host(), err)
 	}
 
-	return proxConn, nil
-}
-
-func (p *Client) Addr() *addr.Addr {
-	return p.addr
-}
-
-func (p *Client) IsDirect() bool {
-	return p.Proto() == addr.Direct
-}
-
-func (p *Client) Proto() string {
-	return p.addr.Scheme
+	return proxyConn, nil
 }
