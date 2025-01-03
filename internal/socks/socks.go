@@ -2,12 +2,12 @@ package socks
 
 import (
 	"fmt"
-	"net"
+	"io"
 
 	"github.com/cerfical/socks2http/internal/addr"
 )
 
-func Connect(conn net.Conn, dest *addr.Addr) error {
+func WriteConnect(w io.Writer, dest *addr.Addr) error {
 	ipv4, err := addr.LookupIPv4(dest.Hostname)
 	if err != nil {
 		return fmt.Errorf("resolve address %v: %w", dest, err)
@@ -20,8 +20,15 @@ func Connect(conn net.Conn, dest *addr.Addr) error {
 		DestPort: dest.Port,
 	}, ""}
 
-	if err := req.Write(conn); err != nil {
-		return err
-	}
-	return ReadReply(conn)
+	return req.Write(w)
+}
+
+func WriteGrant(w io.Writer) error {
+	rep := Reply{Code: RequestGranted}
+	return rep.Write(w)
+}
+
+func WriteReject(w io.Writer) error {
+	rep := Reply{Code: RequestRejectedOrFailed}
+	return rep.Write(w)
 }

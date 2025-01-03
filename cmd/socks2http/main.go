@@ -11,14 +11,22 @@ import (
 
 func main() {
 	args := args.Parse(os.Args)
+	log := log.New().WithLevel(args.LogLevel)
 
-	logger := log.New().WithLevel(args.LogLevel)
-	server, err := prox.NewServer(&args.ServerAddr, &args.ProxyAddr, args.Timeout, logger)
+	proxy, err := prox.NewClient(&args.ProxyAddr)
 	if err != nil {
-		logger.Fatalf("server init: %v", err)
+		log.Fatalf("proxy init: %v", err)
+	}
+
+	log.Infof("using proxy %v", &args.ProxyAddr)
+	log.Infof("starting a server on %v", &args.ServerAddr)
+
+	server, err := prox.NewServer(&args.ServerAddr, args.Timeout, proxy, log)
+	if err != nil {
+		log.Fatalf("server init: %v", err)
 	}
 
 	if err := server.Run(context.Background()); err != nil {
-		logger.Fatalf("server shutdown: %v", err)
+		log.Fatalf("server shutdown: %v", err)
 	}
 }
