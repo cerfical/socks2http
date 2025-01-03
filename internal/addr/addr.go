@@ -10,26 +10,15 @@ import (
 )
 
 const (
-	// Direct is a pseudo-scheme that requests a direct connection to a server without an intermediate proxy.
 	Direct = "direct"
-
-	// SOCKS4 requests the SOCKS4 protocol.
 	SOCKS4 = "socks4"
-
-	// HTTP requests the HTTP protocol.
-	HTTP = "http"
+	HTTP   = "http"
 )
 
-// Addr represents a reduced set of [net/url.URL] network addresses.
 type Addr struct {
-	// Scheme represents the scheme [Addr] component.
-	Scheme string
-
-	// Hostname represents the hostname [Addr] component.
+	Scheme   string
 	Hostname string
-
-	// Port represents the port [Addr] component.
-	Port uint16
+	Port     uint16
 }
 
 // Host presents [Addr] as a <hostname>:<port> string.
@@ -41,7 +30,7 @@ func (a *Addr) Host() string {
 	return a.Hostname + ":" + p
 }
 
-// UnmarshalText creates a new [Addr] from its text representation.
+// UnmarshalText parses [Addr] from its text representation.
 // The syntax is similar to [net/url.URL], but simplified for ease of use.
 //
 // For example, the address http://localhost:8080 can be represented as:
@@ -115,12 +104,10 @@ func defSchemePort(scheme string) string {
 	}
 }
 
-// MarshalText converts [Addr] into a compact text representation.
 func (a *Addr) MarshalText() ([]byte, error) {
 	return []byte(a.String()), nil
 }
 
-// String presents [Addr] as a <scheme>://<hostname>:<port> string.
 func (a *Addr) String() string {
 	s, h, p := a.Scheme, a.Hostname, a.Port
 	switch {

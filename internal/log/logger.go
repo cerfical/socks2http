@@ -6,7 +6,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// New creates a new console [Logger].
 func New() *Logger {
 	out := zerolog.NewConsoleWriter(func(w *zerolog.ConsoleWriter) {
 		w.TimeFormat = time.DateTime
@@ -19,41 +18,34 @@ func New() *Logger {
 	}
 }
 
-// Logger provides a simple abstraction for basic logging.
 type Logger struct {
 	logger zerolog.Logger
 }
 
-// Fatalf logs an [fmt]-formatted [Fatal] message.
 func (l *Logger) Fatalf(format string, v ...any) {
 	l.logger.Fatal().
 		Msgf(format, v...)
 }
 
-// Errorf logs an [fmt]-formatted [Error] message.
 func (l *Logger) Errorf(format string, v ...any) {
 	l.logger.Error().
 		Msgf(format, v...)
 }
 
-// Infof logs an [fmt]-formatted [Info] message.
 func (l *Logger) Infof(format string, v ...any) {
 	l.logger.Info().
 		Msgf(format, v...)
 }
 
-// WithLevel creates a child [Logger] that will only log messages of the specified lvl or higher.
 func (l *Logger) WithLevel(lvl Level) *Logger {
 	return &Logger{l.logger.Level(zerolog.Level(lvl))}
 }
 
-// WithAttr creates a child [Logger] that will augment all messages with a key-val pair.
 func (l *Logger) WithAttr(key, val string) *Logger {
 	ctx := l.logger.With().Str(key, val)
 	return &Logger{ctx.Logger()}
 }
 
-// WithAttrs creates a child [Logger] that will augment all messages with a set of attrs.
 func (l *Logger) WithAttrs(attrs ...string) *Logger {
 	if len(attrs)%2 != 0 {
 		panic("expected an even number of arguments")

@@ -8,7 +8,6 @@ import (
 	"github.com/cerfical/socks2http/internal/log"
 )
 
-// Args represents a set of accepted command line options.
 type Args struct {
 	// ServerAddr is a listen address of the proxy server.
 	ServerAddr addr.Addr
@@ -16,14 +15,13 @@ type Args struct {
 	// ProxyAddr is an address for the proxy client to connect to.
 	ProxyAddr addr.Addr
 
-	// LogLevel specifies global logging level.
+	// LogLevel specifies the global logging level.
 	LogLevel log.Level
 
 	// Timeout specifies a timeout for IO operations.
 	Timeout time.Duration
 }
 
-// Parse parses [Args] from a list of string arguments, exiting on failure.
 func Parse(args []string) *Args {
 	a := &Args{}
 

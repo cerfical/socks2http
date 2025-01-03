@@ -19,7 +19,7 @@ func main() {
 	}
 
 	log.Infof("using proxy %v", &args.ProxyAddr)
-	log.Infof("starting a server on %v", &args.ServerAddr)
+	log.Infof("starting server on %v", &args.ServerAddr)
 
 	server, err := prox.NewServer(&args.ServerAddr, args.Timeout, proxy, log)
 	if err != nil {

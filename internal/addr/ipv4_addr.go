@@ -19,10 +19,8 @@ func LookupIPv4(hostname string) (IPv4Addr, error) {
 	return IPv4Addr(ip.IP.To4()), nil
 }
 
-// IPv4Addr represents an IP version 4 network address.
 type IPv4Addr [4]byte
 
-// String presents [IPv4Addr] in dotted decimal notation.
 func (a IPv4Addr) String() string {
 	return fmt.Sprintf("%v.%v.%v.%v", a[0], a[1], a[2], a[3])
 }
