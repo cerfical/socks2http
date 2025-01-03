@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
-	"net"
 	"regexp"
 	"strconv"
 	"strings"
@@ -39,20 +38,20 @@ func (a *Addr) Host() string {
 	if a.Port != 0 {
 		p = strconv.Itoa(int(a.Port))
 	}
-	return net.JoinHostPort(a.Hostname, p)
+	return a.Hostname + ":" + p
 }
 
-// UnmarshalText creates a new [Addr] from a text representation.
+// UnmarshalText creates a new [Addr] from its text representation.
 // The syntax is similar to [net/url.URL], but simplified for ease of use.
 //
 // For example, the address http://localhost:8080 can be represented as:
 //   - http://localhost:8080
 //   - http://localhost
 //   - http::8080
-//   - //localhost:8080
+//   - localhost:8080
 //   - //localhost
+//   - http
 //   - :8080
-//   - http:
 //
 // By default, assumes HTTP protocol scheme and localhost for the hostname.
 // If no port is specified, it is inferred from the scheme.
@@ -62,19 +61,21 @@ func (a *Addr) UnmarshalText(text []byte) error {
 		return errors.New("malformed network address")
 	}
 
-	scheme := string(matches[rgx.SubexpIndex("SCHEME")])
-	hostname := string(matches[rgx.SubexpIndex("HOSTNAME")])
-	port := string(matches[rgx.SubexpIndex("PORT")])
+	// group named captures by name
+	submatches := make(map[string]string)
+	for i, n := range rgx.SubexpNames() {
+		submatches[n] = cmp.Or(submatches[n], string(matches[i]))
+	}
 
 	// provide some reasonable non-empty default values
-	scheme = strings.ToLower(cmp.Or(scheme, HTTP))
-	hostname = strings.ToLower(cmp.Or(hostname, defaultHostnameForScheme(scheme)))
-	port = strings.ToLower(cmp.Or(port, defaultProxyPortForScheme(scheme)))
+	scheme := strings.ToLower(cmp.Or(submatches["SCHEME"], HTTP))
+	hostname := strings.ToLower(cmp.Or(submatches["HOSTNAME"], defSchemeHostname(scheme)))
+	port := strings.ToLower(cmp.Or(submatches["PORT"], defSchemePort(scheme)))
 
 	if port != "" {
 		p, err := ParsePort(port)
 		if err != nil {
-			return fmt.Errorf("parse port number %v: %w", port, err)
+			return fmt.Errorf("parsing port number %v: %w", port, err)
 		}
 		a.Port = p
 	} else {
@@ -87,9 +88,14 @@ func (a *Addr) UnmarshalText(text []byte) error {
 	return nil
 }
 
-var rgx = regexp.MustCompile(`\A(((?<SCHEME>[^:]+):)?(//(?<HOSTNAME>[^:/]+))?(:(?<PORT>[^:]+))?)\z`)
+var (
+	s   = `(?<SCHEME>[^:]+)`
+	h   = `(?<HOSTNAME>[^:]+)`
+	p   = `(?<PORT>[^:]+)`
+	rgx = regexp.MustCompile(fmt.Sprintf(`\A(?:(?:%[1]v:)?(?://%[2]v)?(?::%[3]v)?|%[2]v:%[3]v|%[1]v)\z`, s, h, p))
+)
 
-func defaultHostnameForScheme(scheme string) string {
+func defSchemeHostname(scheme string) string {
 	switch scheme {
 	case Direct:
 		return ""
@@ -98,7 +104,7 @@ func defaultHostnameForScheme(scheme string) string {
 	}
 }
 
-func defaultProxyPortForScheme(scheme string) string {
+func defSchemePort(scheme string) string {
 	switch scheme {
 	case SOCKS4:
 		return "1080"
@@ -116,19 +122,25 @@ func (a *Addr) MarshalText() ([]byte, error) {
 
 // String presents [Addr] as a <scheme>://<hostname>:<port> string.
 func (a *Addr) String() string {
-	s := a.Scheme
-	if s != "" {
-		s = s + ":"
-	}
-
+	s, h, p := a.Scheme, a.Hostname, a.Port
 	switch {
-	case a.Hostname != "" && a.Port != 0:
-		return s + "//" + a.Host()
-	case a.Hostname != "":
-		return s + "//" + a.Hostname
-	case a.Port != 0:
-		return s + a.Host()
+	case s != "" && h == "" && p == 0:
+		return s
+	case p != 0 && h != "" && s == "":
+		return a.Host()
 	default:
+		s := s
+		if s != "" {
+			s += ":"
+		}
+		if h != "" {
+			s += "//"
+		}
+		if p != 0 {
+			s += a.Host()
+		} else {
+			s += a.Hostname
+		}
 		return s
 	}
 }
