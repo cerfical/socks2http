@@ -37,8 +37,8 @@ func (l *Logger) Infof(format string, v ...any) {
 		Msgf(format, v...)
 }
 
-func (l *Logger) WithLevel(lvl Level) *Logger {
-	return &Logger{l.logger.Level(zerolog.Level(lvl))}
+func (l *Logger) WithLevel(level Level) *Logger {
+	return &Logger{l.logger.Level(makeZerologLevel(level))}
 }
 
 func (l *Logger) WithAttr(key, val string) *Logger {
