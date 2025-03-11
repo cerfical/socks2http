@@ -7,7 +7,7 @@ import (
 	"io"
 	"unsafe"
 
-	"github.com/cerfical/socks2http/internal/addr"
+	"github.com/cerfical/socks2http/addr"
 )
 
 const (

@@ -1,4 +1,4 @@
-package prox
+package proxy
 
 import (
 	"bufio"
@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cerfical/socks2http/internal/addr"
-	"github.com/cerfical/socks2http/internal/log"
-	"github.com/cerfical/socks2http/internal/socks"
+	"github.com/cerfical/socks2http/addr"
+	"github.com/cerfical/socks2http/log"
+	"github.com/cerfical/socks2http/socks"
 )
 
 func NewServer(servAddr *addr.Addr, timeout time.Duration, proxy *Client, log *log.Logger) (*Server, error) {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cerfical/socks2http/internal/addr"
+	"github.com/cerfical/socks2http/addr"
 )
 
 func WriteConnect(w io.Writer, dest *addr.Addr) error {

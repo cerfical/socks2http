@@ -1,4 +1,4 @@
-package prox
+package proxy
 
 import (
 	"bufio"
@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/cerfical/socks2http/internal/addr"
-	"github.com/cerfical/socks2http/internal/socks"
+	"github.com/cerfical/socks2http/addr"
+	"github.com/cerfical/socks2http/socks"
 )
 
 func NewClient(proxyAddr *addr.Addr) (*Client, error) {

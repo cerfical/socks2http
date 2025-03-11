@@ -4,8 +4,8 @@ import (
 	"flag"
 	"time"
 
-	"github.com/cerfical/socks2http/internal/addr"
-	"github.com/cerfical/socks2http/internal/log"
+	"github.com/cerfical/socks2http/addr"
+	"github.com/cerfical/socks2http/log"
 )
 
 type Args struct {

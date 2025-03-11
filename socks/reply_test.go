@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/cerfical/socks2http/internal/socks"
+	"github.com/cerfical/socks2http/socks"
 	"github.com/stretchr/testify/assert"
 )
 

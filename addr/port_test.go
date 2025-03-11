@@ -3,7 +3,7 @@ package addr_test
 import (
 	"testing"
 
-	"github.com/cerfical/socks2http/internal/addr"
+	"github.com/cerfical/socks2http/addr"
 	"github.com/stretchr/testify/assert"
 )
 

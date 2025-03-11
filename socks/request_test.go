@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/cerfical/socks2http/internal/addr"
-	"github.com/cerfical/socks2http/internal/socks"
+	"github.com/cerfical/socks2http/addr"
+	"github.com/cerfical/socks2http/socks"
 	"github.com/stretchr/testify/assert"
 )
 
