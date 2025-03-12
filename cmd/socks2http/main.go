@@ -6,27 +6,26 @@ import (
 
 	"github.com/cerfical/socks2http/config"
 	"github.com/cerfical/socks2http/log"
-	"github.com/cerfical/socks2http/proxy"
+	"github.com/cerfical/socks2http/proxy/cli"
+	"github.com/cerfical/socks2http/proxy/serv"
 )
 
 func main() {
 	config := config.Load(os.Args)
 	l := log.New(log.WithLevel(config.LogLevel))
 
-	proxcli, err := proxy.NewClient(&config.ProxyAddr)
+	cli, err := cli.New(&config.ProxyAddr)
 	if err != nil {
-		l.Fatal("proxy init", err)
+		l.Fatal("Failed to initialize a proxy client", err)
+	}
+	l.Info("Using a proxy", log.Fields{"addr": &config.ProxyAddr})
+
+	serv, err := serv.New(&config.ServeAddr, config.Timeout, cli, l)
+	if err != nil {
+		l.Fatal("Failed to start up a server", err)
 	}
 
-	l.Info("using proxy", log.Fields{"addr": &config.ProxyAddr})
-	l.Info("starting server", log.Fields{"addr": &config.ServeAddr})
-
-	proxserv, err := proxy.NewServer(&config.ServeAddr, config.Timeout, proxcli, l)
-	if err != nil {
-		l.Fatal("server init", err)
-	}
-
-	if err := proxserv.Run(context.Background()); err != nil {
-		l.Fatal("server shutdown", err)
+	if err := serv.Serve(context.Background()); err != nil {
+		l.Fatal("Server terminated abnormally", err)
 	}
 }

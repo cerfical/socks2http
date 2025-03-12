@@ -1,4 +1,4 @@
-package proxy
+package serv
 
 import (
 	"bufio"
@@ -14,10 +14,11 @@ import (
 
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/log"
+	"github.com/cerfical/socks2http/proxy/cli"
 	"github.com/cerfical/socks2http/socks"
 )
 
-func NewServer(servAddr *addr.Addr, timeout time.Duration, proxy *Client, l *log.Logger) (*Server, error) {
+func New(servAddr *addr.Addr, timeout time.Duration, proxy *cli.Client, l *log.Logger) (*Server, error) {
 	s := Server{addr: servAddr, timeout: timeout, proxy: proxy, log: l}
 	switch servAddr.Scheme {
 	case addr.HTTP:
@@ -27,33 +28,40 @@ func NewServer(servAddr *addr.Addr, timeout time.Duration, proxy *Client, l *log
 	default:
 		return nil, fmt.Errorf("unsupported server protocol scheme %v", servAddr.Scheme)
 	}
+
+	s.log.Info("Starting up a server", nil)
+	var (
+		lc  net.ListenConfig
+		err error
+	)
+	s.listener, err = lc.Listen(context.Background(), "tcp", servAddr.Host())
+	if err != nil {
+		return nil, err
+	}
+	s.log.Info("Server is up", log.Fields{"addr": servAddr})
+
 	return &s, nil
 }
 
 type Server struct {
 	newHandler func(handlerConfig) requestHandler
+	listener   net.Listener
 	addr       *addr.Addr
 	timeout    time.Duration
-	proxy      *Client
+	proxy      *cli.Client
 	log        *log.Logger
-	numConn    int
 }
 
-func (s *Server) Run(ctx context.Context) error {
-	lc := net.ListenConfig{}
-	listener, err := lc.Listen(ctx, "tcp", s.addr.Host())
-	if err != nil {
-		return err
-	}
-
+func (s *Server) Serve(ctx context.Context) error {
+	var numConn int
 	for {
+		numConn++
 		l := log.New(
 			log.WithLogger(s.log),
-			log.WithFields(log.Fields{"id": s.numConn}),
+			log.WithFields(log.Fields{"id": numConn}),
 		)
-		s.numConn++
 
-		cliConn, err := listener.Accept()
+		cliConn, err := s.listener.Accept()
 		if err != nil {
 			l.Error("opening a client connection", err)
 			continue
@@ -120,7 +128,7 @@ type handlerConfig struct {
 	cliConn net.Conn
 	cliBufr *bufio.Reader
 	log     *log.Logger
-	proxy   *Client
+	proxy   *cli.Client
 }
 
 type socksHandler struct {
@@ -228,7 +236,7 @@ func (h *httpHandler) grant(servConn net.Conn) {
 }
 
 func (h *httpHandler) forward(servConn net.Conn) error {
-	if h.proxy.addr.Scheme == addr.HTTP {
+	if h.proxy.Proto() == addr.HTTP {
 		if err := h.WriteProxy(servConn); err != nil {
 			return err
 		}
