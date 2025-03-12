@@ -11,22 +11,22 @@ import (
 
 func main() {
 	config := config.Load(os.Args)
-	log := log.New().WithLevel(config.LogLevel)
+	l := log.New(log.WithLevel(config.LogLevel))
 
 	proxcli, err := proxy.NewClient(&config.ProxyAddr)
 	if err != nil {
-		log.Fatalf("proxy init: %v", err)
+		l.Fatal("proxy init", err)
 	}
 
-	log.Infof("using proxy %v", &config.ProxyAddr)
-	log.Infof("starting server on %v", &config.ServeAddr)
+	l.Info("using proxy", log.Fields{"addr": &config.ProxyAddr})
+	l.Info("starting server", log.Fields{"addr": &config.ServeAddr})
 
-	proxserv, err := proxy.NewServer(&config.ServeAddr, config.Timeout, proxcli, log)
+	proxserv, err := proxy.NewServer(&config.ServeAddr, config.Timeout, proxcli, l)
 	if err != nil {
-		log.Fatalf("server init: %v", err)
+		l.Fatal("server init", err)
 	}
 
 	if err := proxserv.Run(context.Background()); err != nil {
-		log.Fatalf("server shutdown: %v", err)
+		l.Fatal("server shutdown", err)
 	}
 }

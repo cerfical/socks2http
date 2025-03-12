@@ -17,8 +17,8 @@ import (
 	"github.com/cerfical/socks2http/socks"
 )
 
-func NewServer(servAddr *addr.Addr, timeout time.Duration, proxy *Client, log *log.Logger) (*Server, error) {
-	s := Server{addr: servAddr, timeout: timeout, proxy: proxy, log: log}
+func NewServer(servAddr *addr.Addr, timeout time.Duration, proxy *Client, l *log.Logger) (*Server, error) {
+	s := Server{addr: servAddr, timeout: timeout, proxy: proxy, log: l}
 	switch servAddr.Scheme {
 	case addr.HTTP:
 		s.newHandler = func(h handlerConfig) requestHandler { return &httpHandler{h, nil} }
@@ -36,7 +36,7 @@ type Server struct {
 	timeout    time.Duration
 	proxy      *Client
 	log        *log.Logger
-	numReq     int
+	numConn    int
 }
 
 func (s *Server) Run(ctx context.Context) error {
@@ -47,19 +47,22 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	for {
-		log := s.log.WithAttr("id", strconv.Itoa(s.numReq))
-		s.numReq++
+		l := log.New(
+			log.WithLogger(s.log),
+			log.WithFields(log.Fields{"id": s.numConn}),
+		)
+		s.numConn++
 
 		cliConn, err := listener.Accept()
 		if err != nil {
-			log.Errorf("opening a client connection: %v", err)
+			l.Error("opening a client connection", err)
 			continue
 		}
 
 		go func() {
 			defer func() {
 				if closeErr := cliConn.Close(); closeErr != nil {
-					log.Errorf("closing a client connection: %v", closeErr)
+					l.Error("closing a client connection", closeErr)
 				}
 			}()
 
@@ -69,7 +72,7 @@ func (s *Server) Run(ctx context.Context) error {
 				defer cancel()
 				ctx = c
 			}
-			s.handleConn(ctx, cliConn, log)
+			s.handleConn(ctx, cliConn, l)
 		}()
 	}
 }
@@ -80,7 +83,7 @@ func (s *Server) handleConn(ctx context.Context, cliConn net.Conn, log *log.Logg
 	destAddr, err := h.parseRequest()
 	if err != nil {
 		if !errors.Is(err, io.EOF) {
-			log.Errorf("%v", err)
+			log.Error(err.Error(), nil)
 		}
 		return
 	}
@@ -90,13 +93,13 @@ func (s *Server) handleConn(ctx context.Context, cliConn net.Conn, log *log.Logg
 
 	servConn, err := s.proxy.Open(ctx, destAddr)
 	if err != nil {
-		log.Errorf("opening a server connection: %v", err)
+		log.Error("opening a server connection", err)
 		h.reject()
 		return
 	}
 	defer func() {
 		if closeErr := servConn.Close(); closeErr != nil {
-			log.Errorf("closing a server connection: %v", closeErr)
+			log.Error("closing a server connection", closeErr)
 		}
 	}()
 
@@ -136,24 +139,26 @@ func (h *socksHandler) parseRequest() (*addr.Addr, error) {
 }
 
 func (h *socksHandler) dumpRequest() {
-	h.log.WithAttrs("command", "CONNECT", "host", h.destAddr.Host()).
-		Infof("incoming socks request")
+	h.log.Info("incoming socks request", log.Fields{
+		"command": "CONNECT",
+		"host":    h.destAddr.Host(),
+	})
 }
 
 func (h *socksHandler) grant(servConn net.Conn) {
 	if err := socks.WriteGrant(h.cliConn); err != nil {
-		h.log.Errorf("writing socks reply: %v", err)
+		h.log.Error("writing socks reply", err)
 		return
 	}
 
 	if err := tunnel(h.cliBufr, h.cliConn, servConn); err != nil {
-		h.log.Errorf("socks tunnel: %v", err)
+		h.log.Error("socks tunnel", err)
 	}
 }
 
 func (h *socksHandler) reject() {
 	if err := socks.WriteReject(h.cliConn); err != nil {
-		h.log.Errorf("writing socks reply: %v", err)
+		h.log.Error("writing socks reply", err)
 	}
 }
 
@@ -202,19 +207,22 @@ func addrFromURL(url *url.URL) (*addr.Addr, error) {
 }
 
 func (h *httpHandler) dumpRequest() {
-	h.log.WithAttrs("method", h.Method, "uri", h.RequestURI, "proto", h.Proto).
-		Infof("incoming http request")
+	h.log.Info("incoming http request", log.Fields{
+		"method": h.Method,
+		"uri":    h.RequestURI,
+		"proto":  h.Proto,
+	})
 }
 
 func (h *httpHandler) grant(servConn net.Conn) {
 	if h.Method == http.MethodConnect {
 		h.httpWriteReply(true)
 		if err := tunnel(h.cliBufr, h.cliConn, servConn); err != nil {
-			h.log.Errorf("http tunnel: %v", err)
+			h.log.Error("http tunnel", err)
 		}
 	} else {
 		if err := h.forward(servConn); err != nil {
-			h.log.Errorf("http forwarding: %v", err)
+			h.log.Error("http forwarding", err)
 		}
 	}
 }
@@ -250,7 +258,7 @@ func (h *httpHandler) httpWriteReply(ok bool) {
 		}
 
 		if err := resp.Write(h.cliConn); err != nil {
-			h.log.Errorf("writing http response: %v", err)
+			h.log.Error("writing http response", err)
 		}
 	}
 }
