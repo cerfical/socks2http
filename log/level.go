@@ -9,19 +9,10 @@ import (
 )
 
 const (
-	// Silent is the least verbose logging level, which effectively produces no log messages.
 	Silent Level = iota
-
-	// Fatal reports only fatal error messages.
 	Fatal
-
-	// Error is [Fatal], but also includes generic error messages.
 	Error
-
-	// Info is [Error], but also includes informational messages.
 	Info
-
-	// Verbose is the most verbose logging level, which effectively records every message.
 	Verbose
 )
 
@@ -38,7 +29,6 @@ type levelDesc struct {
 	level zerolog.Level
 }
 
-// Level determines severity of log messages.
 type Level int8
 
 func (l Level) String() string {

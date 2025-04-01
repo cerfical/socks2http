@@ -3,54 +3,26 @@ package log
 import (
 	"io"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/rs/zerolog"
 	"golang.org/x/term"
 )
 
-type Fields map[string]any
+var Discard = New(WithLevel(Silent), WithWriter(io.Discard))
 
-type Logger struct {
-	log zerolog.Logger
-}
-
-func (l *Logger) Fatal(msg string, err error) {
-	l.logEntry(Fatal, msg, nil, err)
-	os.Exit(1)
-}
-
-func (l *Logger) Error(msg string, err error) {
-	l.logEntry(Error, msg, nil, err)
-}
-
-func (l *Logger) Info(msg string, f Fields) {
-	l.logEntry(Info, msg, f, nil)
-}
-
-func (l *Logger) logEntry(level Level, msg string, f Fields, err error) {
-	entry := l.log.WithLevel(makeZerologLevel(level))
-	if err != nil {
-		entry = entry.Err(err)
+func New(ops ...Option) *Logger {
+	defaults := []Option{
+		WithLogger(&Logger{zerolog.New(nil).
+			With().Timestamp().Logger(),
+		}),
+		WithWriter(os.Stdout),
+		WithLevel(Info),
 	}
 
-	entry.Fields(map[string]any(f)).
-		Msg(msg)
-}
-
-type Option func(*Logger)
-
-// New creates and configures a new [Logger].
-func New(ops ...Option) *Logger {
-	// Setup defaults
 	var l Logger
-	WithLogger(&Logger{zerolog.New(nil).
-		With().Timestamp().Logger(),
-	})(&l)
-	WithWriter(os.Stdout)(&l)
-	WithLevel(Info)(&l)
-
-	for _, op := range ops {
+	for _, op := range slices.Concat(defaults, ops) {
 		op(&l)
 	}
 	return &l
@@ -92,4 +64,35 @@ func isTerminal(w io.Writer) bool {
 		return true
 	}
 	return false
+}
+
+type Option func(*Logger)
+
+type Fields map[string]any
+
+type Logger struct {
+	log zerolog.Logger
+}
+
+func (l *Logger) Fatal(msg string, err error) {
+	l.logEntry(Fatal, msg, nil, err)
+	os.Exit(1)
+}
+
+func (l *Logger) Error(msg string, err error) {
+	l.logEntry(Error, msg, nil, err)
+}
+
+func (l *Logger) Info(msg string, f Fields) {
+	l.logEntry(Info, msg, f, nil)
+}
+
+func (l *Logger) logEntry(level Level, msg string, f Fields, err error) {
+	entry := l.log.WithLevel(makeZerologLevel(level))
+	if err != nil {
+		entry = entry.Err(err)
+	}
+
+	entry.Fields(map[string]any(f)).
+		Msg(msg)
 }
