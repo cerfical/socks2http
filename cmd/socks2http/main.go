@@ -2,30 +2,50 @@ package main
 
 import (
 	"context"
+	"net"
 	"os"
 
+	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/config"
 	"github.com/cerfical/socks2http/log"
+	"github.com/cerfical/socks2http/proxy"
 	"github.com/cerfical/socks2http/proxy/cli"
-	"github.com/cerfical/socks2http/proxy/serv"
 )
 
 func main() {
 	config := config.Load(os.Args)
-	l := log.New(log.WithLevel(config.LogLevel))
+	l := log.New(
+		log.WithLevel(config.LogLevel),
+	)
 
-	cli, err := cli.New(&config.ProxyAddr)
+	client, err := cli.New(&config.ProxyAddr)
 	if err != nil {
-		l.Fatal("Failed to initialize a proxy client", err)
+		l.Error("Failed to initialize a proxy client", err)
+		return
 	}
-	l.Info("Using a proxy", log.Fields{"addr": &config.ProxyAddr})
+	l.Info("Using a proxy", log.Fields{"proxy_addr": &config.ProxyAddr})
 
-	serv, err := serv.New(&config.ServeAddr, config.Timeout, cli, l)
+	server, err := proxy.NewServer(
+		proxy.WithListenAddr(&config.ServeAddr),
+		proxy.WithDialer(proxy.DialerFunc(func(ctx context.Context, host string) (net.Conn, error) {
+			hostname, port, err := net.SplitHostPort(host)
+			if err != nil {
+				return nil, err
+			}
+
+			portNum, err := addr.ParsePort(port)
+			if err != nil {
+				return nil, err
+			}
+
+			return client.Open(ctx, addr.New("", hostname, portNum))
+		})),
+		proxy.WithServerLog(l),
+	)
 	if err != nil {
-		l.Fatal("Failed to start up a server", err)
+		l.Error("Server initialization failure", err)
+		return
 	}
 
-	if err := serv.Serve(context.Background()); err != nil {
-		l.Fatal("Server terminated abnormally", err)
-	}
+	server.Run(context.Background())
 }

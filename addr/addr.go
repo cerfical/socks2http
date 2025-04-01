@@ -15,6 +15,10 @@ const (
 	HTTP   = "http"
 )
 
+func New(scheme, hostname string, port uint16) *Addr {
+	return &Addr{Scheme: scheme, Hostname: hostname, Port: port}
+}
+
 type Addr struct {
 	Scheme   string
 	Hostname string
