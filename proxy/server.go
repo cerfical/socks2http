@@ -114,12 +114,12 @@ func (s *Server) Start(ctx context.Context) error {
 
 	s.log.Info("Starting up a server", nil)
 
-	s.listener, err = lc.Listen(ctx, "tcp", s.listenAddr.Host())
+	s.listener, err = lc.Listen(ctx, "tcp", s.listenAddr.Host.String())
 	if err != nil {
 		return err
 	}
 	// Update the listen address with the allocated port, if zero port was specified
-	s.listenAddr.Port = uint16(s.listener.Addr().(*net.TCPAddr).Port)
+	s.listenAddr.Host.Port = s.listener.Addr().(*net.TCPAddr).Port
 
 	s.log.Info("Server is up", log.Fields{"listen_addr": &s.listenAddr})
 
@@ -155,7 +155,7 @@ func (s *Server) serveSOCKS4(ctx context.Context, clientConn net.Conn) {
 
 	s.logSOCKS4(req)
 
-	serverHost := addr.New("", req.DestIP.String(), req.DestPort).Host()
+	serverHost := addr.NewHost(req.DestIP.String(), int(req.DestPort))
 	serverConn, ok := s.openConn(ctx, serverHost)
 	if !ok {
 		s.replySOCKS4(socks.RequestRejectedOrFailed, clientConn)
@@ -171,7 +171,7 @@ func (s *Server) serveSOCKS4(ctx context.Context, clientConn net.Conn) {
 func (s *Server) logSOCKS4(r *socks.Request) {
 	s.log.Info("Incoming SOCKS4 request", log.Fields{
 		"command": "CONNECT",
-		"host":    addr.New("", r.DestIP.String(), r.DestPort).Host(),
+		"host":    addr.NewHost(r.DestIP.String(), int(r.DestPort)),
 	})
 }
 
@@ -193,7 +193,13 @@ func (s *Server) serveHTTP(ctx context.Context, clientConn net.Conn) {
 
 	s.logHTTP(req)
 
-	serverConn, ok := s.openConn(ctx, req.Host)
+	serverHost, err := addr.ParseHost(req.Host)
+	if err != nil {
+		s.log.Error(fmt.Sprintf("HTTP request has a Host header with an invalid value %v", req.Host), err)
+		return
+	}
+
+	serverConn, ok := s.openConn(ctx, serverHost)
 	if !ok {
 		s.replyHTTP(http.StatusBadGateway, clientConn)
 		return
@@ -267,10 +273,10 @@ func (s *Server) tunnel(clientConn, serverConn net.Conn) {
 	}
 }
 
-func (s *Server) openConn(ctx context.Context, host string) (net.Conn, bool) {
-	conn, err := s.dialer.Dial(ctx, host)
+func (s *Server) openConn(ctx context.Context, h *addr.Host) (net.Conn, bool) {
+	conn, err := s.dialer.Dial(ctx, h.String())
 	if err != nil {
-		s.log.Error(fmt.Sprintf("Failed to establish a connection with %v", host), err)
+		s.log.Error(fmt.Sprintf("Failed to establish a connection with %v", h), err)
 		return nil, false
 	}
 	return conn, true

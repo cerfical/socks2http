@@ -8,7 +8,7 @@ import (
 )
 
 func WriteConnect(w io.Writer, dest *addr.Addr) error {
-	ipv4, err := addr.LookupIPv4(dest.Hostname)
+	ipv4, err := addr.LookupIPv4(dest.Host.Hostname)
 	if err != nil {
 		return fmt.Errorf("resolve address %v: %w", dest, err)
 	}
@@ -17,7 +17,7 @@ func WriteConnect(w io.Writer, dest *addr.Addr) error {
 		Version:  V4,
 		Command:  RequestConnect,
 		DestIP:   ipv4,
-		DestPort: dest.Port,
+		DestPort: uint16(dest.Host.Port),
 	}, ""}
 
 	return req.Write(w)

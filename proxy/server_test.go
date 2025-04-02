@@ -22,9 +22,9 @@ const (
 
 	numInRowRequests = 10
 	maxPayloadSize   = megabyte * 10
-
-	unreachableHost = "0.0.0.0:1234"
 )
+
+var unreachableHost = addr.NewHost("0.0.0.0", 1234)
 
 func TestServer(t *testing.T) {
 	suite.Run(t, new(ServerTest))
@@ -87,14 +87,14 @@ func (t *ServerTest) TestStart() {
 		"starts to listen on the specified address": {
 			options: proxy.WithListenAddr(addr.New(addr.HTTP, "localhost", 0)),
 			want: func(s *proxy.Server) {
-				t.assertHostIsReachable(s.ListenAddr().Host())
+				t.assertHostIsReachable(&s.ListenAddr().Host)
 			},
 		},
 
 		"allocates a listen port if one was not provided": {
 			options: proxy.WithListenAddr(addr.New(addr.HTTP, "localhost", 0)),
 			want: func(s *proxy.Server) {
-				t.NotZero(s.ListenAddr().Port)
+				t.NotZero(s.ListenAddr().Host.Port)
 			},
 		},
 	}
@@ -217,30 +217,30 @@ func (t *ServerTest) TestServe_SOCKS4() {
 	}
 }
 
-func (t *ServerTest) assertHostIsReachable(host string) {
+func (t *ServerTest) assertHostIsReachable(h *addr.Host) {
 	t.T().Helper()
 
-	conn, err := net.Dial("tcp", host)
+	conn, err := net.Dial("tcp", h.String())
 	t.NoError(err)
 	t.T().Cleanup(func() { conn.Close() })
 }
 
-func (t *ServerTest) assertHTTPEchoesBack(status int, method, msg, serverHost string, serverConn net.Conn) {
+func (t *ServerTest) assertHTTPEchoesBack(status int, method, msg string, h *addr.Host, c net.Conn) {
 	t.T().Helper()
 
-	req := t.newHTTPRequest(method, serverHost, msg)
-	resp := t.roundTripHTTP(req, serverConn)
+	req := t.newHTTPRequest(method, msg, h)
+	resp := t.roundTripHTTP(req, c)
 
 	t.Equal(status, resp.StatusCode)
 	t.Equal(msg, t.readString(resp.Body))
 }
 
-func (t *ServerTest) newHTTPRequest(method, host, body string) *http.Request {
+func (t *ServerTest) newHTTPRequest(method, body string, h *addr.Host) *http.Request {
 	t.T().Helper()
 
 	r, err := http.NewRequest(method, "", strings.NewReader(body))
 	t.Require().NoError(err)
-	r.Host = host
+	r.Host = h.String()
 
 	return r
 }
@@ -256,16 +256,10 @@ func (t *ServerTest) roundTripHTTP(r *http.Request, serverConn net.Conn) *http.R
 	return resp
 }
 
-func (t *ServerTest) newSOCKS4Request(cmd byte, host string) *socks.Request {
+func (t *ServerTest) newSOCKS4Request(cmd byte, h *addr.Host) *socks.Request {
 	t.T().Helper()
 
-	hostname, port, err := net.SplitHostPort(host)
-	t.Require().NoError(err)
-
-	portNum, err := addr.ParsePort(port)
-	t.Require().NoError(err)
-
-	ipAddr, err := addr.LookupIPv4(hostname)
+	ipAddr, err := addr.LookupIPv4(h.Hostname)
 	t.Require().NoError(err)
 
 	return &socks.Request{
@@ -273,7 +267,7 @@ func (t *ServerTest) newSOCKS4Request(cmd byte, host string) *socks.Request {
 			Version:  socks.V4,
 			Command:  cmd,
 			DestIP:   ipAddr,
-			DestPort: portNum,
+			DestPort: uint16(h.Port),
 		},
 		User: "",
 	}
@@ -298,7 +292,7 @@ func (t *ServerTest) openProxyConn(proto string) (proxyConn net.Conn) {
 	t.T().Helper()
 
 	server := t.startProxyServer(proto)
-	proxyConn, err := net.Dial("tcp", server.ListenAddr().Host())
+	proxyConn, err := net.Dial("tcp", server.ListenAddr().Host.String())
 	t.Require().NoError(err)
 	t.T().Cleanup(func() { proxyConn.Close() })
 

@@ -8,6 +8,9 @@ import (
 	"github.com/cerfical/socks2http/log"
 )
 
+var defaultServeAddr = addr.New(addr.HTTP, "localhost", 8080)
+var defaultProxyAddr = addr.New(addr.Direct, "", 0)
+
 // Config defines configurable application settings.
 type Config struct {
 	// ServeAddr is a listen address of the proxy server.
@@ -28,8 +31,8 @@ func Load(args []string) *Config {
 	var config Config
 
 	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
-	flags.TextVar(&config.ServeAddr, "serve", &addr.Addr{Scheme: "http", Hostname: "localhost", Port: 8080}, "listen `address` for the proxy server")
-	flags.TextVar(&config.ProxyAddr, "proxy", &addr.Addr{Scheme: "direct"}, "`address` of an optional intermediate proxy")
+	flags.TextVar(&config.ServeAddr, "serve", defaultServeAddr, "listen `address` for the proxy server")
+	flags.TextVar(&config.ProxyAddr, "proxy", defaultProxyAddr, "`address` of an optional intermediate proxy")
 	flags.TextVar(&config.LogLevel, "log", log.Verbose, "severity `level` of logging messages")
 	flags.DurationVar(&config.Timeout, "timeout", 0, "wait time for I/O operations")
 

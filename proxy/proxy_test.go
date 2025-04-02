@@ -34,28 +34,34 @@ func (t *ProxyTest) startProxyServer(proto string) *proxy.Server {
 	return server
 }
 
-func (t *ProxyTest) startHTTPEchoServer() (serverHost string) {
+func (t *ProxyTest) startHTTPEchoServer() *addr.Host {
 	t.T().Helper()
 
 	server := httptest.NewServer(http.HandlerFunc(t.echoHTTP))
 	t.T().Cleanup(server.Close)
 
-	url, err := url.Parse(server.URL)
-	t.Require().NoError(err)
-
-	return url.Host
+	return t.hostFromURL(server.URL)
 }
 
-func (t *ProxyTest) startHTTPSEchoServer() (serverHost string) {
+func (t *ProxyTest) startHTTPSEchoServer() *addr.Host {
 	t.T().Helper()
 
 	server := httptest.NewTLSServer(http.HandlerFunc(t.echoHTTP))
 	t.T().Cleanup(server.Close)
 
-	url, err := url.Parse(server.URL)
+	return t.hostFromURL(server.URL)
+}
+
+func (t *ProxyTest) hostFromURL(urlStr string) *addr.Host {
+	t.T().Helper()
+
+	url, err := url.Parse(urlStr)
 	t.Require().NoError(err)
 
-	return url.Host
+	h, err := addr.ParseHost(url.Host)
+	t.Require().NoError(err)
+
+	return h
 }
 
 func (t *ProxyTest) echoHTTP(w http.ResponseWriter, r *http.Request) {

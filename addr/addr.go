@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -15,26 +14,22 @@ const (
 	HTTP   = "http"
 )
 
-func New(scheme, hostname string, port uint16) *Addr {
-	return &Addr{Scheme: scheme, Hostname: hostname, Port: port}
+var (
+	scheme = `(?<SCHEME>[^:]+)`
+	host   = `(?<HOSTNAME>[^:]+)`
+	port   = `(?<PORT>[^:]+)`
+
+	addrRgx = regexp.MustCompile(fmt.Sprintf(
+		`\A(?:(?:%[1]v:)?(?://%[2]v)?(?::%[3]v)?|%[2]v:%[3]v|%[1]v)\z`,
+		scheme, host, port,
+	))
+)
+
+func New(scheme, hostname string, port int) *Addr {
+	return &Addr{Scheme: scheme, Host: *NewHost(hostname, port)}
 }
 
-type Addr struct {
-	Scheme   string
-	Hostname string
-	Port     uint16
-}
-
-// Host presents [Addr] as a <hostname>:<port> string.
-func (a *Addr) Host() string {
-	p := ""
-	if a.Port != 0 {
-		p = strconv.Itoa(int(a.Port))
-	}
-	return a.Hostname + ":" + p
-}
-
-// UnmarshalText parses [Addr] from its text representation.
+// ParseAddr parses [Addr] from its text representation.
 // The syntax is similar to [net/url.URL], but simplified for ease of use.
 //
 // For example, the address http://localhost:8080 can be represented as:
@@ -48,47 +43,41 @@ func (a *Addr) Host() string {
 //
 // By default, assumes HTTP protocol scheme and localhost for the hostname.
 // If no port is specified, it is inferred from the scheme.
-func (a *Addr) UnmarshalText(text []byte) error {
-	matches := rgx.FindSubmatch(text)
+func ParseAddr(addr string) (*Addr, error) {
+	matches := addrRgx.FindStringSubmatch(addr)
 	if matches == nil {
-		return errors.New("malformed network address")
+		return nil, errors.New("malformed network address")
 	}
 
-	// group named captures by name
+	// Group named captures by name
 	submatches := make(map[string]string)
-	for i, n := range rgx.SubexpNames() {
+	for i, n := range addrRgx.SubexpNames() {
 		submatches[n] = cmp.Or(submatches[n], string(matches[i]))
 	}
 
-	// provide some reasonable non-empty default values
+	// Provide some reasonable non-empty default values
 	scheme := strings.ToLower(cmp.Or(submatches["SCHEME"], HTTP))
-	hostname := strings.ToLower(cmp.Or(submatches["HOSTNAME"], defSchemeHostname(scheme)))
-	port := strings.ToLower(cmp.Or(submatches["PORT"], defSchemePort(scheme)))
+	hostname := strings.ToLower(cmp.Or(submatches["HOSTNAME"], defaultHostnameFromScheme(scheme)))
+	port := strings.ToLower(cmp.Or(submatches["PORT"], defaultPortFromScheme(scheme)))
 
+	var a Addr
 	if port != "" {
 		p, err := ParsePort(port)
 		if err != nil {
-			return fmt.Errorf("parsing port number %v: %w", port, err)
+			return nil, fmt.Errorf("parse port number: %w", err)
 		}
-		a.Port = p
+		a.Host.Port = int(p)
 	} else {
-		a.Port = 0
+		a.Host.Port = 0
 	}
 
 	a.Scheme = scheme
-	a.Hostname = hostname
+	a.Host.Hostname = hostname
 
-	return nil
+	return &a, nil
 }
 
-var (
-	s   = `(?<SCHEME>[^:]+)`
-	h   = `(?<HOSTNAME>[^:]+)`
-	p   = `(?<PORT>[^:]+)`
-	rgx = regexp.MustCompile(fmt.Sprintf(`\A(?:(?:%[1]v:)?(?://%[2]v)?(?::%[3]v)?|%[2]v:%[3]v|%[1]v)\z`, s, h, p))
-)
-
-func defSchemeHostname(scheme string) string {
+func defaultHostnameFromScheme(scheme string) string {
 	switch scheme {
 	case Direct:
 		return ""
@@ -97,7 +86,7 @@ func defSchemeHostname(scheme string) string {
 	}
 }
 
-func defSchemePort(scheme string) string {
+func defaultPortFromScheme(scheme string) string {
 	switch scheme {
 	case SOCKS4:
 		return "1080"
@@ -108,17 +97,18 @@ func defSchemePort(scheme string) string {
 	}
 }
 
-func (a *Addr) MarshalText() ([]byte, error) {
-	return []byte(a.String()), nil
+type Addr struct {
+	Scheme string
+	Host   Host
 }
 
 func (a *Addr) String() string {
-	s, h, p := a.Scheme, a.Hostname, a.Port
+	s, h, p := a.Scheme, a.Host.Hostname, a.Host.Port
 	switch {
 	case s != "" && h == "" && p == 0:
 		return s
 	case p != 0 && h != "" && s == "":
-		return a.Host()
+		return a.Host.String()
 	default:
 		s := s
 		if s != "" {
@@ -128,10 +118,23 @@ func (a *Addr) String() string {
 			s += "//"
 		}
 		if p != 0 {
-			s += a.Host()
+			s += a.Host.String()
 		} else {
-			s += a.Hostname
+			s += a.Host.Hostname
 		}
 		return s
 	}
+}
+
+func (a *Addr) UnmarshalText(text []byte) error {
+	addr, err := ParseAddr(string(text))
+	if err != nil {
+		return err
+	}
+	*a = *addr
+	return nil
+}
+
+func (a *Addr) MarshalText() ([]byte, error) {
+	return []byte(a.String()), nil
 }

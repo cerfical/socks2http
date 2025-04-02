@@ -69,9 +69,10 @@ func (c *Client) Dial(ctx context.Context, host string) (net.Conn, error) {
 		return c.dialer.Dial(ctx, host)
 	}
 
-	proxyConn, err := c.dialer.Dial(ctx, c.proxyAddr.Host())
+	proxyHost := &c.proxyAddr.Host
+	proxyConn, err := c.dialer.Dial(ctx, proxyHost.String())
 	if err != nil {
-		return nil, fmt.Errorf("connect to proxy %v: %w", c.proxyAddr.Host(), err)
+		return nil, fmt.Errorf("connect to proxy %v: %w", proxyHost, err)
 	}
 
 	if err := c.connect(proxyConn, host); err != nil {
@@ -107,17 +108,12 @@ func connectHTTP(proxyConn net.Conn, host string) error {
 }
 
 func connectSOCKS4(proxyConn net.Conn, host string) error {
-	hostname, port, err := net.SplitHostPort(host)
+	h, err := addr.ParseHost(host)
 	if err != nil {
 		return err
 	}
 
-	portNum, err := addr.ParsePort(port)
-	if err != nil {
-		return err
-	}
-
-	if err := socks.WriteConnect(proxyConn, addr.New("", hostname, portNum)); err != nil {
+	if err := socks.WriteConnect(proxyConn, addr.New("", h.Hostname, h.Port)); err != nil {
 		return err
 	}
 	return socks.ReadReply(bufio.NewReader(proxyConn))
