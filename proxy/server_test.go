@@ -8,11 +8,8 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/proxy"
@@ -22,9 +19,6 @@ import (
 
 const (
 	megabyte = 1 << 20
-
-	netWaitTime = time.Second
-	netTickTime = 100 * time.Millisecond
 
 	numInRowRequests = 10
 	maxPayloadSize   = megabyte * 10
@@ -37,15 +31,14 @@ func TestServer(t *testing.T) {
 }
 
 type ServerTest struct {
-	suite.Suite
+	ProxyTest
 }
 
 func (t *ServerTest) TestNew() {
 	tests := map[string]struct {
-		options []proxy.ServerOption
-
-		want func(*proxy.Server)
-		err  func(error)
+		options proxy.ServerOption
+		want    func(*proxy.Server)
+		err     func(error)
 	}{
 		"uses http://localhost:8080 as the default listen address": {
 			want: func(s *proxy.Server) {
@@ -54,18 +47,14 @@ func (t *ServerTest) TestNew() {
 		},
 
 		"uses a non-default listen address if one is provided": {
-			options: []proxy.ServerOption{
-				proxy.WithListenAddr(addr.New(addr.HTTP, "example.com", 8181)),
-			},
+			options: proxy.WithListenAddr(addr.New(addr.HTTP, "example.com", 8181)),
 			want: func(s *proxy.Server) {
 				t.Equal(addr.New(addr.HTTP, "example.com", 8181), s.ListenAddr())
 			},
 		},
 
 		"rejects unsupported protocol schemes": {
-			options: []proxy.ServerOption{
-				proxy.WithListenAddr(addr.New("SOCKS", "", 0)),
-			},
+			options: proxy.WithListenAddr(addr.New("SOCKS", "", 0)),
 			err: func(err error) {
 				t.ErrorContains(err, "SOCKS")
 			},
@@ -74,7 +63,12 @@ func (t *ServerTest) TestNew() {
 
 	for name, test := range tests {
 		t.Run(name, func() {
-			serv, err := proxy.NewServer(test.options...)
+			ops := []proxy.ServerOption{}
+			if test.options != nil {
+				ops = append(ops, test.options)
+			}
+
+			serv, err := proxy.NewServer(ops...)
 			if test.err != nil {
 				test.err(err)
 			} else {
@@ -87,26 +81,18 @@ func (t *ServerTest) TestNew() {
 
 func (t *ServerTest) TestStart() {
 	tests := map[string]struct {
-		options []proxy.ServerOption
-
-		want func(*proxy.Server)
+		options proxy.ServerOption
+		want    func(*proxy.Server)
 	}{
 		"starts to listen on the specified address": {
+			options: proxy.WithListenAddr(addr.New(addr.HTTP, "localhost", 0)),
 			want: func(s *proxy.Server) {
-				t.Eventually(
-					func() bool {
-						return t.ping(s.ListenAddr().Host())
-					},
-					netWaitTime,
-					netTickTime,
-				)
+				t.assertHostIsReachable(s.ListenAddr().Host())
 			},
 		},
 
 		"allocates a listen port if one was not provided": {
-			options: []proxy.ServerOption{
-				proxy.WithListenAddr(addr.New(addr.HTTP, "localhost", 0)),
-			},
+			options: proxy.WithListenAddr(addr.New(addr.HTTP, "localhost", 0)),
 			want: func(s *proxy.Server) {
 				t.NotZero(s.ListenAddr().Port)
 			},
@@ -115,7 +101,12 @@ func (t *ServerTest) TestStart() {
 
 	for name, test := range tests {
 		t.Run(name, func() {
-			server, err := proxy.NewServer(test.options...)
+			ops := []proxy.ServerOption{}
+			if test.options != nil {
+				ops = append(ops, test.options)
+			}
+
+			server, err := proxy.NewServer(ops...)
 			t.Require().NoError(err)
 
 			t.Require().NoError(server.Start(context.Background()))
@@ -184,7 +175,7 @@ func (t *ServerTest) TestServe_HTTP() {
 
 	for name, test := range tests {
 		t.Run(name, func() {
-			server := t.startProxyServer(addr.HTTP)
+			server := t.openProxyConn(addr.HTTP)
 			test.want(server)
 		})
 	}
@@ -220,10 +211,18 @@ func (t *ServerTest) TestServe_SOCKS4() {
 
 	for name, test := range tests {
 		t.Run(name, func() {
-			server := t.startProxyServer(addr.SOCKS4)
+			server := t.openProxyConn(addr.SOCKS4)
 			test.want(server)
 		})
 	}
+}
+
+func (t *ServerTest) assertHostIsReachable(host string) {
+	t.T().Helper()
+
+	conn, err := net.Dial("tcp", host)
+	t.NoError(err)
+	t.T().Cleanup(func() { conn.Close() })
 }
 
 func (t *ServerTest) assertHTTPEchoesBack(status int, method, msg, serverHost string, serverConn net.Conn) {
@@ -244,58 +243,6 @@ func (t *ServerTest) newHTTPRequest(method, host, body string) *http.Request {
 	r.Host = host
 
 	return r
-}
-
-func (t *ServerTest) startProxyServer(proto string) (proxyConn net.Conn) {
-	t.T().Helper()
-
-	server, err := proxy.NewServer(
-		proxy.WithListenAddr(addr.New(proto, "localhost", 0)),
-	)
-	t.Require().NoError(err)
-
-	t.Require().NoError(server.Start(context.Background()))
-	t.T().Cleanup(func() { server.Stop() })
-
-	go func() {
-		server.Serve(context.Background())
-	}()
-
-	proxyConn, err = net.Dial("tcp", server.ListenAddr().Host())
-	t.Require().NoError(err)
-	t.T().Cleanup(func() { proxyConn.Close() })
-
-	return proxyConn
-}
-
-func (t *ServerTest) startHTTPEchoServer() (serverHost string) {
-	t.T().Helper()
-
-	server := httptest.NewServer(http.HandlerFunc(t.echoHTTP))
-	t.T().Cleanup(server.Close)
-
-	url, err := url.Parse(server.URL)
-	t.Require().NoError(err)
-
-	return url.Host
-}
-
-func (t *ServerTest) startHTTPSEchoServer() (serverHost string) {
-	t.T().Helper()
-
-	server := httptest.NewTLSServer(http.HandlerFunc(t.echoHTTP))
-	t.T().Cleanup(server.Close)
-
-	url, err := url.Parse(server.URL)
-	t.Require().NoError(err)
-
-	return url.Host
-}
-
-func (t *ServerTest) echoHTTP(w http.ResponseWriter, r *http.Request) {
-	t.T().Helper()
-
-	io.WriteString(w, t.readString(r.Body))
 }
 
 func (t *ServerTest) roundTripHTTP(r *http.Request, serverConn net.Conn) *http.Response {
@@ -339,23 +286,23 @@ func (t *ServerTest) roundTripSOCKS4(r *socks.Request, serverConn net.Conn) erro
 	return socks.ReadReply(serverConn)
 }
 
-func (t *ServerTest) ping(host string) bool {
-	t.T().Helper()
-
-	conn, err := net.Dial("tcp", host)
-	if !t.NoError(err) {
-		return false
-	}
-	conn.Close()
-	return true
-}
-
 func (t *ServerTest) readString(r io.Reader) string {
 	t.T().Helper()
 
 	bytes, err := io.ReadAll(r)
 	t.Require().NoError(err)
 	return string(bytes)
+}
+
+func (t *ServerTest) openProxyConn(proto string) (proxyConn net.Conn) {
+	t.T().Helper()
+
+	server := t.startProxyServer(proto)
+	proxyConn, err := net.Dial("tcp", server.ListenAddr().Host())
+	t.Require().NoError(err)
+	t.T().Cleanup(func() { proxyConn.Close() })
+
+	return proxyConn
 }
 
 func makeString(size int) string {

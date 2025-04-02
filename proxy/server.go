@@ -16,12 +16,12 @@ import (
 )
 
 var defaultListenAddr = addr.New(addr.HTTP, "localhost", 8080)
-var defaultDialer Dialer = DialerFunc(directDial)
+var defaultServerDialer Dialer = DialerFunc(directDial)
 
 func NewServer(ops ...ServerOption) (*Server, error) {
 	defaults := []ServerOption{
 		WithListenAddr(defaultListenAddr),
-		WithDialer(defaultDialer),
+		WithServerDialer(defaultServerDialer),
 		WithServerLog(log.Discard),
 	}
 
@@ -48,7 +48,7 @@ func WithListenAddr(a *addr.Addr) ServerOption {
 	}
 }
 
-func WithDialer(d Dialer) ServerOption {
+func WithServerDialer(d Dialer) ServerOption {
 	return func(s *Server) {
 		s.dialer = d
 	}
