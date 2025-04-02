@@ -23,7 +23,7 @@ func (t *ClientTest) TestNew() {
 		want    func(*proxy.Client)
 		err     func(error)
 	}{
-		"uses http://localhost:8080 as the default proxy address": {
+		"uses http-localhost-8080 as the default proxy address": {
 			want: func(c *proxy.Client) {
 				t.Equal(addr.New(addr.HTTP, "localhost", 8080), c.ProxyAddr())
 			},

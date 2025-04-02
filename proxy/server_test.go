@@ -40,7 +40,7 @@ func (t *ServerTest) TestNew() {
 		want    func(*proxy.Server)
 		err     func(error)
 	}{
-		"uses http://localhost:8080 as the default listen address": {
+		"uses http-localhost-8080 as the default listen address": {
 			want: func(s *proxy.Server) {
 				t.Equal(addr.New(addr.HTTP, "localhost", 8080), s.ListenAddr())
 			},
