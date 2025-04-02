@@ -62,16 +62,6 @@ func WithServerLog(l *log.Logger) ServerOption {
 
 type ServerOption func(*Server)
 
-type Dialer interface {
-	Dial(ctx context.Context, host string) (net.Conn, error)
-}
-
-type DialerFunc func(context.Context, string) (net.Conn, error)
-
-func (f DialerFunc) Dial(ctx context.Context, host string) (net.Conn, error) {
-	return f(ctx, host)
-}
-
 type Server struct {
 	listenAddr addr.Addr
 	listener   net.Listener
@@ -274,7 +264,7 @@ func (s *Server) tunnel(clientConn, serverConn net.Conn) {
 }
 
 func (s *Server) openConn(ctx context.Context, h *addr.Host) (net.Conn, bool) {
-	conn, err := s.dialer.Dial(ctx, h.String())
+	conn, err := s.dialer.Dial(ctx, h)
 	if err != nil {
 		s.log.Error(fmt.Sprintf("Failed to establish a connection with %v", h), err)
 		return nil, false
@@ -294,9 +284,9 @@ func transfer(dest io.Writer, src io.Reader, errChan chan<- error) {
 	}
 }
 
-func directDial(ctx context.Context, host string) (net.Conn, error) {
+func directDial(ctx context.Context, h *addr.Host) (net.Conn, error) {
 	var d net.Dialer
-	conn, err := d.DialContext(ctx, "tcp", host)
+	conn, err := d.DialContext(ctx, "tcp", h.String())
 	if err != nil {
 		return nil, err
 	}

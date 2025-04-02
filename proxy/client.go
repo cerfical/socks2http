@@ -56,35 +56,35 @@ type Client struct {
 	proxyAddr addr.Addr
 	dialer    Dialer
 
-	connect func(net.Conn, string) error
+	connect func(net.Conn, *addr.Host) error
 }
 
 func (c *Client) ProxyAddr() *addr.Addr {
 	return &c.proxyAddr
 }
 
-func (c *Client) Dial(ctx context.Context, host string) (net.Conn, error) {
+func (c *Client) Dial(ctx context.Context, h *addr.Host) (net.Conn, error) {
 	// Connect to the server directly
 	if c.connect == nil {
-		return c.dialer.Dial(ctx, host)
+		return c.dialer.Dial(ctx, h)
 	}
 
 	proxyHost := &c.proxyAddr.Host
-	proxyConn, err := c.dialer.Dial(ctx, proxyHost.String())
+	proxyConn, err := c.dialer.Dial(ctx, proxyHost)
 	if err != nil {
 		return nil, fmt.Errorf("connect to proxy %v: %w", proxyHost, err)
 	}
 
-	if err := c.connect(proxyConn, host); err != nil {
+	if err := c.connect(proxyConn, h); err != nil {
 		proxyConn.Close()
-		return nil, fmt.Errorf("connect to server %v: %w", host, err)
+		return nil, fmt.Errorf("connect to server %v: %w", h, err)
 	}
 
 	return proxyConn, nil
 }
 
-func connectHTTP(proxyConn net.Conn, host string) error {
-	connReq, err := http.NewRequest(http.MethodConnect, fmt.Sprintf("http://%v", host), nil)
+func connectHTTP(proxyConn net.Conn, h *addr.Host) error {
+	connReq, err := http.NewRequest(http.MethodConnect, fmt.Sprintf("http://%v", h), nil)
 	if err != nil {
 		return fmt.Errorf("make HTTP CONNECT request: %w", err)
 	}
@@ -107,12 +107,7 @@ func connectHTTP(proxyConn net.Conn, host string) error {
 	return nil
 }
 
-func connectSOCKS4(proxyConn net.Conn, host string) error {
-	h, err := addr.ParseHost(host)
-	if err != nil {
-		return err
-	}
-
+func connectSOCKS4(proxyConn net.Conn, h *addr.Host) error {
 	if err := socks.WriteConnect(proxyConn, addr.New("", h.Hostname, h.Port)); err != nil {
 		return err
 	}

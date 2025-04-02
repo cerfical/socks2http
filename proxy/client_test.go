@@ -101,7 +101,7 @@ func (t *ClientTest) TestDial() {
 func (t *ClientTest) assertHostIsReachable(h *addr.Host, c *proxy.Client) {
 	t.T().Helper()
 
-	conn, err := c.Dial(context.Background(), h.String())
+	conn, err := c.Dial(context.Background(), h)
 	t.Require().NoError(err)
 	t.T().Cleanup(func() { conn.Close() })
 }
