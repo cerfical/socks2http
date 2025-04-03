@@ -189,7 +189,7 @@ func (t *ServerTest) TestServe_SOCKS4() {
 			want: func(proxyConn net.Conn) {
 				serverHost := t.startHTTPEchoServer()
 
-				req := t.newSOCKS4Request(socks.RequestConnect, serverHost)
+				req := socks.NewRequest(socks.V4, socks.Connect, serverHost)
 				reply := t.roundTripSOCKS4(req, proxyConn)
 				t.Require().NoError(reply)
 
@@ -202,7 +202,7 @@ func (t *ServerTest) TestServe_SOCKS4() {
 
 		"responds with a Request Rejected if the server is unreachable": {
 			want: func(proxyConn net.Conn) {
-				req := t.newSOCKS4Request(socks.RequestConnect, unreachableHost)
+				req := socks.NewRequest(socks.V4, socks.Connect, unreachableHost)
 				reply := t.roundTripSOCKS4(req, proxyConn)
 				t.Require().ErrorContains(reply, "rejected")
 			},
@@ -254,23 +254,6 @@ func (t *ServerTest) roundTripHTTP(r *http.Request, serverConn net.Conn) *http.R
 	t.Require().NoError(err)
 
 	return resp
-}
-
-func (t *ServerTest) newSOCKS4Request(cmd byte, h *addr.Host) *socks.Request {
-	t.T().Helper()
-
-	ipAddr, err := addr.LookupIPv4(h.Hostname)
-	t.Require().NoError(err)
-
-	return &socks.Request{
-		Header: socks.Header{
-			Version:  socks.V4,
-			Command:  cmd,
-			DestIP:   ipAddr,
-			DestPort: uint16(h.Port),
-		},
-		User: "",
-	}
 }
 
 func (t *ServerTest) roundTripSOCKS4(r *socks.Request, serverConn net.Conn) error {

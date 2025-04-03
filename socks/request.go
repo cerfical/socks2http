@@ -3,6 +3,7 @@ package socks
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"unsafe"
@@ -11,63 +12,83 @@ import (
 )
 
 const (
-	V4             = 4
-	RequestConnect = 1
+	V4 = 0x04
 )
 
+const (
+	Connect = 0x01
+)
+
+var ErrUnsupportedVersion = errors.New("unsupported version")
+var ErrUnsupportedCommand = errors.New("unsupported command")
+
+func NewRequest(version, cmd byte, h *addr.Host) *Request {
+	return &Request{
+		Version: version,
+		Command: cmd,
+		Host:    *h,
+	}
+}
+
 func ReadRequest(r *bufio.Reader) (*Request, error) {
-	req := Request{}
-	if err := binary.Read(r, binary.BigEndian, &req.Header); err != nil {
-		return nil, err
+	version, err := r.Peek(1)
+	if err != nil {
+		return nil, fmt.Errorf("decode version: %w", err)
 	}
 
-	if req.Version != V4 {
-		return nil, fmt.Errorf("invalid version number %v", req.Version)
+	if v := version[0]; v != V4 {
+		return nil, fmt.Errorf("%w %v", ErrUnsupportedVersion, v)
 	}
 
-	if req.Command != RequestConnect {
-		return nil, fmt.Errorf("invalid command code %v", req.Command)
+	var h header
+	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
+		return nil, fmt.Errorf("decode header: %w", err)
 	}
 
-	// read a null-terminated username string
-	user := []byte{}
-	for {
-		b, err := r.ReadByte()
-		if err != nil {
-			return nil, err
-		}
-
-		if b == 0 {
-			break
-		}
-		user = append(user, b)
+	if c := h.Command; c != Connect {
+		return nil, fmt.Errorf("%w %v", ErrUnsupportedCommand, c)
 	}
-	req.User = string(user)
 
+	req := Request{
+		Version: h.Version,
+		Command: h.Command,
+		Host:    *addr.NewHost(h.DstIP.String(), h.DstPort),
+	}
 	return &req, nil
 }
 
 type Request struct {
-	Header
-	User string
+	Version byte
+	Command byte
+	Host    addr.Host
 }
 
-type Header struct {
-	Version  byte
-	Command  byte
-	DestPort uint16
-	DestIP   addr.IPv4
+type header struct {
+	Version byte
+	Command byte
+	DstPort uint16
+	DstIP   addr.IPv4
 }
 
 func (r *Request) Write(w io.Writer) error {
-	bytes := make([]byte, unsafe.Sizeof(r.Header))
-	if _, err := binary.Encode(bytes, binary.BigEndian, &r.Header); err != nil {
-		return err
+	ipv4, err := addr.LookupIPv4(r.Host.Hostname)
+	if err != nil {
+		return fmt.Errorf("resolve host %v: %w", &r.Host, err)
 	}
-	bytes = append(bytes, append([]byte(r.User), 0)...)
 
-	if _, err := w.Write(bytes); err != nil {
-		return err
+	h := header{
+		Version: r.Version,
+		Command: r.Command,
+		DstPort: r.Host.Port,
+		DstIP:   ipv4,
 	}
-	return nil
+
+	// +1 is the NULL character
+	bytes := make([]byte, unsafe.Sizeof(h)+1)
+	if _, err := binary.Encode(bytes, binary.BigEndian, &h); err != nil {
+		return fmt.Errorf("encode header: %w", err)
+	}
+
+	_, err = w.Write(bytes)
+	return err
 }

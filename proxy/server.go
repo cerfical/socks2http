@@ -145,8 +145,7 @@ func (s *Server) serveSOCKS4(ctx context.Context, clientConn net.Conn) {
 
 	s.logSOCKS4(req)
 
-	serverHost := addr.NewHost(req.DestIP.String(), req.DestPort)
-	serverConn, ok := s.openConn(ctx, serverHost)
+	serverConn, ok := s.openConn(ctx, &req.Host)
 	if !ok {
 		s.replySOCKS4(socks.RequestRejectedOrFailed, clientConn)
 		return
@@ -161,7 +160,7 @@ func (s *Server) serveSOCKS4(ctx context.Context, clientConn net.Conn) {
 func (s *Server) logSOCKS4(r *socks.Request) {
 	s.log.Info("Incoming SOCKS4 request", log.Fields{
 		"command": "CONNECT",
-		"host":    addr.NewHost(r.DestIP.String(), r.DestPort),
+		"host":    &r.Host,
 	})
 }
 

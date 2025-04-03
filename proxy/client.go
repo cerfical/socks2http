@@ -108,7 +108,8 @@ func connectHTTP(proxyConn net.Conn, h *addr.Host) error {
 }
 
 func connectSOCKS4(proxyConn net.Conn, h *addr.Host) error {
-	if err := socks.WriteConnect(proxyConn, addr.New("", h.Hostname, h.Port)); err != nil {
+	connReq := socks.NewRequest(socks.V4, socks.Connect, h)
+	if err := connReq.Write(proxyConn); err != nil {
 		return err
 	}
 	return socks.ReadReply(bufio.NewReader(proxyConn))

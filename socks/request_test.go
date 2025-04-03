@@ -10,16 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var host = addr.NewHost("127.0.0.1", 1080)
+
 func TestReadRequest(t *testing.T) {
-	h := socks.Header{socks.V4, socks.RequestConnect, 1080, addr.IPv4{127, 0, 0, 1}}
 	tests := []struct {
 		name  string
 		input []byte
 		want  *socks.Request
 		ok    bool
 	}{
-		{"connect_no_user", []byte{4, 1, 4, 56, 127, 0, 0, 1, 0}, &socks.Request{h, ""}, true},
-		{"connect_with_user", []byte{4, 1, 4, 56, 127, 0, 0, 1, 'u', 's', 'e', 'r', 0}, &socks.Request{h, "user"}, true},
+		{"connect_no_user", []byte{4, 1, 4, 56, 127, 0, 0, 1, 0}, socks.NewRequest(socks.V4, socks.Connect, host), true},
 		{"no_version_3", []byte{3, 1, 4, 56, 127, 0, 0, 1, 0}, nil, false},
 		{"no_version_5", []byte{5, 1, 4, 56, 127, 0, 0, 1, 0}, nil, false},
 		{"no_command_0", []byte{4, 0, 4, 56, 127, 0, 0, 1, 0}, nil, false},
@@ -47,11 +47,8 @@ func TestRequest_Write(t *testing.T) {
 		want []byte
 	}{
 		{"valid_request",
-			&socks.Request{socks.Header{socks.V4, socks.RequestConnect, 1080, addr.IPv4{127, 0, 0, 1}}, "username"},
-			[]byte{socks.V4, socks.RequestConnect, 4, 56, 127, 0, 0, 1, 'u', 's', 'e', 'r', 'n', 'a', 'm', 'e', 0}},
-		{"empty_request",
-			&socks.Request{},
-			[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0}},
+			socks.NewRequest(socks.V4, socks.Connect, host),
+			[]byte{socks.V4, socks.Connect, 4, 56, 127, 0, 0, 1, 0}},
 	}
 
 	buf := bytes.Buffer{}
