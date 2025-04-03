@@ -8,59 +8,78 @@ import (
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/socks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	SOCKSVersion4  = 0x04
+	ConnectCommand = 0x01
 )
 
 var host = addr.NewHost("127.0.0.1", 1080)
 
 func TestReadRequest(t *testing.T) {
-	tests := []struct {
-		name  string
+	okTests := map[string]struct {
 		input []byte
 		want  *socks.Request
-		ok    bool
 	}{
-		{"connect_no_user", []byte{4, 1, 4, 56, 127, 0, 0, 1, 0}, socks.NewRequest(socks.V4, socks.Connect, host), true},
-		{"no_version_3", []byte{3, 1, 4, 56, 127, 0, 0, 1, 0}, nil, false},
-		{"no_version_5", []byte{5, 1, 4, 56, 127, 0, 0, 1, 0}, nil, false},
-		{"no_command_0", []byte{4, 0, 4, 56, 127, 0, 0, 1, 0}, nil, false},
-		{"no_command_2", []byte{4, 2, 4, 56, 127, 0, 0, 1, 0}, nil, false},
+		"correctly decodes a SOCKS4 request": {
+			input: []byte{SOCKSVersion4, ConnectCommand, 0x04, 0x38, 127, 0, 0, 1, 0},
+			want:  socks.NewRequest(socks.V4, socks.Connect, host),
+		},
+	}
+	for name, test := range okTests {
+		t.Run(name, func(t *testing.T) {
+			r := bufio.NewReader(bytes.NewReader(test.input))
+
+			got, err := socks.ReadRequest(r)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.want, got)
+		})
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := socks.ReadRequest(bufio.NewReader(bytes.NewReader(tt.input)))
+	failTests := map[string]struct {
+		input []byte
+		err   error
+	}{
+		"rejects unsupported SOCKS versions": {
+			input: []byte{123},
+			err:   socks.ErrUnsupportedVersion,
+		},
 
-			assert.Equal(t, tt.want, got)
-			if tt.ok {
-				assert.NoError(t, err)
-			} else {
-				assert.Error(t, err)
-			}
+		"rejects unsupported SOCKS4 commands": {
+			input: []byte{SOCKSVersion4, 123, 0x04, 0x38, 127, 0, 0, 1, 0},
+			err:   socks.ErrUnsupportedCommand,
+		},
+	}
+	for name, test := range failTests {
+		t.Run(name, func(t *testing.T) {
+			r := bufio.NewReader(bytes.NewReader(test.input))
+
+			_, err := socks.ReadRequest(r)
+			require.ErrorIs(t, err, test.err)
 		})
 	}
 }
 
 func TestRequest_Write(t *testing.T) {
-	tests := []struct {
-		name string
-		r    *socks.Request
+	tests := map[string]struct {
+		req  *socks.Request
 		want []byte
 	}{
-		{"valid_request",
-			socks.NewRequest(socks.V4, socks.Connect, host),
-			[]byte{socks.V4, socks.Connect, 4, 56, 127, 0, 0, 1, 0}},
+		"correctly encodes a SOCKS4 request": {
+			req:  socks.NewRequest(socks.V4, socks.Connect, host),
+			want: []byte{SOCKSVersion4, ConnectCommand, 0x04, 0x38, 127, 0, 0, 1, 0},
+		},
 	}
 
-	buf := bytes.Buffer{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			defer buf.Reset()
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			var got bytes.Buffer
+			require.NoError(t, test.req.Write(&got))
 
-			err := tt.r.Write(&buf)
-			got := buf.Bytes()
-
-			assert.Equal(t, tt.want, got)
-			assert.NoError(t, err)
+			assert.Equal(t, test.want, got.Bytes())
 		})
 	}
 }
