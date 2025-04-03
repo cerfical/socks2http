@@ -26,7 +26,7 @@ func TestParseAddr(t *testing.T) {
 	}
 	for name, test := range okTests {
 		t.Run(name, func(t *testing.T) {
-			got, err := addr.ParseAddr(test.input)
+			got, err := addr.Parse(test.input)
 			require.NoError(t, err)
 
 			assert.Equal(t, test.want, got)
@@ -40,7 +40,7 @@ func TestParseAddr(t *testing.T) {
 	}
 	for name, test := range failTests {
 		t.Run(name, func(t *testing.T) {
-			_, err := addr.ParseAddr(test.input)
+			_, err := addr.Parse(test.input)
 			assert.Error(t, err)
 		})
 	}

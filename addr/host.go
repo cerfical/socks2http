@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-func NewHost(hostname string, port int) *Host {
+func NewHost(hostname string, port uint16) *Host {
 	return &Host{
 		Hostname: hostname,
 		Port:     port,
@@ -29,10 +29,10 @@ func ParseHost(host string) (*Host, error) {
 
 type Host struct {
 	Hostname string
-	Port     int
+	Port     uint16
 }
 
 func (h *Host) String() string {
-	port := strconv.Itoa(h.Port)
+	port := strconv.Itoa(int(h.Port))
 	return net.JoinHostPort(h.Hostname, port)
 }

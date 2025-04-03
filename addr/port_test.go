@@ -11,7 +11,7 @@ import (
 func TestParsePort(t *testing.T) {
 	okTests := map[string]struct {
 		input string
-		want  int
+		want  uint16
 	}{
 		"parses minimum port number": {"0", 0},
 		"parses maximum port number": {"65535", 65535},

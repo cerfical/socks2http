@@ -25,11 +25,11 @@ var (
 	))
 )
 
-func New(scheme, hostname string, port int) *Addr {
+func New(scheme, hostname string, port uint16) *Addr {
 	return &Addr{Scheme: scheme, Host: *NewHost(hostname, port)}
 }
 
-// ParseAddr parses [Addr] from its text representation.
+// Parse parses [Addr] from its text representation.
 // The syntax is similar to [net/url.URL], but simplified for ease of use.
 //
 // For example, the address http://localhost:8080 can be represented as:
@@ -43,7 +43,7 @@ func New(scheme, hostname string, port int) *Addr {
 //
 // By default, assumes HTTP protocol scheme and localhost for the hostname.
 // If no port is specified, it is inferred from the scheme.
-func ParseAddr(addr string) (*Addr, error) {
+func Parse(addr string) (*Addr, error) {
 	matches := addrRgx.FindStringSubmatch(addr)
 	if matches == nil {
 		return nil, errors.New("malformed network address")
@@ -66,7 +66,7 @@ func ParseAddr(addr string) (*Addr, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parse port number: %w", err)
 		}
-		a.Host.Port = int(p)
+		a.Host.Port = p
 	} else {
 		a.Host.Port = 0
 	}
@@ -127,7 +127,7 @@ func (a *Addr) String() string {
 }
 
 func (a *Addr) UnmarshalText(text []byte) error {
-	addr, err := ParseAddr(string(text))
+	addr, err := Parse(string(text))
 	if err != nil {
 		return err
 	}

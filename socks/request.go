@@ -56,7 +56,7 @@ type Header struct {
 	Version  byte
 	Command  byte
 	DestPort uint16
-	DestIP   addr.IPv4Addr
+	DestIP   addr.IPv4
 }
 
 func (r *Request) Write(w io.Writer) error {

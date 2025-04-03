@@ -109,7 +109,7 @@ func (s *Server) Start(ctx context.Context) error {
 		return err
 	}
 	// Update the listen address with the allocated port, if zero port was specified
-	s.listenAddr.Host.Port = s.listener.Addr().(*net.TCPAddr).Port
+	s.listenAddr.Host.Port = uint16(s.listener.Addr().(*net.TCPAddr).Port)
 
 	s.log.Info("Server is up", log.Fields{"listen_addr": &s.listenAddr})
 
@@ -145,7 +145,7 @@ func (s *Server) serveSOCKS4(ctx context.Context, clientConn net.Conn) {
 
 	s.logSOCKS4(req)
 
-	serverHost := addr.NewHost(req.DestIP.String(), int(req.DestPort))
+	serverHost := addr.NewHost(req.DestIP.String(), req.DestPort)
 	serverConn, ok := s.openConn(ctx, serverHost)
 	if !ok {
 		s.replySOCKS4(socks.RequestRejectedOrFailed, clientConn)
@@ -161,7 +161,7 @@ func (s *Server) serveSOCKS4(ctx context.Context, clientConn net.Conn) {
 func (s *Server) logSOCKS4(r *socks.Request) {
 	s.log.Info("Incoming SOCKS4 request", log.Fields{
 		"command": "CONNECT",
-		"host":    addr.NewHost(r.DestIP.String(), int(r.DestPort)),
+		"host":    addr.NewHost(r.DestIP.String(), r.DestPort),
 	})
 }
 

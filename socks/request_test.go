@@ -11,7 +11,7 @@ import (
 )
 
 func TestReadRequest(t *testing.T) {
-	h := socks.Header{socks.V4, socks.RequestConnect, 1080, addr.IPv4Addr{127, 0, 0, 1}}
+	h := socks.Header{socks.V4, socks.RequestConnect, 1080, addr.IPv4{127, 0, 0, 1}}
 	tests := []struct {
 		name  string
 		input []byte
@@ -47,7 +47,7 @@ func TestRequest_Write(t *testing.T) {
 		want []byte
 	}{
 		{"valid_request",
-			&socks.Request{socks.Header{socks.V4, socks.RequestConnect, 1080, addr.IPv4Addr{127, 0, 0, 1}}, "username"},
+			&socks.Request{socks.Header{socks.V4, socks.RequestConnect, 1080, addr.IPv4{127, 0, 0, 1}}, "username"},
 			[]byte{socks.V4, socks.RequestConnect, 4, 56, 127, 0, 0, 1, 'u', 's', 'e', 'r', 'n', 'a', 'm', 'e', 0}},
 		{"empty_request",
 			&socks.Request{},
