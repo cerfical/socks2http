@@ -158,9 +158,10 @@ func (s *Server) serveSOCKS4(ctx context.Context, clientConn net.Conn) {
 }
 
 func (s *Server) logSOCKS4(r *socks.Request) {
-	s.log.Info("Incoming SOCKS4 request", log.Fields{
-		"command": "CONNECT",
-		"host":    &r.Host,
+	s.log.Info("SOCKS request", log.Fields{
+		"version": r.Version.String(),
+		"command": r.Command.String(),
+		"host":    r.Host.String(),
 	})
 }
 
@@ -208,7 +209,7 @@ func (s *Server) serveHTTP(ctx context.Context, clientConn net.Conn) {
 }
 
 func (s *Server) logHTTP(r *http.Request) {
-	s.log.Info("Incoming HTTP request", log.Fields{
+	s.log.Info("HTTP request", log.Fields{
 		"method": r.Method,
 		"uri":    r.RequestURI,
 		"proto":  r.Proto,

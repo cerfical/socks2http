@@ -3,7 +3,6 @@ package socks
 import (
 	"bufio"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"unsafe"
@@ -11,21 +10,10 @@ import (
 	"github.com/cerfical/socks2http/addr"
 )
 
-const (
-	V4 = 0x04
-)
-
-const (
-	Connect = 0x01
-)
-
-var ErrUnsupportedVersion = errors.New("unsupported version")
-var ErrUnsupportedCommand = errors.New("unsupported command")
-
-func NewRequest(version, cmd byte, h *addr.Host) *Request {
+func NewRequest(v Version, c Command, h *addr.Host) *Request {
 	return &Request{
-		Version: version,
-		Command: cmd,
+		Version: v,
+		Command: c,
 		Host:    *h,
 	}
 }
@@ -36,38 +24,34 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		return nil, fmt.Errorf("decode version: %w", err)
 	}
 
-	if v := version[0]; v != V4 {
+	v, ok := makeVersion(version[0])
+	if !ok {
 		return nil, fmt.Errorf("%w %v", ErrUnsupportedVersion, v)
 	}
 
-	var h header
+	var h requestHeader
 	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
 		return nil, fmt.Errorf("decode header: %w", err)
 	}
 
-	if c := h.Command; c != Connect {
+	c, ok := makeCommand(h.Command)
+	if !ok {
 		return nil, fmt.Errorf("%w %v", ErrUnsupportedCommand, c)
 	}
 
+	host := addr.NewHost(addr.IPv4(h.DstIP).String(), h.DstPort)
 	req := Request{
-		Version: h.Version,
-		Command: h.Command,
-		Host:    *addr.NewHost(h.DstIP.String(), h.DstPort),
+		Version: v,
+		Command: c,
+		Host:    *host,
 	}
 	return &req, nil
 }
 
 type Request struct {
-	Version byte
-	Command byte
+	Version Version
+	Command Command
 	Host    addr.Host
-}
-
-type header struct {
-	Version byte
-	Command byte
-	DstPort uint16
-	DstIP   addr.IPv4
 }
 
 func (r *Request) Write(w io.Writer) error {
@@ -76,9 +60,9 @@ func (r *Request) Write(w io.Writer) error {
 		return fmt.Errorf("resolve host %v: %w", &r.Host, err)
 	}
 
-	h := header{
-		Version: r.Version,
-		Command: r.Command,
+	h := requestHeader{
+		Version: byte(r.Version),
+		Command: byte(r.Command),
 		DstPort: r.Host.Port,
 		DstIP:   ipv4,
 	}
@@ -91,4 +75,11 @@ func (r *Request) Write(w io.Writer) error {
 
 	_, err = w.Write(bytes)
 	return err
+}
+
+type requestHeader struct {
+	Version byte
+	Command byte
+	DstPort uint16
+	DstIP   [4]byte
 }
