@@ -90,12 +90,12 @@ func connectHTTP(proxyConn net.Conn, h *addr.Host) error {
 	}
 
 	if err := connReq.Write(proxyConn); err != nil {
-		return fmt.Errorf("send HTTP CONNECT request: %w", err)
+		return fmt.Errorf("write HTTP CONNECT request: %w", err)
 	}
 
 	resp, err := http.ReadResponse(bufio.NewReader(proxyConn), connReq)
 	if err != nil {
-		return fmt.Errorf("parse HTTP CONNECT response: %w", err)
+		return fmt.Errorf("read HTTP CONNECT response: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -110,7 +110,16 @@ func connectHTTP(proxyConn net.Conn, h *addr.Host) error {
 func connectSOCKS4(proxyConn net.Conn, h *addr.Host) error {
 	connReq := socks.NewRequest(socks.V4, socks.Connect, h)
 	if err := connReq.Write(proxyConn); err != nil {
-		return err
+		return fmt.Errorf("write SOCKS CONNECT request: %w", err)
 	}
-	return socks.ReadReply(bufio.NewReader(proxyConn))
+
+	reply, err := socks.ReadReply(bufio.NewReader(proxyConn))
+	if err != nil {
+		return fmt.Errorf("read SOCKS CONNECT reply: %w", err)
+	}
+
+	if reply != socks.Granted {
+		return fmt.Errorf("%v", reply)
+	}
+	return nil
 }

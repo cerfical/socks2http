@@ -1,61 +1,80 @@
 package socks
 
 import (
+	"bufio"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 )
 
+const replyVersion = 0
 const (
-	RequestGranted            = 90
-	RequestRejectedOrFailed   = 91
-	RequestRejectedNoAuth     = 92
-	RequestRejectedAuthFailed = 93
+	Granted    Reply = 0x5a
+	Rejected   Reply = 0x5b
+	NoAuth     Reply = 0x5c
+	AuthFailed Reply = 0x5d
 )
 
-func ReadReply(r io.Reader) error {
-	rep := Reply{}
-	if err := binary.Read(r, binary.BigEndian, &rep); err != nil {
-		return err
+var replies = map[Reply]string{
+	Granted:    "request granted",
+	Rejected:   "request rejected or failed",
+	NoAuth:     "request rejected because SOCKS server cannot connect to identd on the client",
+	AuthFailed: "request rejected because the client program and identd report different user-ids",
+}
+
+func ReadReply(r *bufio.Reader) (Reply, error) {
+	version, err := r.Peek(1)
+	if err != nil {
+		return 0, fmt.Errorf("decode version: %w", err)
+	}
+	if v := version[0]; v != replyVersion {
+		return 0, fmt.Errorf("invalid version %v", Version(v))
 	}
 
-	if rep.Version != 0 {
-		return fmt.Errorf("unexpected version number %v", rep.Version)
+	var h replyHeader
+	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
+		return 0, fmt.Errorf("decode header: %w", err)
 	}
-	if err := checkReplyCode(rep.Code); err != nil {
-		return err
+
+	reply, ok := makeReply(h.Code)
+	if !ok {
+		return 0, fmt.Errorf("%w %v", ErrInvalidReply, reply)
+	}
+	return reply, nil
+}
+
+func makeReply(b byte) (r Reply, isValid bool) {
+	r = Reply(b)
+	if _, ok := replies[r]; ok {
+		return r, true
+	}
+	return r, false
+}
+
+type Reply byte
+
+func (r Reply) String() string {
+	code := fmt.Sprintf("(%#02x)", byte(r))
+	if s, ok := replies[r]; ok {
+		return fmt.Sprintf("%v %v", s, code)
+	}
+	return code
+}
+
+func (r Reply) Write(w io.Writer) error {
+	h := replyHeader{
+		Version: replyVersion,
+		Code:    byte(r),
+	}
+	if err := binary.Write(w, binary.BigEndian, &h); err != nil {
+		return fmt.Errorf("encode header: %w", err)
 	}
 	return nil
 }
 
-func checkReplyCode(code byte) error {
-	msg := ""
-	switch code {
-	case RequestGranted:
-		return nil
-	case RequestRejectedOrFailed:
-		msg = "request rejected or failed"
-	case RequestRejectedNoAuth:
-		msg = "request rejected: failed to connect to authentication service"
-	case RequestRejectedAuthFailed:
-		msg = "request rejected: authentication failure"
-	default:
-		msg = fmt.Sprintf("unexpected reply code %v", code)
-	}
-	return errors.New(msg)
-}
-
-type Reply struct {
+type replyHeader struct {
 	Version byte
 	Code    byte
 	_       uint16
 	_       [4]byte
-}
-
-func (r *Reply) Write(w io.Writer) error {
-	if err := binary.Write(w, binary.BigEndian, r); err != nil {
-		return err
-	}
-	return nil
 }

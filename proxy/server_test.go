@@ -191,7 +191,7 @@ func (t *ServerTest) TestServe_SOCKS4() {
 
 				req := socks.NewRequest(socks.V4, socks.Connect, serverHost)
 				reply := t.roundTripSOCKS4(req, proxyConn)
-				t.Require().NoError(reply)
+				t.Require().Equal(socks.Granted, reply)
 
 				for range numInRowRequests {
 					msg := makeString(maxPayloadSize)
@@ -204,7 +204,7 @@ func (t *ServerTest) TestServe_SOCKS4() {
 			want: func(proxyConn net.Conn) {
 				req := socks.NewRequest(socks.V4, socks.Connect, unreachableHost)
 				reply := t.roundTripSOCKS4(req, proxyConn)
-				t.Require().ErrorContains(reply, "rejected")
+				t.Require().Equal(socks.Rejected, reply)
 			},
 		},
 	}
@@ -256,11 +256,14 @@ func (t *ServerTest) roundTripHTTP(r *http.Request, serverConn net.Conn) *http.R
 	return resp
 }
 
-func (t *ServerTest) roundTripSOCKS4(r *socks.Request, serverConn net.Conn) error {
+func (t *ServerTest) roundTripSOCKS4(r *socks.Request, serverConn net.Conn) socks.Reply {
 	t.T().Helper()
 
 	t.Require().NoError(r.Write(serverConn))
-	return socks.ReadReply(serverConn)
+	reply, err := socks.ReadReply(bufio.NewReader(serverConn))
+	t.Require().NoError(err)
+
+	return reply
 }
 
 func (t *ServerTest) readString(r io.Reader) string {

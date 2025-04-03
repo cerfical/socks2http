@@ -10,12 +10,12 @@ var versions = map[Version]string{
 	V4: "SOCKS4",
 }
 
-func makeVersion(b byte) (Version, bool) {
-	v := Version(b)
+func makeVersion(b byte) (v Version, isValid bool) {
+	v = Version(b)
 	if _, ok := versions[v]; ok {
 		return v, true
 	}
-	return 0, false
+	return v, false
 }
 
 type Version byte

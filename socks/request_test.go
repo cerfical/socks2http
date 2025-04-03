@@ -45,12 +45,12 @@ func TestReadRequest(t *testing.T) {
 	}{
 		"rejects unsupported SOCKS versions": {
 			input: []byte{123},
-			err:   socks.ErrUnsupportedVersion,
+			err:   socks.ErrInvalidVersion,
 		},
 
 		"rejects unsupported SOCKS4 commands": {
 			input: []byte{SOCKSVersion4, 123, 0x04, 0x38, 127, 0, 0, 1, 0},
-			err:   socks.ErrUnsupportedCommand,
+			err:   socks.ErrInvalidCommand,
 		},
 	}
 	for name, test := range failTests {

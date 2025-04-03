@@ -26,7 +26,7 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 
 	v, ok := makeVersion(version[0])
 	if !ok {
-		return nil, fmt.Errorf("%w %v", ErrUnsupportedVersion, v)
+		return nil, fmt.Errorf("%w %v", ErrInvalidVersion, v)
 	}
 
 	var h requestHeader
@@ -36,7 +36,7 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 
 	c, ok := makeCommand(h.Command)
 	if !ok {
-		return nil, fmt.Errorf("%w %v", ErrUnsupportedCommand, c)
+		return nil, fmt.Errorf("%w %v", ErrInvalidCommand, c)
 	}
 
 	host := addr.NewHost(addr.IPv4(h.DstIP).String(), h.DstPort)

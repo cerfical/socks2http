@@ -2,5 +2,6 @@ package socks
 
 import "errors"
 
-var ErrUnsupportedVersion = errors.New("unsupported version")
-var ErrUnsupportedCommand = errors.New("unsupported command")
+var ErrInvalidVersion = errors.New("invalid version")
+var ErrInvalidCommand = errors.New("invalid command")
+var ErrInvalidReply = errors.New("invalid reply")

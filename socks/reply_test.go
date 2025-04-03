@@ -1,63 +1,88 @@
 package socks_test
 
 import (
+	"bufio"
 	"bytes"
 	"testing"
 
 	"github.com/cerfical/socks2http/socks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	RequestGranted = 90
+	ReplyVersion   = 0
 )
 
 func TestReadReply(t *testing.T) {
-	tests := []struct {
-		name      string
-		ver, code byte
-		ok        bool
+	okTests := map[string]struct {
+		input []byte
+		want  socks.Reply
 	}{
-		{"request_granted", 0, 90, true},
-		{"rejected_or_failed", 0, 91, false},
-		{"rejected_no_auth", 0, 92, false},
-		{"rejected_auth_failed", 0, 93, false},
-		{"invalid_reply", 0, 94, false},
-		{"invalid_version", 1, 90, false},
+		"request_granted": {
+			input: []byte{ReplyVersion, RequestGranted, 0, 0, 0, 0, 0, 0},
+			want:  socks.Granted,
+		},
+	}
+	for name, test := range okTests {
+		t.Run(name, func(t *testing.T) {
+			input := bytes.NewReader(test.input)
+
+			got, err := socks.ReadReply(bufio.NewReader(input))
+			require.NoError(t, err)
+
+			assert.Equal(t, test.want, got)
+		})
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			input := bytes.NewReader([]byte{tt.ver, tt.code, 0, 0, 0, 0, 0, 0})
-			err := socks.ReadReply(input)
+	failTests := map[string]struct {
+		input []byte
+	}{
+		"rejects replies with invalid version code":    {[]byte{1}},
+		"rejects replies with unsupported status code": {[]byte{ReplyVersion, 123, 0, 0, 0, 0, 0, 0}},
+	}
+	for name, test := range failTests {
+		t.Run(name, func(t *testing.T) {
+			input := bytes.NewReader(test.input)
 
-			if tt.ok {
-				assert.NoError(t, err)
-			} else {
-				assert.Error(t, err)
-			}
+			_, err := socks.ReadReply(bufio.NewReader(input))
+			assert.Error(t, err)
+		})
+	}
+}
+
+func TestReply_String(t *testing.T) {
+	tests := map[string]struct {
+		reply socks.Reply
+		want  string
+	}{
+		"prints supported replies as reply description followed by reply code in hex": {socks.Granted, "request granted (0x5a)"},
+		"prints unsupported replies as reply code in hex":                             {0x17, "(0x17)"},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := test.reply.String()
+			assert.Equal(t, test.want, got)
 		})
 	}
 }
 
 func TestReply_Write(t *testing.T) {
-	tests := []struct {
-		name string
-		r    *socks.Reply
-		want []byte
+	tests := map[string]struct {
+		reply socks.Reply
+		want  []byte
 	}{
-		{"request_granted", &socks.Reply{Code: 90}, []byte{0, socks.RequestGranted, 0, 0, 0, 0, 0, 0}},
-		{"rejected_or_failed", &socks.Reply{Code: 91}, []byte{0, socks.RequestRejectedOrFailed, 0, 0, 0, 0, 0, 0}},
-		{"rejected_no_auth", &socks.Reply{Code: 92}, []byte{0, socks.RequestRejectedNoAuth, 0, 0, 0, 0, 0, 0}},
-		{"rejected_auth_failed", &socks.Reply{Code: 93}, []byte{0, socks.RequestRejectedAuthFailed, 0, 0, 0, 0, 0, 0}},
+		"correctly encodes a SOCKS4 reply": {socks.Granted, []byte{0, RequestGranted, 0, 0, 0, 0, 0, 0}},
 	}
 
-	buf := bytes.Buffer{}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			defer buf.Reset()
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			var got bytes.Buffer
+			require.NoError(t, test.reply.Write(&got))
 
-			err := tt.r.Write(&buf)
-			got := buf.Bytes()
-
-			assert.Equal(t, tt.want, got)
-			assert.NoError(t, err)
+			assert.Equal(t, test.want, got.Bytes())
 		})
 	}
 }

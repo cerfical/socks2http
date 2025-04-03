@@ -147,12 +147,12 @@ func (s *Server) serveSOCKS4(ctx context.Context, clientConn net.Conn) {
 
 	serverConn, ok := s.openConn(ctx, &req.Host)
 	if !ok {
-		s.replySOCKS4(socks.RequestRejectedOrFailed, clientConn)
+		s.replySOCKS4(socks.Rejected, clientConn)
 		return
 	}
 	defer s.closeConn(serverConn)
 
-	if s.replySOCKS4(socks.RequestGranted, clientConn) {
+	if s.replySOCKS4(socks.Granted, clientConn) {
 		s.tunnel(clientConn, serverConn)
 	}
 }
@@ -165,9 +165,8 @@ func (s *Server) logSOCKS4(r *socks.Request) {
 	})
 }
 
-func (s *Server) replySOCKS4(code byte, clientConn net.Conn) bool {
-	reply := socks.Reply{Code: code}
-	if err := reply.Write(clientConn); err != nil {
+func (s *Server) replySOCKS4(r socks.Reply, clientConn net.Conn) bool {
+	if err := r.Write(clientConn); err != nil {
 		s.log.Error("Error sending a SOCKS4 reply", err)
 		return false
 	}
