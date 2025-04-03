@@ -55,7 +55,7 @@ type Request struct {
 }
 
 func (r *Request) Write(w io.Writer) error {
-	ipv4, err := addr.LookupIPv4(r.Host.Hostname)
+	ip4, err := r.Host.ResolveToIPv4()
 	if err != nil {
 		return fmt.Errorf("resolve host %v: %w", &r.Host, err)
 	}
@@ -64,7 +64,7 @@ func (r *Request) Write(w io.Writer) error {
 		Version: byte(r.Version),
 		Command: byte(r.Command),
 		DstPort: r.Host.Port,
-		DstIP:   ipv4,
+		DstIP:   ip4,
 	}
 
 	// +1 is the NULL character

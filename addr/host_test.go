@@ -43,8 +43,8 @@ func TestParseHost(t *testing.T) {
 
 func TestHost_String(t *testing.T) {
 	tests := map[string]struct {
-		input *addr.Host
-		want  string
+		host *addr.Host
+		want string
 	}{
 		"prints zero value as zero port":        {addr.NewHost("", 0), ":0"},
 		"prints only port if hostname is empty": {addr.NewHost("", 80), ":80"},
@@ -54,8 +54,39 @@ func TestHost_String(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := test.input.String()
+			got := test.host.String()
 			assert.Equal(t, test.want, got)
+		})
+	}
+}
+
+func TestHost_ResolveToIPv4(t *testing.T) {
+	okTests := map[string]struct {
+		host *addr.Host
+		want addr.IPv4
+	}{
+		"resolves localhost to 127-0-0-1":         {addr.NewHost("localhost", 0), addr.IPv4{127, 0, 0, 1}},
+		"resolves an empty hostname to 127-0-0-1": {addr.NewHost("", 0), addr.IPv4{127, 0, 0, 1}},
+		"resolves an IPv4 address to itself":      {addr.NewHost("1.1.1.1", 0), addr.IPv4{1, 1, 1, 1}},
+	}
+	for name, test := range okTests {
+		t.Run(name, func(t *testing.T) {
+			got, err := test.host.ResolveToIPv4()
+			require.NoError(t, err)
+
+			assert.Equal(t, test.want, got)
+		})
+	}
+
+	failTests := map[string]struct {
+		host *addr.Host
+	}{
+		"rejects IPv6 addresses": {addr.NewHost("[0::0]", 0)},
+	}
+	for name, test := range failTests {
+		t.Run(name, func(t *testing.T) {
+			_, err := test.host.ResolveToIPv4()
+			require.Error(t, err)
 		})
 	}
 }

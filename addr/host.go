@@ -36,3 +36,16 @@ func (h *Host) String() string {
 	port := strconv.Itoa(int(h.Port))
 	return net.JoinHostPort(h.Hostname, port)
 }
+
+func (h *Host) ResolveToIPv4() (IPv4, error) {
+	// Assume localhost, if the hostname is not specified
+	if h.Hostname == "" {
+		return IPv4{127, 0, 0, 1}, nil
+	}
+
+	ip, err := net.ResolveIPAddr("ip4", h.Hostname)
+	if err != nil {
+		return IPv4{}, err
+	}
+	return IPv4(ip.IP.To4()), nil
+}
