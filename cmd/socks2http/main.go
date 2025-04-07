@@ -22,7 +22,7 @@ func main() {
 		l.Error("Failed to initialize a proxy client", err)
 		return
 	}
-	l.Info("Using a proxy", log.Fields{"proxy_addr": &config.ProxyAddr})
+	l.Info("Using a proxy", "proxy_addr", &config.ProxyAddr)
 
 	server, err := proxy.NewServer(
 		proxy.WithListenAddr(&config.ServeAddr),

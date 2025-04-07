@@ -111,7 +111,7 @@ func (s *Server) Start(ctx context.Context) error {
 	// Update the listen address with the allocated port, if zero port was specified
 	s.listenAddr.Host.Port = uint16(s.listener.Addr().(*net.TCPAddr).Port)
 
-	s.log.Info("Server is up", log.Fields{"listen_addr": &s.listenAddr})
+	s.log.Info("Server is up", "listen_addr", &s.listenAddr)
 
 	return nil
 }
@@ -158,11 +158,11 @@ func (s *Server) serveSOCKS4(ctx context.Context, clientConn net.Conn) {
 }
 
 func (s *Server) logSOCKS4(r *socks.Request) {
-	s.log.Info("SOCKS request", log.Fields{
-		"version": r.Version.String(),
-		"command": r.Command.String(),
-		"host":    r.Host.String(),
-	})
+	s.log.Info("SOCKS request",
+		"version", r.Version.String(),
+		"command", r.Command.String(),
+		"host", r.Host.String(),
+	)
 }
 
 func (s *Server) replySOCKS4(r socks.Reply, clientConn net.Conn) bool {
@@ -208,11 +208,11 @@ func (s *Server) serveHTTP(ctx context.Context, clientConn net.Conn) {
 }
 
 func (s *Server) logHTTP(r *http.Request) {
-	s.log.Info("HTTP request", log.Fields{
-		"method": r.Method,
-		"uri":    r.RequestURI,
-		"proto":  r.Proto,
-	})
+	s.log.Info("HTTP request",
+		"method", r.Method,
+		"uri", r.RequestURI,
+		"proto", r.Proto,
+	)
 }
 
 func (s *Server) parseHTTP(clientConn net.Conn) (*http.Request, bool) {

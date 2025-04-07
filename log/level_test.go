@@ -12,7 +12,6 @@ import (
 
 var knownLogLevels = []string{
 	"silent",
-	"fatal",
 	"error",
 	"info",
 	"verbose",

@@ -14,30 +14,17 @@ var Discard = New(WithLevel(Silent), WithWriter(io.Discard))
 
 func New(ops ...Option) *Logger {
 	defaults := []Option{
-		WithLogger(&Logger{zerolog.New(nil).
-			With().Timestamp().Logger(),
-		}),
 		WithWriter(os.Stdout),
 		WithLevel(Info),
 	}
 
-	var l Logger
+	l := Logger{zerolog.New(nil).
+		With().Timestamp().Logger(),
+	}
 	for _, op := range slices.Concat(defaults, ops) {
 		op(&l)
 	}
 	return &l
-}
-
-func WithLogger(l *Logger) Option {
-	return func(ll *Logger) {
-		ll.log = l.log
-	}
-}
-
-func WithFields(f Fields) Option {
-	return func(l *Logger) {
-		l.log = l.log.With().Fields(f).Logger()
-	}
 }
 
 func WithLevel(level Level) Option {
@@ -68,31 +55,20 @@ func isTerminal(w io.Writer) bool {
 
 type Option func(*Logger)
 
-type Fields map[string]any
-
 type Logger struct {
 	log zerolog.Logger
 }
 
-func (l *Logger) Fatal(msg string, err error) {
-	l.logEntry(Fatal, msg, nil, err)
-	os.Exit(1)
-}
-
 func (l *Logger) Error(msg string, err error) {
-	l.logEntry(Error, msg, nil, err)
+	l.logEntry(Error, msg, []any{"error", err})
 }
 
-func (l *Logger) Info(msg string, f Fields) {
-	l.logEntry(Info, msg, f, nil)
+func (l *Logger) Info(msg string, fields ...any) {
+	l.logEntry(Info, msg, fields)
 }
 
-func (l *Logger) logEntry(level Level, msg string, f Fields, err error) {
+func (l *Logger) logEntry(level Level, msg string, fields []any) {
 	entry := l.log.WithLevel(makeZerologLevel(level))
-	if err != nil {
-		entry = entry.Err(err)
-	}
-
-	entry.Fields(map[string]any(f)).
+	entry.Fields(fields).
 		Msg(msg)
 }

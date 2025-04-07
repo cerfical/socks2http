@@ -10,7 +10,6 @@ import (
 
 const (
 	Silent Level = iota
-	Fatal
 	Error
 	Info
 	Verbose
@@ -18,10 +17,16 @@ const (
 
 var levels = []levelDesc{
 	{"silent", zerolog.Disabled},
-	{"fatal", zerolog.FatalLevel},
 	{"error", zerolog.ErrorLevel},
 	{"info", zerolog.InfoLevel},
 	{"verbose", zerolog.InfoLevel},
+}
+
+func makeZerologLevel(l Level) zerolog.Level {
+	if l < Silent || l > Verbose {
+		panic("unknown log level")
+	}
+	return levels[l].level
 }
 
 type levelDesc struct {
@@ -57,11 +62,4 @@ func (l *Level) UnmarshalText(text []byte) error {
 
 	*l = Level(i)
 	return nil
-}
-
-func makeZerologLevel(l Level) zerolog.Level {
-	if l < Silent || l > Verbose {
-		panic("unknown log level")
-	}
-	return levels[l].level
 }
