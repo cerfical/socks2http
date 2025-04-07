@@ -2,6 +2,8 @@ package proxserv
 
 import (
 	"context"
+	"errors"
+	"io"
 	"net"
 	"slices"
 
@@ -91,7 +93,10 @@ func (s *Server) Serve(ctx context.Context) error {
 			defer clientConn.Close()
 
 			if err := s.proxy.Serve(ctx, clientConn); err != nil {
-				s.o.Log.Error("Failed to serve a request", err)
+				// Ignore unimportant errors
+				if !errors.Is(err, io.EOF) {
+					s.o.Log.Error("Failed to serve a request", err)
+				}
 			}
 		}()
 	}
