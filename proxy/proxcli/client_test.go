@@ -1,11 +1,12 @@
-package proxy_test
+package proxcli_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/cerfical/socks2http/addr"
-	"github.com/cerfical/socks2http/proxy"
+	"github.com/cerfical/socks2http/proxy/proxcli"
+	"github.com/cerfical/socks2http/proxy/proxtest"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -14,30 +15,30 @@ func TestClient(t *testing.T) {
 }
 
 type ClientTest struct {
-	ProxyTest
+	suite.Suite
 }
 
 func (t *ClientTest) TestNew() {
 	tests := map[string]struct {
-		options proxy.ClientOption
-		want    func(*proxy.Client)
+		options proxcli.Option
+		want    func(*proxcli.Client)
 		err     func(error)
 	}{
 		"uses http-localhost-8080 as the default proxy address": {
-			want: func(c *proxy.Client) {
+			want: func(c *proxcli.Client) {
 				t.Equal(addr.New(addr.HTTP, "localhost", 8080), c.ProxyAddr())
 			},
 		},
 
 		"uses a non-default proxy address if one is provided": {
-			options: proxy.WithProxyAddr(addr.New(addr.HTTP, "example.com", 8181)),
-			want: func(c *proxy.Client) {
+			options: proxcli.WithProxyAddr(addr.New(addr.HTTP, "example.com", 8181)),
+			want: func(c *proxcli.Client) {
 				t.Equal(addr.New(addr.HTTP, "example.com", 8181), c.ProxyAddr())
 			},
 		},
 
 		"rejects unsupported protocol schemes": {
-			options: proxy.WithProxyAddr(addr.New("SOCKS9", "", 0)),
+			options: proxcli.WithProxyAddr(addr.New("SOCKS9", "", 0)),
 			err: func(err error) {
 				t.ErrorContains(err, "SOCKS9")
 			},
@@ -46,12 +47,12 @@ func (t *ClientTest) TestNew() {
 
 	for name, test := range tests {
 		t.Run(name, func() {
-			ops := []proxy.ClientOption{}
+			ops := []proxcli.Option{}
 			if test.options != nil {
 				ops = append(ops, test.options)
 			}
 
-			client, err := proxy.NewClient(ops...)
+			client, err := proxcli.New(ops...)
 			if test.err != nil {
 				test.err(err)
 			} else {
@@ -64,41 +65,47 @@ func (t *ClientTest) TestNew() {
 
 func (t *ClientTest) TestDial() {
 	tests := map[string]struct {
-		setup func() proxy.ClientOption
+		setup func() proxcli.Option
 	}{
 		"establishes a direct connection to a server if Direct is used": {
-			setup: func() proxy.ClientOption {
-				return proxy.WithProxyAddr(addr.New(addr.Direct, "", 0))
+			setup: func() proxcli.Option {
+				return proxcli.WithProxyAddr(addr.New(addr.Direct, "", 0))
 			},
 		},
 
 		"connects to a server via an HTTP proxy": {
-			setup: func() proxy.ClientOption {
-				httpProxy := t.startProxyServer(addr.HTTP).ListenAddr()
-				return proxy.WithProxyAddr(httpProxy)
+			setup: func() proxcli.Option {
+				httpProxyHost := proxtest.StartProxyServer(t.T(), addr.HTTP)
+				return proxcli.WithProxyAddr(&addr.Addr{
+					Scheme: addr.HTTP,
+					Host:   *httpProxyHost,
+				})
 			},
 		},
 
-		"connects to a server via a SOCKS4 proxy": {
-			setup: func() proxy.ClientOption {
-				socks4Proxy := t.startProxyServer(addr.SOCKS4).ListenAddr()
-				return proxy.WithProxyAddr(socks4Proxy)
+		"connects to a server via a SOCKS proxy": {
+			setup: func() proxcli.Option {
+				socks4ProxyHost := proxtest.StartProxyServer(t.T(), addr.SOCKS4)
+				return proxcli.WithProxyAddr(&addr.Addr{
+					Scheme: addr.SOCKS4,
+					Host:   *socks4ProxyHost,
+				})
 			},
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func() {
-			client, err := proxy.NewClient(test.setup())
+			client, err := proxcli.New(test.setup())
 			t.Require().NoError(err)
 
-			serverHost := t.startHTTPEchoServer()
+			serverHost := proxtest.StartHTTPEchoServer(t.T())
 			t.assertHostIsReachable(serverHost, client)
 		})
 	}
 }
 
-func (t *ClientTest) assertHostIsReachable(h *addr.Host, c *proxy.Client) {
+func (t *ClientTest) assertHostIsReachable(h *addr.Host, c *proxcli.Client) {
 	t.T().Helper()
 
 	conn, err := c.Dial(context.Background(), h)

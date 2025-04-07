@@ -1,4 +1,4 @@
-package proxy_test
+package proxserv_test
 
 import (
 	"bufio"
@@ -12,7 +12,8 @@ import (
 	"testing"
 
 	"github.com/cerfical/socks2http/addr"
-	"github.com/cerfical/socks2http/proxy"
+	"github.com/cerfical/socks2http/proxy/proxserv"
+	"github.com/cerfical/socks2http/proxy/proxtest"
 	"github.com/cerfical/socks2http/socks"
 	"github.com/stretchr/testify/suite"
 )
@@ -31,69 +32,45 @@ func TestServer(t *testing.T) {
 }
 
 type ServerTest struct {
-	ProxyTest
+	suite.Suite
 }
 
 func (t *ServerTest) TestNew() {
 	tests := map[string]struct {
-		options proxy.ServerOption
-		want    func(*proxy.Server)
+		options proxserv.Option
+		want    func(*proxserv.Server)
 		err     func(error)
 	}{
 		"uses http-localhost-8080 as the default listen address": {
-			want: func(s *proxy.Server) {
+			want: func(s *proxserv.Server) {
 				t.Equal(addr.New(addr.HTTP, "localhost", 8080), s.ListenAddr())
 			},
 		},
 
 		"uses a non-default listen address if one is provided": {
-			options: proxy.WithListenAddr(addr.New(addr.HTTP, "example.com", 8181)),
-			want: func(s *proxy.Server) {
-				t.Equal(addr.New(addr.HTTP, "example.com", 8181), s.ListenAddr())
+			options: proxserv.WithListenAddr(addr.New(addr.HTTP, "localhost", 8181)),
+			want: func(s *proxserv.Server) {
+				t.Equal(addr.New(addr.HTTP, "localhost", 8181), s.ListenAddr())
 			},
 		},
 
 		"rejects unsupported protocol schemes": {
-			options: proxy.WithListenAddr(addr.New("SOCKS", "", 0)),
+			options: proxserv.WithListenAddr(addr.New("SOCKS", "", 0)),
 			err: func(err error) {
 				t.ErrorContains(err, "SOCKS")
 			},
 		},
-	}
 
-	for name, test := range tests {
-		t.Run(name, func() {
-			ops := []proxy.ServerOption{}
-			if test.options != nil {
-				ops = append(ops, test.options)
-			}
-
-			serv, err := proxy.NewServer(ops...)
-			if test.err != nil {
-				test.err(err)
-			} else {
-				t.Require().NoError(err)
-				test.want(serv)
-			}
-		})
-	}
-}
-
-func (t *ServerTest) TestStart() {
-	tests := map[string]struct {
-		options proxy.ServerOption
-		want    func(*proxy.Server)
-	}{
 		"starts to listen on the specified address": {
-			options: proxy.WithListenAddr(addr.New(addr.HTTP, "localhost", 0)),
-			want: func(s *proxy.Server) {
+			options: proxserv.WithListenAddr(addr.New(addr.HTTP, "localhost", 0)),
+			want: func(s *proxserv.Server) {
 				t.assertHostIsReachable(&s.ListenAddr().Host)
 			},
 		},
 
 		"allocates a listen port if one was not provided": {
-			options: proxy.WithListenAddr(addr.New(addr.HTTP, "localhost", 0)),
-			want: func(s *proxy.Server) {
+			options: proxserv.WithListenAddr(addr.New(addr.HTTP, "localhost", 0)),
+			want: func(s *proxserv.Server) {
 				t.NotZero(s.ListenAddr().Host.Port)
 			},
 		},
@@ -101,68 +78,39 @@ func (t *ServerTest) TestStart() {
 
 	for name, test := range tests {
 		t.Run(name, func() {
-			ops := []proxy.ServerOption{}
+			ops := []proxserv.Option{}
 			if test.options != nil {
 				ops = append(ops, test.options)
 			}
 
-			server, err := proxy.NewServer(ops...)
-			t.Require().NoError(err)
+			serv, err := proxserv.New(context.Background(), ops...)
+			if test.err != nil {
+				test.err(err)
+			} else {
+				t.T().Cleanup(func() { serv.Stop() })
 
-			t.Require().NoError(server.Start(context.Background()))
-			t.T().Cleanup(func() { server.Stop() })
-
-			test.want(server)
+				t.Require().NoError(err)
+				test.want(serv)
+			}
 		})
 	}
 }
 
 func (t *ServerTest) TestServe_HTTP() {
+	serverHost := proxtest.StartHTTPEchoServer(t.T())
 	tests := map[string]struct {
 		want func(net.Conn)
 	}{
 		"supports forwarding of a single HTTP request": {
 			want: func(proxyConn net.Conn) {
-				serverHost := t.startHTTPEchoServer()
-
 				t.assertHTTPEchoesBack(http.StatusOK, http.MethodPost, "everything is OK", serverHost, proxyConn)
 			},
 		},
 
 		"supports forwarding of a single HTTP request with a large payload": {
 			want: func(proxyConn net.Conn) {
-				serverHost := t.startHTTPEchoServer()
-
 				largeMsg := makeString(maxPayloadSize)
 				t.assertHTTPEchoesBack(http.StatusOK, http.MethodPost, largeMsg, serverHost, proxyConn)
-			},
-		},
-
-		"supports tunneling of HTTPS requests": {
-			want: func(proxyConn net.Conn) {
-				serverHost := t.startHTTPSEchoServer()
-
-				t.assertHTTPEchoesBack(http.StatusOK, http.MethodConnect, "", serverHost, proxyConn)
-
-				proxyConn = tls.Client(proxyConn, &tls.Config{InsecureSkipVerify: true})
-				for i := range numInRowRequests {
-					msg := fmt.Sprintf("message #%v", i+1)
-					t.assertHTTPEchoesBack(http.StatusOK, http.MethodPost, msg, serverHost, proxyConn)
-				}
-			},
-		},
-
-		"supports tunneling of HTTPS requests with large payloads": {
-			want: func(proxyConn net.Conn) {
-				serverHost := t.startHTTPSEchoServer()
-
-				t.assertHTTPEchoesBack(http.StatusOK, http.MethodConnect, "", serverHost, proxyConn)
-
-				proxyConn = tls.Client(proxyConn, &tls.Config{InsecureSkipVerify: true})
-				for range numInRowRequests {
-					largeMsg := makeString(maxPayloadSize)
-					t.assertHTTPEchoesBack(http.StatusOK, http.MethodPost, largeMsg, serverHost, proxyConn)
-				}
 			},
 		},
 
@@ -175,22 +123,59 @@ func (t *ServerTest) TestServe_HTTP() {
 
 	for name, test := range tests {
 		t.Run(name, func() {
-			server := t.openProxyConn(addr.HTTP)
-			test.want(server)
+			proxyConn := t.openProxyConn(addr.HTTP)
+			test.want(proxyConn)
 		})
 	}
 }
 
-func (t *ServerTest) TestServe_SOCKS4() {
+func (t *ServerTest) TestServe_HTTPS() {
+	serverHost := proxtest.StartHTTPSEchoServer(t.T())
+	tests := map[string]struct {
+		want func(net.Conn)
+	}{
+		"supports tunneling of HTTPS requests": {
+			want: func(proxyConn net.Conn) {
+				t.assertHTTPEchoesBack(http.StatusOK, http.MethodConnect, "", serverHost, proxyConn)
+
+				proxyConn = newTLSConn(proxyConn)
+				for i := range numInRowRequests {
+					msg := fmt.Sprintf("message #%v", i+1)
+					t.assertHTTPEchoesBack(http.StatusOK, http.MethodPost, msg, serverHost, proxyConn)
+				}
+			},
+		},
+
+		"supports tunneling of HTTPS requests with large payloads": {
+			want: func(proxyConn net.Conn) {
+				t.assertHTTPEchoesBack(http.StatusOK, http.MethodConnect, "", serverHost, proxyConn)
+
+				proxyConn = newTLSConn(proxyConn)
+				for range numInRowRequests {
+					largeMsg := makeString(maxPayloadSize)
+					t.assertHTTPEchoesBack(http.StatusOK, http.MethodPost, largeMsg, serverHost, proxyConn)
+				}
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func() {
+			proxyConn := t.openProxyConn(addr.HTTP)
+			test.want(proxyConn)
+		})
+	}
+}
+
+func (t *ServerTest) TestServe_SOCKS() {
+	serverHost := proxtest.StartHTTPEchoServer(t.T())
 	tests := map[string]struct {
 		want func(net.Conn)
 	}{
 		"supports tunneling of HTTP requests": {
 			want: func(proxyConn net.Conn) {
-				serverHost := t.startHTTPEchoServer()
-
 				req := socks.NewRequest(socks.V4, socks.Connect, serverHost)
-				reply := t.roundTripSOCKS4(req, proxyConn)
+				reply := t.roundTripSOCKS(req, proxyConn)
 				t.Require().Equal(socks.Granted, reply)
 
 				for range numInRowRequests {
@@ -203,7 +188,7 @@ func (t *ServerTest) TestServe_SOCKS4() {
 		"responds with a Request Rejected if the server is unreachable": {
 			want: func(proxyConn net.Conn) {
 				req := socks.NewRequest(socks.V4, socks.Connect, unreachableHost)
-				reply := t.roundTripSOCKS4(req, proxyConn)
+				reply := t.roundTripSOCKS(req, proxyConn)
 				t.Require().Equal(socks.Rejected, reply)
 			},
 		},
@@ -211,8 +196,8 @@ func (t *ServerTest) TestServe_SOCKS4() {
 
 	for name, test := range tests {
 		t.Run(name, func() {
-			server := t.openProxyConn(addr.SOCKS4)
-			test.want(server)
+			proxyConn := t.openProxyConn(addr.SOCKS4)
+			test.want(proxyConn)
 		})
 	}
 }
@@ -256,7 +241,7 @@ func (t *ServerTest) roundTripHTTP(r *http.Request, serverConn net.Conn) *http.R
 	return resp
 }
 
-func (t *ServerTest) roundTripSOCKS4(r *socks.Request, serverConn net.Conn) socks.Reply {
+func (t *ServerTest) roundTripSOCKS(r *socks.Request, serverConn net.Conn) socks.Reply {
 	t.T().Helper()
 
 	t.Require().NoError(r.Write(serverConn))
@@ -277,12 +262,16 @@ func (t *ServerTest) readString(r io.Reader) string {
 func (t *ServerTest) openProxyConn(proto string) (proxyConn net.Conn) {
 	t.T().Helper()
 
-	server := t.startProxyServer(proto)
-	proxyConn, err := net.Dial("tcp", server.ListenAddr().Host.String())
+	proxyHost := proxtest.StartProxyServer(t.T(), proto)
+	proxyConn, err := net.Dial("tcp", proxyHost.String())
 	t.Require().NoError(err)
 	t.T().Cleanup(func() { proxyConn.Close() })
 
 	return proxyConn
+}
+
+func newTLSConn(c net.Conn) net.Conn {
+	return tls.Client(c, &tls.Config{InsecureSkipVerify: true})
 }
 
 func makeString(size int) string {
