@@ -28,9 +28,9 @@ func (p *httpProxy) Serve(ctx context.Context, clientConn net.Conn) error {
 		"proto", req.Proto,
 	)
 
-	serverHost, err := addr.ParseHost(req.Host)
+	serverHost, err := p.extractDstHost(req)
 	if err != nil {
-		return fmt.Errorf("parse destination host: %w", err)
+		return fmt.Errorf("lookup destination host: %w", err)
 	}
 
 	serverConn, err := p.Dialer.Dial(ctx, serverHost)
@@ -53,6 +53,36 @@ func (p *httpProxy) Serve(ctx context.Context, clientConn net.Conn) error {
 
 	// All other requests are forwarded to the destination server as is
 	return p.forward(req, clientConn, serverConn)
+}
+
+func (p *httpProxy) extractDstHost(r *http.Request) (*addr.Host, error) {
+	// For HTTP CONNECT requests, the host is in the Request URL
+	if r.Method == http.MethodConnect {
+		h, err := addr.ParseHost(r.URL.Host)
+		if err != nil {
+			return nil, fmt.Errorf("parse request URL: %w", err)
+		}
+		return h, nil
+	}
+
+	// For others, the request URL contains the full destination URL, including the scheme
+	port := r.URL.Port()
+	if port == "" {
+		// If the URL contains no port, we can try to guess it by looking at the scheme
+		portNum, err := net.LookupPort("tcp", r.URL.Scheme)
+		if err != nil {
+			return nil, fmt.Errorf("lookup port by scheme: %w", err)
+		}
+		return addr.NewHost(r.URL.Hostname(), uint16(portNum)), nil
+	}
+
+	// If the port is specified, we can use it directly
+	portNum, err := addr.ParsePort(port)
+	if err != nil {
+		return nil, fmt.Errorf("parse port: %w", err)
+	}
+
+	return addr.NewHost(r.URL.Hostname(), portNum), nil
 }
 
 func (p *httpProxy) writeReply(status int, clientConn net.Conn) error {
