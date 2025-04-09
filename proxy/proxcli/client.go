@@ -2,6 +2,7 @@ package proxcli
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"slices"
 
@@ -20,12 +21,12 @@ func New(ops ...Option) (*Client, error) {
 		op(&c)
 	}
 
-	if c.o.Addr.Scheme != addr.Direct {
-		proxy, err := proxy.New(&c.o)
+	if proto := c.proxyAddr.Scheme; proto != addr.Direct {
+		connector, err := proxy.NewConnector(proto)
 		if err != nil {
 			return nil, err
 		}
-		c.proxy = proxy
+		c.connector = connector
 	}
 
 	return &c, nil
@@ -33,32 +34,42 @@ func New(ops ...Option) (*Client, error) {
 
 func WithProxyAddr(a *addr.Addr) Option {
 	return func(c *Client) {
-		c.o.Addr = *a
+		c.proxyAddr = *a
 	}
 }
 
 func WithDialer(d proxy.Dialer) Option {
 	return func(c *Client) {
-		c.o.Dialer = d
+		c.dialer = d
 	}
 }
 
 type Option func(*Client)
 
 type Client struct {
-	o proxy.Options
-
-	proxy proxy.Proxy
-}
-
-func (c *Client) ProxyAddr() *addr.Addr {
-	return &c.o.Addr
+	proxyAddr addr.Addr
+	dialer    proxy.Dialer
+	connector proxy.Connector
 }
 
 func (c *Client) Dial(ctx context.Context, h *addr.Host) (net.Conn, error) {
 	// Connect to the server directly if no proxy is used
-	if c.proxy == nil {
-		return c.o.Dialer.Dial(ctx, h)
+	if c.connector == nil {
+		return c.dialer.Dial(ctx, h)
 	}
-	return c.proxy.Connect(ctx, h)
+
+	// Otherwise establish a connection to a proxy
+	proxyHost := &c.proxyAddr.Host
+	proxyConn, err := c.dialer.Dial(ctx, proxyHost)
+	if err != nil {
+		return nil, fmt.Errorf("connect to proxy %v: %w", proxyHost, err)
+	}
+
+	// And connect the proxy to the destination server
+	if err := c.connector.Connect(proxyConn, h); err != nil {
+		proxyConn.Close()
+		return nil, fmt.Errorf("connecto to %v: %w", h, err)
+	}
+
+	return proxyConn, nil
 }

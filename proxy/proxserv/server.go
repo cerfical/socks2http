@@ -12,9 +12,9 @@ import (
 	"github.com/cerfical/socks2http/proxy"
 )
 
-func New(ctx context.Context, ops ...Option) (*Server, error) {
+func New(ops ...Option) (*Server, error) {
 	defaults := []Option{
-		WithListenAddr(addr.New(addr.HTTP, "localhost", 8080)),
+		WithServeAddr(addr.New(addr.HTTP, "localhost", 8080)),
 		WithDialer(proxy.Direct),
 		WithLog(log.Discard),
 	}
@@ -24,68 +24,66 @@ func New(ctx context.Context, ops ...Option) (*Server, error) {
 		op(&s)
 	}
 
-	proxy, err := proxy.New(&s.o)
+	proxy, err := proxy.New(&proxy.Options{
+		Proto:  s.serveAddr.Scheme,
+		Dialer: s.dialer,
+		Log:    s.log,
+	})
 	if err != nil {
 		return nil, err
 	}
 	s.proxy = proxy
 
-	s.o.Log.Info("Starting up a server")
-
-	var lc net.ListenConfig
-	if s.listener, err = lc.Listen(ctx, "tcp", s.o.Addr.Host.String()); err != nil {
-		return nil, err
-	}
-	// Update the listen address with the allocated port, if zero port was specified
-	s.o.Addr.Host.Port = uint16(s.listener.Addr().(*net.TCPAddr).Port)
-
-	s.o.Log.Info("Server is up",
-		"listen_addr", &s.o.Addr,
-	)
-
 	return &s, nil
 }
 
-func WithListenAddr(a *addr.Addr) Option {
+func WithServeAddr(a *addr.Addr) Option {
 	return func(s *Server) {
-		s.o.Addr = *a
+		s.serveAddr = *a
 	}
 }
 
 func WithDialer(d proxy.Dialer) Option {
 	return func(s *Server) {
-		s.o.Dialer = d
+		s.dialer = d
 	}
 }
 
 func WithLog(l *log.Logger) Option {
 	return func(s *Server) {
-		s.o.Log = l
+		s.log = l
 	}
 }
 
 type Option func(*Server)
 
 type Server struct {
-	o proxy.Options
+	dialer    proxy.Dialer
+	serveAddr addr.Addr
+	proxy     proxy.Proxy
 
-	listener net.Listener
-	proxy    proxy.Proxy
-}
-
-func (s *Server) ListenAddr() *addr.Addr {
-	return &s.o.Addr
-}
-
-func (s *Server) Stop() error {
-	return s.listener.Close()
+	log *log.Logger
 }
 
 func (s *Server) Serve(ctx context.Context) error {
+	s.log.Info("Starting up a server")
+
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "tcp", s.serveAddr.Host.String())
+	if err != nil {
+		return err
+	}
+
+	// Update the serving address with the automatically assigned port if one was not specified
+	s.serveAddr.Host.Port = uint16(listener.Addr().(*net.TCPAddr).Port)
+	s.log.Info("Server is up",
+		"addr", &s.serveAddr,
+	)
+
 	for {
-		clientConn, err := s.listener.Accept()
+		clientConn, err := listener.Accept()
 		if err != nil {
-			s.o.Log.Error("Failed to accept an incoming client connection", err)
+			s.log.Error("Failed to accept an incoming client connection", err)
 			continue
 		}
 
@@ -95,7 +93,7 @@ func (s *Server) Serve(ctx context.Context) error {
 			if err := s.proxy.Serve(ctx, clientConn); err != nil {
 				// Ignore unimportant errors
 				if !errors.Is(err, io.EOF) {
-					s.o.Log.Error("Failed to serve a request", err)
+					s.log.Error("Failed to serve a request", err)
 				}
 			}
 		}()

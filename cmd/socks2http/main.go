@@ -25,11 +25,11 @@ func main() {
 	}
 
 	log.Info("Using a proxy",
-		"proxy_addr", &config.ProxyAddr,
+		"addr", &config.ProxyAddr,
 	)
 
-	server, err := proxserv.New(context.Background(),
-		proxserv.WithListenAddr(&config.ServeAddr),
+	server, err := proxserv.New(
+		proxserv.WithServeAddr(&config.ServeAddr),
 		proxserv.WithDialer(client),
 		proxserv.WithLog(log),
 	)
