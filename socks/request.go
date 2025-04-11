@@ -10,12 +10,15 @@ import (
 	"github.com/cerfical/socks2http/addr"
 )
 
-func NewRequest(v Version, c Command, h *addr.Host) *Request {
-	return &Request{
+func NewRequest(v Version, c Command, dstAddr *addr.Host) *Request {
+	r := Request{
 		Version: v,
 		Command: c,
-		Host:    *h,
 	}
+	if dstAddr != nil {
+		r.DstAddr = *dstAddr
+	}
+	return &r
 }
 
 func ReadRequest(r *bufio.Reader) (*Request, error) {
@@ -39,11 +42,11 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		return nil, fmt.Errorf("%w %v", ErrInvalidCommand, c)
 	}
 
-	host := addr.NewHost(addr.IPv4(h.DstIP).String(), h.DstPort)
+	dstAddr := addr.NewHost(addr.IPv4(h.DstIP).String(), h.DstPort)
 	req := Request{
 		Version: v,
 		Command: c,
-		Host:    *host,
+		DstAddr: *dstAddr,
 	}
 	return &req, nil
 }
@@ -51,19 +54,19 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 type Request struct {
 	Version Version
 	Command Command
-	Host    addr.Host
+	DstAddr addr.Host
 }
 
 func (r *Request) Write(w io.Writer) error {
-	ip4, err := r.Host.ResolveToIPv4()
+	ip4, err := r.DstAddr.ResolveToIPv4()
 	if err != nil {
-		return fmt.Errorf("resolve host %v: %w", &r.Host, err)
+		return fmt.Errorf("resolve host %v: %w", &r.DstAddr, err)
 	}
 
 	h := requestHeader{
 		Version: byte(r.Version),
 		Command: byte(r.Command),
-		DstPort: r.Host.Port,
+		DstPort: r.DstAddr.Port,
 		DstIP:   ip4,
 	}
 

@@ -5,14 +5,18 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"github.com/cerfical/socks2http/addr"
 )
 
 const replyVersion = 0
 
-func NewReply(s Status) *Reply {
-	return &Reply{
-		Status: s,
+func NewReply(s Status, bindAddr *addr.Host) *Reply {
+	r := Reply{Status: s}
+	if bindAddr != nil {
+		r.BindAddr = *bindAddr
 	}
+	return &r
 }
 
 func ReadReply(r *bufio.Reader) (*Reply, error) {
@@ -33,18 +37,37 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 	if !ok {
 		return nil, fmt.Errorf("%w %v", ErrInvalidReply, status)
 	}
-	return NewReply(status), nil
+
+	// Check if an empty bind address was specified
+	if h.BindIP == [4]byte{0, 0, 0, 0} && h.BindPort == 0 {
+		return NewReply(status, nil), nil
+	}
+
+	bindAddr := addr.NewHost(addr.IPv4(h.BindIP).String(), h.BindPort)
+	return NewReply(status, bindAddr), nil
 }
 
 type Reply struct {
-	Status Status
+	Status   Status
+	BindAddr addr.Host
 }
 
 func (r *Reply) Write(w io.Writer) error {
 	h := replyHeader{
-		Version: replyVersion,
-		Status:  byte(r.Status),
+		Version:  replyVersion,
+		Status:   byte(r.Status),
+		BindPort: r.BindAddr.Port,
 	}
+
+	// Check if a non-empty bind address was specified
+	if r.BindAddr.Hostname != "" {
+		ip, ok := r.BindAddr.ToIPv4()
+		if !ok {
+			return fmt.Errorf("not an IPv4 address: %v", r.BindAddr.Hostname)
+		}
+		h.BindIP = ip
+	}
+
 	if err := binary.Write(w, binary.BigEndian, &h); err != nil {
 		return fmt.Errorf("encode header: %w", err)
 	}
@@ -52,8 +75,8 @@ func (r *Reply) Write(w io.Writer) error {
 }
 
 type replyHeader struct {
-	Version byte
-	Status  byte
-	_       uint16
-	_       [4]byte
+	Version  byte
+	Status   byte
+	BindPort uint16
+	BindIP   [4]byte
 }

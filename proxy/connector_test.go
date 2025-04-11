@@ -32,11 +32,11 @@ func (t *ConnectorTest) TestConnect() {
 		t.Require().NoError(err)
 
 		t.Equal(socks.V4, req.Version)
-		t.Equal(dstHost, &req.Host)
+		t.Equal(dstHost, &req.DstAddr)
 		t.Equal(socks.Connect, req.Command)
 
 		// Write a SOCKS Granted reply so the client can proceed
-		reply := socks.NewReply(socks.Granted)
+		reply := socks.NewReply(socks.Granted, nil)
 		t.Require().NoError(reply.Write(proxyServerConn))
 	})
 

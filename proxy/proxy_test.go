@@ -43,12 +43,12 @@ func (t *ProxyTest) TestServe_SOCKS() {
 	}{
 		"supports tunneling of HTTP requests": {
 			dstHost:   serverHost,
-			wantReply: socks.NewReply(socks.Granted),
+			wantReply: socks.NewReply(socks.Granted, nil),
 		},
 
 		"responds with a Request Rejected if the server is unreachable": {
 			dstHost:   addr.NewHost("0.0.0.0", 0),
-			wantReply: socks.NewReply(socks.Rejected),
+			wantReply: socks.NewReply(socks.Rejected, nil),
 		},
 	}
 

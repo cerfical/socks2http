@@ -90,3 +90,40 @@ func TestHost_ResolveToIPv4(t *testing.T) {
 		})
 	}
 }
+
+func TestHost_ToIPv4(t *testing.T) {
+	tests := map[string]struct {
+		hostname string
+		want     addr.IPv4
+		fail     bool
+	}{
+		"parses IPv4 hostnames": {
+			hostname: "127.0.0.1",
+			want:     addr.IPv4{127, 0, 0, 1},
+		},
+
+		"rejects symbolic hostnames": {
+			hostname: "localhost",
+			fail:     true,
+		},
+
+		"rejects IPv6 addresses": {
+			hostname: "0:0:0:0:0:0:0:1",
+			fail:     true,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			host := addr.NewHost(test.hostname, 0)
+
+			ip, ok := host.ToIPv4()
+			if test.fail {
+				require.False(t, ok)
+			} else {
+				require.True(t, ok)
+				assert.Equal(t, test.want, ip)
+			}
+		})
+	}
+}

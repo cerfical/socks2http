@@ -4,10 +4,22 @@ import "fmt"
 
 const (
 	Connect Command = 0x01
+	Bind    Command = 0x02
 )
 
 var commands = map[Command]string{
 	Connect: "CONNECT",
+	Bind:    "BIND",
+}
+
+type Command byte
+
+func (c Command) String() string {
+	code := printByte(byte(c))
+	if s, ok := commands[c]; ok {
+		return fmt.Sprintf("%v %v", s, code)
+	}
+	return code
 }
 
 func makeCommand(b byte) (c Command, isValid bool) {
@@ -16,14 +28,4 @@ func makeCommand(b byte) (c Command, isValid bool) {
 		return c, true
 	}
 	return c, false
-}
-
-type Command byte
-
-func (c Command) String() string {
-	code := fmt.Sprintf("(%#02x)", byte(c))
-	if s, ok := commands[c]; ok {
-		return fmt.Sprintf("%v %v", s, code)
-	}
-	return code
 }

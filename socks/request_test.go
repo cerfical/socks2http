@@ -12,74 +12,92 @@ import (
 )
 
 const (
-	SOCKSVersion4  = 0x04
+	SOCKSVersion4 = 0x04
+
 	ConnectCommand = 0x01
+	BindCommand    = 0x02
 )
 
-var host = addr.NewHost("127.0.0.1", 1080)
-
 func TestReadRequest(t *testing.T) {
-	okTests := map[string]struct {
-		input []byte
-		want  *socks.Request
-	}{
-		"correctly decodes a SOCKS4 request": {
-			input: []byte{SOCKSVersion4, ConnectCommand, 0x04, 0x38, 127, 0, 0, 1, 0},
-			want:  socks.NewRequest(socks.V4, socks.Connect, host),
-		},
-	}
-	for name, test := range okTests {
-		t.Run(name, func(t *testing.T) {
-			r := bufio.NewReader(bytes.NewReader(test.input))
-
-			got, err := socks.ReadRequest(r)
-			require.NoError(t, err)
-
-			assert.Equal(t, test.want, got)
-		})
-	}
-
-	failTests := map[string]struct {
-		input []byte
-		err   error
-	}{
-		"rejects unsupported SOCKS versions": {
-			input: []byte{123},
-			err:   socks.ErrInvalidVersion,
-		},
-
-		"rejects unsupported SOCKS4 commands": {
-			input: []byte{SOCKSVersion4, 123, 0x04, 0x38, 127, 0, 0, 1, 0},
-			err:   socks.ErrInvalidCommand,
-		},
-	}
-	for name, test := range failTests {
-		t.Run(name, func(t *testing.T) {
-			r := bufio.NewReader(bytes.NewReader(test.input))
-
-			_, err := socks.ReadRequest(r)
-			require.ErrorIs(t, err, test.err)
-		})
-	}
+	t.Run("rejects unsupported SOCKS versions", func(t *testing.T) {
+		_, err := decodeSOCKSRequest([]byte{0x05})
+		require.Error(t, err)
+	})
 }
 
-func TestRequest_Write(t *testing.T) {
+func TestReadRequest_SOCKS4(t *testing.T) {
 	tests := map[string]struct {
-		req  *socks.Request
-		want []byte
+		input byte
+		want  socks.Command
 	}{
-		"correctly encodes a SOCKS4 request": {
-			req:  socks.NewRequest(socks.V4, socks.Connect, host),
-			want: []byte{SOCKSVersion4, ConnectCommand, 0x04, 0x38, 127, 0, 0, 1, 0},
+		"decodes a CONNECT command": {
+			input: ConnectCommand,
+			want:  socks.Connect,
+		},
+
+		"decodes a BIND command": {
+			input: BindCommand,
+			want:  socks.Bind,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			var got bytes.Buffer
-			require.NoError(t, test.req.Write(&got))
+			got, err := decodeSOCKSRequest([]byte{SOCKSVersion4, test.input, 0x04, 0x38, 127, 0, 0, 1, 0})
+			require.NoError(t, err)
 
-			assert.Equal(t, test.want, got.Bytes())
+			want := socks.NewRequest(socks.V4, test.want, addr.NewHost("127.0.0.1", 1080))
+			assert.Equal(t, want, got)
 		})
 	}
+
+	t.Run("rejects unsupported commands", func(t *testing.T) {
+		_, err := decodeSOCKSReply([]byte{SOCKSVersion4, 0x03, 0x04, 0x38, 127, 0, 0, 1, 0})
+		require.Error(t, err)
+	})
+}
+
+func TestRequest_Write_SOCKS4(t *testing.T) {
+	tests := map[string]struct {
+		command socks.Command
+		want    byte
+	}{
+		"encodes a CONNECT command": {
+			command: socks.Connect,
+			want:    ConnectCommand,
+		},
+
+		"encodes a BIND command": {
+			command: socks.Bind,
+			want:    BindCommand,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := encodeSOCKSRequest(socks.V4, test.command, addr.NewHost("0.0.0.0", 0))
+			require.NoError(t, err)
+
+			want := []byte{SOCKSVersion4, test.want, 0, 0, 0, 0, 0, 0, 0}
+			assert.Equal(t, want, got)
+		})
+	}
+}
+
+func decodeSOCKSRequest(b []byte) (*socks.Request, error) {
+	return socks.ReadRequest(
+		bufio.NewReader(
+			bytes.NewReader(b),
+		),
+	)
+}
+
+func encodeSOCKSRequest(v socks.Version, c socks.Command, dstAddr *addr.Host) ([]byte, error) {
+	req := socks.NewRequest(v, c, dstAddr)
+
+	var buf bytes.Buffer
+	if err := req.Write(&buf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

@@ -162,13 +162,13 @@ func (p *proxy) ServeSOCKS(ctx context.Context, clientConn net.Conn) error {
 	p.log.Info("New SOCKS request",
 		"version", req.Version.String(),
 		"command", req.Command.String(),
-		"host", req.Host.String(),
+		"host", req.DstAddr.String(),
 	)
 
-	serverConn, err := p.dialer.Dial(ctx, &req.Host)
+	serverConn, err := p.dialer.Dial(ctx, &req.DstAddr)
 	if err != nil {
 		p.writeSOCKSReply(socks.Rejected, clientConn)
-		return fmt.Errorf("connect to %v: %w", &req.Host, err)
+		return fmt.Errorf("connect to %v: %w", &req.DstAddr, err)
 	}
 	defer serverConn.Close()
 
@@ -183,7 +183,7 @@ func (p *proxy) ServeSOCKS(ctx context.Context, clientConn net.Conn) error {
 }
 
 func (p *proxy) writeSOCKSReply(s socks.Status, clientConn net.Conn) error {
-	reply := socks.NewReply(s)
+	reply := socks.NewReply(s, nil)
 	return reply.Write(clientConn)
 }
 

@@ -12,8 +12,13 @@ func TestCommand_String(t *testing.T) {
 		cmd  socks.Command
 		want string
 	}{
-		"prints supported commands as command name followed by command code in hex": {socks.Connect, "CONNECT (0x01)"},
-		"prints unsupported commands as command code in hex":                        {0x17, "(0x17)"},
+		"prints supported commands as command name followed by command code in hex": {
+			socks.Connect, "CONNECT (0x01)",
+		},
+
+		"prints unsupported commands as command code in hex": {
+			0x17, "(0x17)",
+		},
 	}
 
 	for name, test := range tests {

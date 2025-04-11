@@ -37,6 +37,21 @@ func (h *Host) String() string {
 	return net.JoinHostPort(h.Hostname, port)
 }
 
+func (h *Host) ToIPv4() (IPv4, bool) {
+	ip := net.ParseIP(h.Hostname)
+	if ip == nil {
+		// Not an IP address
+		return IPv4{}, false
+	}
+
+	ip4 := ip.To4()
+	if ip4 == nil {
+		// Not an IPv4 address
+		return IPv4{}, false
+	}
+	return IPv4(ip4), true
+}
+
 func (h *Host) ResolveToIPv4() (IPv4, error) {
 	// Assume localhost, if the hostname is not specified
 	if h.Hostname == "" {
