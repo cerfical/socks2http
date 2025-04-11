@@ -82,6 +82,24 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 			assert.Equal(t, want, got)
 		})
 	}
+
+	t.Run("encodes a non-empty destination address", func(t *testing.T) {
+		got, err := encodeSOCKSRequest(socks.V4, socks.Connect, addr.NewHost("127.0.0.1", 1080))
+		require.NoError(t, err)
+
+		want := []byte{SOCKSVersion4, ConnectCommand, 0x04, 0x38, 127, 0, 0, 1, 0}
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("rejects an empty destination address", func(t *testing.T) {
+		_, err := encodeSOCKSRequest(socks.V4, socks.Connect, nil)
+		require.Error(t, err)
+	})
+
+	t.Run("rejects destination addresses specified as non-IPv4 address", func(t *testing.T) {
+		_, err := encodeSOCKSRequest(socks.V4, socks.Connect, addr.NewHost("localhost", 0))
+		require.Error(t, err)
+	})
 }
 
 func decodeSOCKSRequest(b []byte) (*socks.Request, error) {

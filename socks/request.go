@@ -58,9 +58,9 @@ type Request struct {
 }
 
 func (r *Request) Write(w io.Writer) error {
-	ip4, err := r.DstAddr.ResolveToIPv4()
-	if err != nil {
-		return fmt.Errorf("resolve host %v: %w", &r.DstAddr, err)
+	ip4, ok := r.DstAddr.ToIPv4()
+	if !ok {
+		return fmt.Errorf("not an IPv4 address: %v", r.DstAddr.Hostname)
 	}
 
 	h := requestHeader{
@@ -76,7 +76,7 @@ func (r *Request) Write(w io.Writer) error {
 		return fmt.Errorf("encode header: %w", err)
 	}
 
-	_, err = w.Write(bytes)
+	_, err := w.Write(bytes)
 	return err
 }
 

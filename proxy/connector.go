@@ -32,7 +32,14 @@ func (f ConnectorFunc) Connect(proxyConn net.Conn, dstHost *addr.Host) error {
 }
 
 func connectSOCKS(proxyConn net.Conn, h *addr.Host) error {
-	connReq := socks.NewRequest(socks.V4, socks.Connect, h)
+	// SOCKS4 only supports raw IP addresses, name resolution needed
+	ip4, err := h.ResolveToIPv4()
+	if err != nil {
+		return fmt.Errorf("resolve destination: %w", err)
+	}
+	ip4Host := addr.NewHost(ip4.String(), h.Port)
+
+	connReq := socks.NewRequest(socks.V4, socks.Connect, ip4Host)
 	if err := connReq.Write(proxyConn); err != nil {
 		return fmt.Errorf("SOCKS CONNECT: %w", err)
 	}
