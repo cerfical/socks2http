@@ -35,7 +35,7 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 
 	status, ok := makeStatus(h.Status)
 	if !ok {
-		return nil, fmt.Errorf("%w %v", ErrInvalidReply, status)
+		return nil, fmt.Errorf("invalid reply: %v", status)
 	}
 
 	// Check if an empty bind address was specified
