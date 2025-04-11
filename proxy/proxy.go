@@ -167,12 +167,12 @@ func (p *proxy) ServeSOCKS(ctx context.Context, clientConn net.Conn) error {
 
 	serverConn, err := p.dialer.Dial(ctx, &req.Host)
 	if err != nil {
-		socks.Rejected.Write(clientConn)
+		p.writeSOCKSReply(socks.Rejected, clientConn)
 		return fmt.Errorf("connect to %v: %w", &req.Host, err)
 	}
 	defer serverConn.Close()
 
-	if err := socks.Granted.Write(clientConn); err != nil {
+	if err := p.writeSOCKSReply(socks.Granted, clientConn); err != nil {
 		return fmt.Errorf("write reply: %w", err)
 	}
 	if err := tunnel(clientConn, serverConn); err != nil {
@@ -180,6 +180,11 @@ func (p *proxy) ServeSOCKS(ctx context.Context, clientConn net.Conn) error {
 	}
 
 	return nil
+}
+
+func (p *proxy) writeSOCKSReply(s socks.Status, clientConn net.Conn) error {
+	reply := socks.NewReply(s)
+	return reply.Write(clientConn)
 }
 
 func tunnel(clientConn, serverConn net.Conn) error {

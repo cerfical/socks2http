@@ -36,7 +36,8 @@ func (t *ConnectorTest) TestConnect() {
 		t.Equal(socks.Connect, req.Command)
 
 		// Write a SOCKS Granted reply so the client can proceed
-		t.Require().NoError(socks.Granted.Write(proxyServerConn))
+		reply := socks.NewReply(socks.Granted)
+		t.Require().NoError(reply.Write(proxyServerConn))
 	})
 
 	t.Run("make a CONNECT request to an HTTP proxy", func() {

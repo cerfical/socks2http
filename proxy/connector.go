@@ -42,7 +42,7 @@ func connectSOCKS(proxyConn net.Conn, h *addr.Host) error {
 		return fmt.Errorf("SOCKS CONNECT reply: %w", err)
 	}
 
-	if reply != socks.Granted {
+	if reply.Status != socks.Granted {
 		return fmt.Errorf("SOCKS CONNECT rejected: %v", reply)
 	}
 	return nil

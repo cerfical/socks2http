@@ -11,36 +11,60 @@ import (
 )
 
 const (
-	RequestGranted = 90
-	ReplyVersion   = 0
+	ReplyVersion = 0
+
+	RequestGranted            = 90
+	RequestRejectedOrFailed   = 91
+	RequestRejectedNoAuth     = 92
+	RequestRejectedAuthFailed = 93
 )
 
 func TestReadReply(t *testing.T) {
 	okTests := map[string]struct {
-		input []byte
-		want  socks.Reply
+		input byte
+		want  socks.Status
 	}{
-		"request_granted": {
-			input: []byte{ReplyVersion, RequestGranted, 0, 0, 0, 0, 0, 0},
+		"decodes a SOCKS4 GRANTED status": {
+			input: RequestGranted,
 			want:  socks.Granted,
+		},
+
+		"decodes a SOCKS4 REJECTED status": {
+			input: RequestRejectedOrFailed,
+			want:  socks.Rejected,
+		},
+
+		"decodes a SOCKS4 NO-AUTH status": {
+			input: RequestRejectedNoAuth,
+			want:  socks.NoAuth,
+		},
+
+		"decodes a SOCKS4 AUTH-FAILED status": {
+			input: RequestRejectedAuthFailed,
+			want:  socks.AuthFailed,
 		},
 	}
 	for name, test := range okTests {
 		t.Run(name, func(t *testing.T) {
-			input := bytes.NewReader(test.input)
+			input := bytes.NewReader([]byte{ReplyVersion, test.input, 0, 0, 0, 0, 0, 0})
 
 			got, err := socks.ReadReply(bufio.NewReader(input))
 			require.NoError(t, err)
 
-			assert.Equal(t, test.want, got)
+			assert.Equal(t, test.want, got.Status)
 		})
 	}
 
 	failTests := map[string]struct {
 		input []byte
 	}{
-		"rejects replies with invalid version code":    {[]byte{1}},
-		"rejects replies with unsupported status code": {[]byte{ReplyVersion, 123, 0, 0, 0, 0, 0, 0}},
+		"rejects replies with unsupported reply version": {
+			input: []byte{1},
+		},
+
+		"rejects replies with unsupported status": {
+			input: []byte{ReplyVersion, 0x5e, 0, 0, 0, 0, 0, 0},
+		},
 	}
 	for name, test := range failTests {
 		t.Run(name, func(t *testing.T) {
@@ -52,37 +76,41 @@ func TestReadReply(t *testing.T) {
 	}
 }
 
-func TestReply_String(t *testing.T) {
-	tests := map[string]struct {
-		reply socks.Reply
-		want  string
-	}{
-		"prints supported replies as reply description followed by reply code in hex": {socks.Granted, "request granted (0x5a)"},
-		"prints unsupported replies as reply code in hex":                             {0x17, "(0x17)"},
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			got := test.reply.String()
-			assert.Equal(t, test.want, got)
-		})
-	}
-}
-
 func TestReply_Write(t *testing.T) {
 	tests := map[string]struct {
-		reply socks.Reply
-		want  []byte
+		input socks.Status
+		want  byte
 	}{
-		"correctly encodes a SOCKS4 reply": {socks.Granted, []byte{0, RequestGranted, 0, 0, 0, 0, 0, 0}},
+		"encodes a SOCKS4 GRANTED status": {
+			input: socks.Granted,
+			want:  RequestGranted,
+		},
+
+		"encodes a SOCKS4 REJECTED status": {
+			input: socks.Rejected,
+			want:  RequestRejectedOrFailed,
+		},
+
+		"encodes a SOCKS4 NO-AUTH status": {
+			input: socks.NoAuth,
+			want:  RequestRejectedNoAuth,
+		},
+
+		"encodes a SOCKS4 AUTH-FAILED status": {
+			input: socks.AuthFailed,
+			want:  RequestRejectedAuthFailed,
+		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			var got bytes.Buffer
-			require.NoError(t, test.reply.Write(&got))
+			want := []byte{0, test.want, 0, 0, 0, 0, 0, 0}
+			reply := socks.NewReply(test.input)
 
-			assert.Equal(t, test.want, got.Bytes())
+			var got bytes.Buffer
+			require.NoError(t, reply.Write(&got))
+
+			assert.Equal(t, want, got.Bytes())
 		})
 	}
 }

@@ -39,16 +39,16 @@ func (t *ProxyTest) TestServe_SOCKS() {
 	serverHost := t.startHTTPEchoServer()
 	tests := map[string]struct {
 		dstHost   *addr.Host
-		wantReply socks.Reply
+		wantReply *socks.Reply
 	}{
 		"supports tunneling of HTTP requests": {
 			dstHost:   serverHost,
-			wantReply: socks.Granted,
+			wantReply: socks.NewReply(socks.Granted),
 		},
 
 		"responds with a Request Rejected if the server is unreachable": {
 			dstHost:   addr.NewHost("0.0.0.0", 0),
-			wantReply: socks.Rejected,
+			wantReply: socks.NewReply(socks.Rejected),
 		},
 	}
 
@@ -65,7 +65,7 @@ func (t *ProxyTest) TestServe_SOCKS() {
 			t.Require().NoError(err)
 
 			t.Equal(test.wantReply, reply)
-			if reply == socks.Granted {
+			if reply.Status == socks.Granted {
 				// Make a bunch of HTTP requests
 				for range numInRowRequests {
 					msg := makeString(maxPayloadSize)
