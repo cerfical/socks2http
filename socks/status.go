@@ -10,10 +10,10 @@ const (
 )
 
 var statuses = map[Status]string{
-	Granted:    "request granted",
-	Rejected:   "request rejected or failed",
-	NoAuth:     "request rejected because SOCKS server cannot connect to identd on the client",
-	AuthFailed: "request rejected because the client program and identd report different user-ids",
+	Granted:    "Request Granted",
+	Rejected:   "Request Rejected",
+	NoAuth:     "No Authentication Service",
+	AuthFailed: "Authentication Failed",
 }
 
 type Status byte
