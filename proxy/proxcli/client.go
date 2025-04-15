@@ -13,7 +13,7 @@ import (
 func New(ops ...Option) (*Client, error) {
 	defaults := []Option{
 		WithProxyAddr(addr.New(addr.HTTP, "localhost", 8080)),
-		WithDialer(proxy.Direct),
+		WithDialer(proxy.DirectDialer),
 	}
 
 	var c Client

@@ -1,0 +1,10 @@
+with-expecter: true
+packages:
+  github.com/cerfical/socks2http/proxy:
+    interfaces:
+      Proxy:
+
+outpkg: "mocks"
+dir: "test/mocks"
+mockname: "{{ .InterfaceName }}"
+filename: "{{ .InterfaceName | snakecase }}.go"

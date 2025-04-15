@@ -6,6 +6,7 @@ import (
 
 	"github.com/cerfical/socks2http/config"
 	"github.com/cerfical/socks2http/log"
+	"github.com/cerfical/socks2http/proxy"
 	"github.com/cerfical/socks2http/proxy/proxcli"
 	"github.com/cerfical/socks2http/proxy/proxserv"
 )
@@ -30,7 +31,9 @@ func main() {
 
 	server, err := proxserv.New(
 		proxserv.WithProto(config.ServeAddr.Scheme),
-		proxserv.WithDialer(client),
+		proxserv.WithProxy(
+			proxy.New(client),
+		),
 		proxserv.WithLog(log),
 	)
 	if err != nil {
