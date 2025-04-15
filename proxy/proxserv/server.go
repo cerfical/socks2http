@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"slices"
+	"sync"
 
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/log"
@@ -14,7 +15,7 @@ import (
 
 func New(ops ...Option) (*Server, error) {
 	defaults := []Option{
-		WithServeAddr(addr.New(addr.HTTP, "localhost", 8080)),
+		WithProto(addr.HTTP),
 		WithDialer(proxy.Direct),
 		WithLog(log.Discard),
 	}
@@ -25,7 +26,7 @@ func New(ops ...Option) (*Server, error) {
 	}
 
 	proxy, err := proxy.New(&proxy.Options{
-		Proto:  s.serveAddr.Scheme,
+		Proto:  s.proto,
 		Dialer: s.dialer,
 		Log:    s.log,
 	})
@@ -37,9 +38,9 @@ func New(ops ...Option) (*Server, error) {
 	return &s, nil
 }
 
-func WithServeAddr(a *addr.Addr) Option {
+func WithProto(proto string) Option {
 	return func(s *Server) {
-		s.serveAddr = *a
+		s.proto = proto
 	}
 }
 
@@ -58,44 +59,68 @@ func WithLog(l *log.Logger) Option {
 type Option func(*Server)
 
 type Server struct {
-	dialer    proxy.Dialer
-	serveAddr addr.Addr
-	proxy     proxy.Proxy
+	proto string
+
+	dialer proxy.Dialer
+	proxy  proxy.Proxy
 
 	log *log.Logger
 }
 
-func (s *Server) Serve(ctx context.Context) error {
+func (s *Server) ListenAndServe(ctx context.Context, serveAddr *addr.Host) error {
 	s.log.Info("Starting up a server")
 
 	var lc net.ListenConfig
-	listener, err := lc.Listen(ctx, "tcp", s.serveAddr.Host.String())
+	l, err := lc.Listen(ctx, "tcp", serveAddr.String())
 	if err != nil {
 		return err
 	}
 
-	// Update the serving address with the automatically assigned port if one was not specified
-	s.serveAddr.Host.Port = uint16(listener.Addr().(*net.TCPAddr).Port)
+	// Use an automatically assigned port if one was not specified
+	addr := addr.New(s.proto, serveAddr.Hostname, uint16(l.Addr().(*net.TCPAddr).Port))
 	s.log.Info("Server is up",
-		"addr", &s.serveAddr,
+		"addr", addr,
 	)
 
-	for {
-		clientConn, err := listener.Accept()
-		if err != nil {
-			s.log.Error("Failed to accept an incoming client connection", err)
-			continue
-		}
+	return s.Serve(ctx, l)
+}
 
-		go func() {
-			defer clientConn.Close()
+func (s *Server) Serve(ctx context.Context, l net.Listener) error {
+	var activeConns sync.WaitGroup
+	go func() {
+		for {
+			activeConns.Add(1)
 
-			if err := s.proxy.Serve(ctx, clientConn); err != nil {
-				// Ignore unimportant errors
-				if !errors.Is(err, io.EOF) {
-					s.log.Error("Failed to serve a request", err)
+			clientConn, err := l.Accept()
+			if err != nil {
+				activeConns.Done()
+
+				if errors.Is(err, net.ErrClosed) {
+					break
 				}
+				s.log.Error("Failed to accept an incoming client connection", err)
+				continue
 			}
-		}()
-	}
+
+			go func() {
+				defer func() {
+					clientConn.Close()
+					activeConns.Done()
+				}()
+
+				if err := s.proxy.Serve(context.Background(), clientConn); err != nil {
+					// Ignore less important errors
+					if !errors.Is(err, io.EOF) {
+						s.log.Error("Failed to serve a request", err)
+					}
+				}
+			}()
+		}
+	}()
+
+	// Wait for server shutdown
+	<-ctx.Done()
+	err := l.Close()
+	activeConns.Wait()
+	return err
 }

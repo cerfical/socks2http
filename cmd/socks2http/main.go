@@ -29,16 +29,16 @@ func main() {
 	)
 
 	server, err := proxserv.New(
-		proxserv.WithServeAddr(&config.ServeAddr),
+		proxserv.WithProto(config.ServeAddr.Scheme),
 		proxserv.WithDialer(client),
 		proxserv.WithLog(log),
 	)
 	if err != nil {
-		log.Error("Failed to start a proxy server", err)
+		log.Error("Failed to initialize a server", err)
 		return
 	}
 
-	if err := server.Serve(context.Background()); err != nil {
+	if err := server.ListenAndServe(context.Background(), &config.ServeAddr.Host); err != nil {
 		log.Error("Server terminated abnormally", err)
 		return
 	}
