@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/cerfical/socks2http/addr"
 )
@@ -48,27 +49,38 @@ func (p *proxy) OpenTunnel(ctx context.Context, srcConn net.Conn, dstHost *addr.
 		return nil, fmt.Errorf("dial %v: %w", dstHost, err)
 	}
 
-	errChan := make(chan error)
-	go transfer(dstConn, srcConn, errChan)
-	go transfer(srcConn, dstConn, errChan)
+	dst2SrcDone, dst2SrcStop := transfer(dstConn, srcConn)
+	src2DstDone, src2DstStop := transfer(srcConn, dstConn)
 
-	done := make(chan error, 1)
+	errChan := make(chan error, 1)
 	go func() {
 		defer dstConn.Close()
 
-		// Wait for both transfers to finish
-		var firstErr error
-		for range 2 {
-			if err := <-errChan; err != nil && firstErr == nil {
-				firstErr = err
-			}
+		// The first side that finishes the transfer stops the other side,
+		// so that there are no hanging connections
+		select {
+		case err := <-dst2SrcDone:
+			src2DstStop()
+			errChan <- err
+		case err := <-src2DstDone:
+			dst2SrcStop()
+			errChan <- err
 		}
-		done <- firstErr
 	}()
-	return done, nil
+
+	return errChan, nil
 }
 
-func transfer(dest io.Writer, src io.Reader, errChan chan<- error) {
-	_, err := io.Copy(dest, src)
-	errChan <- err
+func transfer(dst net.Conn, src net.Conn) (done <-chan error, stop func()) {
+	errChan := make(chan error, 1)
+	go func() {
+		_, err := io.Copy(dst, src)
+		errChan <- err
+	}()
+
+	return errChan, func() {
+		// Stop the ongoing read operation and wait for it to return
+		src.SetReadDeadline(time.Now())
+		<-errChan
+	}
 }

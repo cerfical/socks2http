@@ -3,6 +3,7 @@ packages:
   github.com/cerfical/socks2http/proxy:
     interfaces:
       Proxy:
+      Dialer:
 
 outpkg: "mocks"
 dir: "test/mocks"
