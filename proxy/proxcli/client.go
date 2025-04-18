@@ -1,13 +1,16 @@
 package proxcli
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"slices"
 
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/proxy"
+	"github.com/cerfical/socks2http/socks"
 )
 
 func New(ops ...Option) (*Client, error) {
@@ -21,12 +24,15 @@ func New(ops ...Option) (*Client, error) {
 		op(&c)
 	}
 
-	if proto := c.proxyAddr.Scheme; proto != addr.Direct {
-		connector, err := proxy.NewConnector(proto)
-		if err != nil {
-			return nil, err
-		}
-		c.connector = connector
+	switch proto := c.proxyAddr.Scheme; proto {
+	case addr.SOCKS4:
+		c.connect = connectSOCKS
+	case addr.HTTP:
+		c.connect = connectHTTP
+	case addr.Direct:
+		c.connect = nil
+	default:
+		return nil, fmt.Errorf("unsupported protocol scheme: %v", proto)
 	}
 
 	return &c, nil
@@ -49,12 +55,12 @@ type Option func(*Client)
 type Client struct {
 	proxyAddr addr.Addr
 	dialer    proxy.Dialer
-	connector proxy.Connector
+	connect   func(net.Conn, *addr.Host) error
 }
 
 func (c *Client) Dial(ctx context.Context, h *addr.Host) (net.Conn, error) {
 	// Connect to the server directly if no proxy is used
-	if c.connector == nil {
+	if c.connect == nil {
 		return c.dialer.Dial(ctx, h)
 	}
 
@@ -66,10 +72,59 @@ func (c *Client) Dial(ctx context.Context, h *addr.Host) (net.Conn, error) {
 	}
 
 	// And connect the proxy to the destination server
-	if err := c.connector.Connect(proxyConn, h); err != nil {
+	if err := c.connect(proxyConn, h); err != nil {
 		proxyConn.Close()
 		return nil, fmt.Errorf("connecto to %v: %w", h, err)
 	}
 
 	return proxyConn, nil
+}
+
+func connectSOCKS(proxyConn net.Conn, h *addr.Host) error {
+	// SOCKS4 only supports raw IP addresses, name resolution needed
+	ip4, err := h.ResolveToIPv4()
+	if err != nil {
+		return fmt.Errorf("resolve destination: %w", err)
+	}
+	ip4Host := addr.NewHost(ip4.String(), h.Port)
+
+	connReq := socks.NewRequest(socks.V4, socks.Connect, ip4Host)
+	if err := connReq.Write(proxyConn); err != nil {
+		return fmt.Errorf("SOCKS CONNECT: %w", err)
+	}
+
+	reply, err := socks.ReadReply(bufio.NewReader(proxyConn))
+	if err != nil {
+		return fmt.Errorf("SOCKS CONNECT reply: %w", err)
+	}
+
+	if reply.Status != socks.Granted {
+		return fmt.Errorf("SOCKS CONNECT rejected: %v", reply)
+	}
+	return nil
+}
+
+func connectHTTP(proxyConn net.Conn, h *addr.Host) error {
+	connReq, err := http.NewRequest(http.MethodConnect, "", nil)
+	if err != nil {
+		return err
+	}
+	connReq.Host = h.String()
+
+	if err := connReq.WriteProxy(proxyConn); err != nil {
+		return fmt.Errorf("HTTP CONNECT: %w", err)
+	}
+
+	resp, err := http.ReadResponse(bufio.NewReader(proxyConn), connReq)
+	if err != nil {
+		return fmt.Errorf("HTTP CONNECT response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		code, msg := resp.StatusCode, http.StatusText(resp.StatusCode)
+		return fmt.Errorf("HTTP CONNECT rejected: %v %v", code, msg)
+	}
+
+	return nil
 }
