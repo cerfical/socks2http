@@ -114,7 +114,7 @@ func (t *ClientTest) writeHTTPStatus(status int, w io.Writer) {
 	t.Require().NoError(resp.Result().Write(w))
 }
 
-func (t *ClientTest) writeSOCKSReply(s socks.Status, w io.Writer) {
+func (t *ClientTest) writeSOCKSReply(s socks.ReplyCode, w io.Writer) {
 	t.T().Helper()
 
 	reply := socks.NewReply(s, nil)

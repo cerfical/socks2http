@@ -132,7 +132,7 @@ func (t *ServerTest) TestServe_SOCKS() {
 		t.writeSOCKSRequest(req, proxyConn)
 
 		reply := t.readSOCKSReply(proxyConn)
-		t.Equal(socks.Granted, reply.Status)
+		t.Equal(socks.Granted, reply.Code)
 	})
 
 	t.Run("responds to CONNECT with Request-Rejected if the destination is unreachable", func() {
@@ -149,7 +149,7 @@ func (t *ServerTest) TestServe_SOCKS() {
 		t.writeSOCKSRequest(req, proxyConn)
 
 		reply := t.readSOCKSReply(proxyConn)
-		t.Equal(socks.Rejected, reply.Status)
+		t.Equal(socks.Rejected, reply.Code)
 	})
 }
 

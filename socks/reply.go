@@ -11,8 +11,8 @@ import (
 
 const replyVersion = 0
 
-func NewReply(s Status, bindAddr *addr.Host) *Reply {
-	r := Reply{Status: s}
+func NewReply(c ReplyCode, bindAddr *addr.Host) *Reply {
+	r := Reply{Code: c}
 	if bindAddr != nil {
 		r.BindAddr = *bindAddr
 	}
@@ -33,29 +33,29 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 		return nil, fmt.Errorf("decode header: %w", err)
 	}
 
-	status, ok := makeStatus(h.Status)
+	code, ok := makeReplyCode(h.Code)
 	if !ok {
-		return nil, fmt.Errorf("invalid reply code (%v)", hexByte(h.Status))
+		return nil, fmt.Errorf("invalid reply code (%v)", hexByte(h.Code))
 	}
 
 	// Check if an empty bind address was specified
 	if h.BindIP == [4]byte{0, 0, 0, 0} && h.BindPort == 0 {
-		return NewReply(status, nil), nil
+		return NewReply(code, nil), nil
 	}
 
 	bindAddr := addr.NewHost(addr.IPv4(h.BindIP).String(), h.BindPort)
-	return NewReply(status, bindAddr), nil
+	return NewReply(code, bindAddr), nil
 }
 
 type Reply struct {
-	Status   Status
+	Code     ReplyCode
 	BindAddr addr.Host
 }
 
 func (r *Reply) Write(w io.Writer) error {
 	h := replyHeader{
 		Version:  replyVersion,
-		Status:   byte(r.Status),
+		Code:     byte(r.Code),
 		BindPort: r.BindAddr.Port,
 	}
 
@@ -76,7 +76,7 @@ func (r *Reply) Write(w io.Writer) error {
 
 type replyHeader struct {
 	Version  byte
-	Status   byte
+	Code     byte
 	BindPort uint16
 	BindIP   [4]byte
 }

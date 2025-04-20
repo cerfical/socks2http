@@ -226,7 +226,7 @@ func writeHTTPStatus(status int, clientConn net.Conn) {
 	r.Write(clientConn)
 }
 
-func writeSOCKSReply(s socks.Status, clientConn net.Conn) {
+func writeSOCKSReply(s socks.ReplyCode, clientConn net.Conn) {
 	reply := socks.NewReply(s, nil)
 	reply.Write(clientConn)
 }

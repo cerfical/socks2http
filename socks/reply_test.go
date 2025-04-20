@@ -23,36 +23,36 @@ const (
 
 func TestReadReply_SOCKS4(t *testing.T) {
 	tests := map[string]struct {
-		status byte
-		want   socks.Status
+		reply byte
+		want  socks.ReplyCode
 	}{
 		"decodes a Request-Granted reply": {
-			status: RequestGranted,
-			want:   socks.Granted,
+			reply: RequestGranted,
+			want:  socks.Granted,
 		},
 
 		"decodes a Request-Rejected reply": {
-			status: RequestRejectedOrFailed,
-			want:   socks.Rejected,
+			reply: RequestRejectedOrFailed,
+			want:  socks.Rejected,
 		},
 
 		"decodes a No-Auth reply": {
-			status: RequestRejectedNoAuth,
-			want:   socks.NoAuth,
+			reply: RequestRejectedNoAuth,
+			want:  socks.NoAuth,
 		},
 
 		"decodes an Auth-Failed reply": {
-			status: RequestRejectedAuthFailed,
-			want:   socks.AuthFailed,
+			reply: RequestRejectedAuthFailed,
+			want:  socks.AuthFailed,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := decodeSOCKSReply([]byte{ReplyVersion, test.status, 0, 0, 0, 0, 0, 0})
+			got, err := decodeSOCKSReply([]byte{ReplyVersion, test.reply, 0, 0, 0, 0, 0, 0})
 			require.NoError(t, err)
 
-			assert.Equal(t, test.want, got.Status)
+			assert.Equal(t, test.want, got.Code)
 		})
 	}
 
@@ -75,7 +75,7 @@ func TestReadReply_SOCKS4(t *testing.T) {
 		assert.Equal(t, "", got.BindAddr.Hostname)
 	})
 
-	t.Run("rejects replies with unsupported status", func(t *testing.T) {
+	t.Run("rejects replies with unsupported reply codes", func(t *testing.T) {
 		_, err := decodeSOCKSReply([]byte{ReplyVersion, 0x5e, 0, 0, 0, 0, 0, 0})
 		assert.Error(t, err)
 	})
@@ -88,33 +88,33 @@ func TestReadReply_SOCKS4(t *testing.T) {
 
 func TestReply_Write_SOCKS4(t *testing.T) {
 	tests := map[string]struct {
-		status socks.Status
-		want   byte
+		reply socks.ReplyCode
+		want  byte
 	}{
 		"encodes a Request-Granted reply": {
-			status: socks.Granted,
-			want:   RequestGranted,
+			reply: socks.Granted,
+			want:  RequestGranted,
 		},
 
 		"encodes a Request-Rejected reply": {
-			status: socks.Rejected,
-			want:   RequestRejectedOrFailed,
+			reply: socks.Rejected,
+			want:  RequestRejectedOrFailed,
 		},
 
 		"encodes a No-Auth reply": {
-			status: socks.NoAuth,
-			want:   RequestRejectedNoAuth,
+			reply: socks.NoAuth,
+			want:  RequestRejectedNoAuth,
 		},
 
 		"encodes an Auth-Failed reply": {
-			status: socks.AuthFailed,
-			want:   RequestRejectedAuthFailed,
+			reply: socks.AuthFailed,
+			want:  RequestRejectedAuthFailed,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := encodeSOCKSReply(test.status, nil)
+			got, err := encodeSOCKSReply(test.reply, nil)
 			require.NoError(t, err)
 
 			want := []byte{ReplyVersion, test.want, 0, 0, 0, 0, 0, 0}
@@ -152,7 +152,7 @@ func decodeSOCKSReply(b []byte) (*socks.Reply, error) {
 	)
 }
 
-func encodeSOCKSReply(s socks.Status, bindAddr *addr.Host) ([]byte, error) {
+func encodeSOCKSReply(s socks.ReplyCode, bindAddr *addr.Host) ([]byte, error) {
 	reply := socks.NewReply(s, bindAddr)
 
 	var buf bytes.Buffer
