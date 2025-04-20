@@ -2,6 +2,8 @@ package socks
 
 import "fmt"
 
-func printByte(b byte) string {
-	return fmt.Sprintf("(%#02x)", b)
+type hexByte byte
+
+func (b hexByte) String() string {
+	return fmt.Sprintf("%#02x", byte(b))
 }

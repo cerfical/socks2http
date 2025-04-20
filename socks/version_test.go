@@ -12,8 +12,13 @@ func TestVersion_String(t *testing.T) {
 		ver  socks.Version
 		want string
 	}{
-		"prints supported versions as version name followed by version code in hex": {socks.V4, "SOCKS4 (0x04)"},
-		"prints unsupported versions as version code in hex":                        {0x17, "(0x17)"},
+		"prints valid versions as version name followed by version code in hex": {
+			socks.V4, "SOCKS4 (0x04)",
+		},
+
+		"prints invalid versions as an empty string": {
+			0x17, "",
+		},
 	}
 
 	for name, test := range tests {

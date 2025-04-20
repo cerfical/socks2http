@@ -12,12 +12,12 @@ func TestCommand_String(t *testing.T) {
 		cmd  socks.Command
 		want string
 	}{
-		"prints supported commands as command name followed by command code in hex": {
+		"prints valid command codes as command name followed by command code in hex": {
 			socks.Connect, "CONNECT (0x01)",
 		},
 
-		"prints unsupported commands as command code in hex": {
-			0x17, "(0x17)",
+		"prints invalid command codes as an empty string": {
+			0x17, "",
 		},
 	}
 

@@ -12,12 +12,12 @@ func TestStatus_String(t *testing.T) {
 		status socks.Status
 		want   string
 	}{
-		"prints supported statuses as description followed by status code in hex": {
+		"prints valid reply codes as reply message followed by reply code in hex": {
 			socks.Granted, "Request Granted (0x5a)",
 		},
 
-		"prints unsupported statuses as status code in hex": {
-			0x17, "(0x17)",
+		"prints invalid reply codes as an empty string": {
+			0x17, "",
 		},
 	}
 

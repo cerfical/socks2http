@@ -15,11 +15,10 @@ var commands = map[Command]string{
 type Command byte
 
 func (c Command) String() string {
-	code := printByte(byte(c))
-	if s, ok := commands[c]; ok {
-		return fmt.Sprintf("%v %v", s, code)
+	if str, ok := commands[c]; ok {
+		return fmt.Sprintf("%v (%v)", str, hexByte(c))
 	}
-	return code
+	return ""
 }
 
 func makeCommand(b byte) (c Command, isValid bool) {

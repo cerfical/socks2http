@@ -19,11 +19,10 @@ var statuses = map[Status]string{
 type Status byte
 
 func (s Status) String() string {
-	code := printByte(byte(s))
-	if s, ok := statuses[s]; ok {
-		return fmt.Sprintf("%v %v", s, code)
+	if str, ok := statuses[s]; ok {
+		return fmt.Sprintf("%v (%v)", str, hexByte(s))
 	}
-	return code
+	return ""
 }
 
 func makeStatus(b byte) (s Status, isValid bool) {

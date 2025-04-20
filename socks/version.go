@@ -21,9 +21,8 @@ func makeVersion(b byte) (v Version, isValid bool) {
 type Version byte
 
 func (v Version) String() string {
-	code := fmt.Sprintf("(%#02x)", byte(v))
-	if s, ok := versions[v]; ok {
-		return fmt.Sprintf("%v %v", s, code)
+	if str, ok := versions[v]; ok {
+		return fmt.Sprintf("%v (%v)", str, hexByte(v))
 	}
-	return code
+	return ""
 }

@@ -25,7 +25,7 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 		return nil, fmt.Errorf("decode version: %w", err)
 	}
 	if v := version[0]; v != replyVersion {
-		return nil, fmt.Errorf("invalid reply version %v", printByte(v))
+		return nil, fmt.Errorf("invalid version code (%v)", hexByte(v))
 	}
 
 	var h replyHeader
@@ -35,7 +35,7 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 
 	status, ok := makeStatus(h.Status)
 	if !ok {
-		return nil, fmt.Errorf("invalid reply: %v", status)
+		return nil, fmt.Errorf("invalid reply code (%v)", hexByte(h.Status))
 	}
 
 	// Check if an empty bind address was specified
