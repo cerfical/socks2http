@@ -74,6 +74,17 @@ func TestReadRequest_SOCKS4(t *testing.T) {
 		want := addr.NewHost("127.0.0.1", 1080)
 		assert.Equal(t, want, &got.DstAddr)
 	})
+
+	t.Run("decodes a non-empty username", func(t *testing.T) {
+		got, err := decodeSOCKSRequest([]byte{
+			SOCKSVersion4, ConnectCommand, 0x04, 0x38, 127, 0, 0, 1,
+			'r', 'o', 'o', 't', 0,
+		})
+		require.NoError(t, err)
+
+		want := "root"
+		assert.Equal(t, want, got.Username)
+	})
 }
 
 func TestRequest_Write(t *testing.T) {
@@ -147,6 +158,17 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 
 		want := []byte{0x04, 0x38, 127, 0, 0, 1}
 		assert.Equal(t, want, got[2:8])
+	})
+
+	t.Run("encodes a non-empty username", func(t *testing.T) {
+		req := socks.NewRequest(socks.V4, socks.Connect, addr.NewHost("127.0.0.1", 1080))
+		req.Username = "root"
+
+		got, err := encodeSOCKSRequest(req)
+		require.NoError(t, err)
+
+		want := []byte{'r', 'o', 'o', 't', 0}
+		assert.Equal(t, want, got[8:])
 	})
 }
 

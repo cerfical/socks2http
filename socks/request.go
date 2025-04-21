@@ -47,19 +47,26 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		return nil, fmt.Errorf("empty destination address")
 	}
 
+	un, err := readNullString(r)
+	if err != nil {
+		return nil, fmt.Errorf("read username: %w", err)
+	}
+
 	dstAddr := addr.NewHost(addr.IPv4(h.DstIP).String(), h.DstPort)
 	req := Request{
-		Version: v,
-		Command: c,
-		DstAddr: *dstAddr,
+		Version:  v,
+		Command:  c,
+		DstAddr:  *dstAddr,
+		Username: un,
 	}
 	return &req, nil
 }
 
 type Request struct {
-	Version Version
-	Command Command
-	DstAddr addr.Host
+	Version  Version
+	Command  Command
+	DstAddr  addr.Host
+	Username string
 }
 
 func (r *Request) Write(w io.Writer) error {
@@ -68,28 +75,31 @@ func (r *Request) Write(w io.Writer) error {
 		return fmt.Errorf("not an IPv4 address: %v", r.DstAddr.Hostname)
 	}
 
-	version, ok := encodeVersion(r.Version)
+	v, ok := encodeVersion(r.Version)
 	if !ok {
-		return fmt.Errorf("invalid version code (%v)", r.Version)
+		return fmt.Errorf("invalid version")
 	}
 
-	command, ok := encodeCommand(r.Command)
+	c, ok := encodeCommand(r.Command)
 	if !ok {
-		return fmt.Errorf("invalid command code (%v)", r.Command)
+		return fmt.Errorf("invalid command")
 	}
 
 	h := requestHeader{
-		Version: version,
-		Command: command,
+		Version: v,
+		Command: c,
 		DstPort: r.DstAddr.Port,
 		DstIP:   ip4,
 	}
 
-	// +1 is the NULL character
-	bytes := make([]byte, unsafe.Sizeof(h)+1)
+	bytes := make([]byte, unsafe.Sizeof(h))
 	if _, err := binary.Encode(bytes, binary.BigEndian, &h); err != nil {
 		return fmt.Errorf("encode header: %w", err)
 	}
+
+	// Append the username bytes
+	bytes = append(bytes, []byte(r.Username)...)
+	bytes = append(bytes, 0)
 
 	_, err := w.Write(bytes)
 	return err
@@ -100,4 +110,19 @@ type requestHeader struct {
 	Command byte
 	DstPort uint16
 	DstIP   [4]byte
+}
+
+func readNullString(r *bufio.Reader) (string, error) {
+	var buf []byte
+	for {
+		b, err := r.ReadByte()
+		if err != nil {
+			return "", fmt.Errorf("read byte: %w", err)
+		}
+		if b == 0 {
+			break
+		}
+		buf = append(buf, b)
+	}
+	return string(buf), nil
 }
