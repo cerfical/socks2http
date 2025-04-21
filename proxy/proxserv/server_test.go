@@ -136,7 +136,7 @@ func (t *ServerTest) TestServe_SOCKS() {
 	})
 
 	t.Run("responds to CONNECT with Request-Rejected if the destination is unreachable", func() {
-		dstHost := addr.NewHost("0.0.0.0", 0)
+		dstHost := addr.NewHost("127.0.0.1", 1080)
 
 		proxy := mocks.NewProxy(t.T())
 		proxy.EXPECT().

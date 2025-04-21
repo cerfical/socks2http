@@ -55,6 +55,10 @@ func TestReadRequest_SOCKS4(t *testing.T) {
 		"rejects invalid command codes": {
 			input: []byte{SOCKSVersion4, 0x03, 0x04, 0x38, 127, 0, 0, 1, 0},
 		},
+
+		"rejects an empty destination address": {
+			input: []byte{SOCKSVersion4, ConnectCommand, 0, 0, 0, 0, 0, 0, 0},
+		},
 	}
 	for name, test := range errors {
 		t.Run(name, func(t *testing.T) {
@@ -62,6 +66,14 @@ func TestReadRequest_SOCKS4(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
+
+	t.Run("decodes a non-empty destination address", func(t *testing.T) {
+		got, err := decodeSOCKSRequest([]byte{SOCKSVersion4, ConnectCommand, 0x04, 0x38, 127, 0, 0, 1, 0})
+		require.NoError(t, err)
+
+		want := addr.NewHost("127.0.0.1", 1080)
+		assert.Equal(t, want, &got.DstAddr)
+	})
 }
 
 func TestRequest_Write_SOCKS4(t *testing.T) {
