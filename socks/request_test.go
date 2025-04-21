@@ -103,6 +103,11 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 			command: socks.Connect,
 			dstAddr: addr.NewHost("localhost", 1080),
 		},
+
+		"rejects invalid command codes": {
+			command: 0x03,
+			dstAddr: addr.NewHost("127.0.0.1", 1080),
+		},
 	}
 	for name, test := range errors {
 		t.Run(name, func(t *testing.T) {

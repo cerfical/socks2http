@@ -12,6 +12,20 @@ var commands = map[Command]string{
 	Bind:    "BIND",
 }
 
+func decodeCommand(b byte) (Command, bool) {
+	if _, ok := commands[Command(b)]; ok {
+		return Command(b), true
+	}
+	return 0, false
+}
+
+func encodeCommand(c Command) (byte, bool) {
+	if _, ok := commands[c]; ok {
+		return byte(c), true
+	}
+	return 0, false
+}
+
 type Command byte
 
 func (c Command) String() string {
@@ -19,12 +33,4 @@ func (c Command) String() string {
 		return fmt.Sprintf("%v (%v)", str, hexByte(c))
 	}
 	return ""
-}
-
-func makeCommand(b byte) (c Command, isValid bool) {
-	c = Command(b)
-	if _, ok := commands[c]; ok {
-		return c, true
-	}
-	return c, false
 }
