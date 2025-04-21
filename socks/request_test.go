@@ -19,7 +19,7 @@ const (
 )
 
 func TestReadRequest(t *testing.T) {
-	t.Run("rejects unsupported SOCKS versions", func(t *testing.T) {
+	t.Run("rejects invalid SOCKS versions", func(t *testing.T) {
 		_, err := decodeSOCKSRequest([]byte{0x05})
 		require.Error(t, err)
 	})
@@ -73,6 +73,15 @@ func TestReadRequest_SOCKS4(t *testing.T) {
 
 		want := addr.NewHost("127.0.0.1", 1080)
 		assert.Equal(t, want, &got.DstAddr)
+	})
+}
+
+func TestRequest_Write(t *testing.T) {
+	t.Run("rejects invalid SOCKS versions", func(t *testing.T) {
+		req := socks.NewRequest(120, socks.Connect, addr.NewHost("127.0.0.1", 1080))
+
+		_, err := encodeSOCKSRequest(req)
+		require.Error(t, err)
 	})
 }
 

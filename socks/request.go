@@ -27,7 +27,7 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		return nil, fmt.Errorf("decode version: %w", err)
 	}
 
-	v, ok := makeVersion(version[0])
+	v, ok := decodeVersion(version[0])
 	if !ok {
 		return nil, fmt.Errorf("invalid version code (%v)", hexByte(version[0]))
 	}
@@ -68,13 +68,18 @@ func (r *Request) Write(w io.Writer) error {
 		return fmt.Errorf("not an IPv4 address: %v", r.DstAddr.Hostname)
 	}
 
+	version, ok := encodeVersion(r.Version)
+	if !ok {
+		return fmt.Errorf("invalid version code (%v)", r.Version)
+	}
+
 	command, ok := encodeCommand(r.Command)
 	if !ok {
 		return fmt.Errorf("invalid command code (%v)", r.Command)
 	}
 
 	h := requestHeader{
-		Version: byte(r.Version),
+		Version: version,
 		Command: command,
 		DstPort: r.DstAddr.Port,
 		DstIP:   ip4,
