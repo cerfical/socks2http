@@ -7,10 +7,12 @@ import (
 
 const (
 	V4 Version = iota + 1
+	V4a
 )
 
 var versions = []versionInfo{
 	{0x04, V4, "SOCKS4"},
+	{0x04, V4a, "SOCKS4a"},
 }
 
 func decodeVersion(b byte) (Version, bool) {

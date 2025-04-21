@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"strings"
 	"unsafe"
 
 	"github.com/cerfical/socks2http/addr"
@@ -42,16 +43,26 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		return nil, fmt.Errorf("invalid command code (%v)", hexByte(h.Command))
 	}
 
-	if h.DstIP.IsEmpty() {
-		return nil, fmt.Errorf("empty destination address")
-	}
-
 	un, err := readNullString(r)
 	if err != nil {
 		return nil, fmt.Errorf("read username: %w", err)
 	}
 
 	dstAddr := addr.NewHost(h.DstIP.String(), h.DstPort)
+	if strings.HasPrefix(dstAddr.Hostname, "0.0.0") {
+		// The destination address is a hostname
+		hn, err := readNullString(r)
+		if err != nil {
+			return nil, fmt.Errorf("read destination hostname: %w", err)
+		}
+
+		if hn == "" {
+			return nil, fmt.Errorf("empty destination hostname")
+		}
+		dstAddr.Hostname = hn
+		v = V4a
+	}
+
 	req := Request{
 		Version:  v,
 		Command:  c,
@@ -69,14 +80,28 @@ type Request struct {
 }
 
 func (r *Request) Write(w io.Writer) error {
-	ip4, ok := r.DstAddr.ToIPv4()
-	if !ok {
-		return fmt.Errorf("not an IPv4 address: %v", r.DstAddr.Hostname)
-	}
-
 	v, ok := encodeVersion(r.Version)
 	if !ok {
 		return fmt.Errorf("invalid version")
+	}
+
+	var (
+		dstIP       addr.IPv4
+		dstHostname string
+	)
+
+	switch r.Version {
+	case V4:
+		ip4, ok := r.DstAddr.ToIPv4()
+		if !ok {
+			return fmt.Errorf("not an IPv4 address: %v", r.DstAddr.Hostname)
+		}
+		dstIP = ip4
+	case V4a:
+		if r.DstAddr.Hostname == "" {
+			return fmt.Errorf("empty destination hostname")
+		}
+		dstHostname = r.DstAddr.Hostname
 	}
 
 	c, ok := encodeCommand(r.Command)
@@ -88,7 +113,7 @@ func (r *Request) Write(w io.Writer) error {
 		Version: v,
 		Command: c,
 		DstPort: r.DstAddr.Port,
-		DstIP:   ip4,
+		DstIP:   dstIP,
 	}
 
 	bytes := make([]byte, unsafe.Sizeof(h))
@@ -99,6 +124,12 @@ func (r *Request) Write(w io.Writer) error {
 	// Append the username bytes
 	bytes = append(bytes, []byte(r.Username)...)
 	bytes = append(bytes, 0)
+
+	// Append the destination hostname, if any
+	if len(dstHostname) > 0 {
+		bytes = append(bytes, []byte(dstHostname)...)
+		bytes = append(bytes, 0)
+	}
 
 	_, err := w.Write(bytes)
 	return err
