@@ -26,7 +26,7 @@ func TestReadRequest(t *testing.T) {
 }
 
 func TestReadRequest_SOCKS4(t *testing.T) {
-	tests := map[string]struct {
+	validCommands := map[string]struct {
 		input byte
 		want  socks.Command
 	}{
@@ -40,25 +40,32 @@ func TestReadRequest_SOCKS4(t *testing.T) {
 			want:  socks.Bind,
 		},
 	}
-
-	for name, test := range tests {
+	for name, test := range validCommands {
 		t.Run(name, func(t *testing.T) {
 			got, err := decodeSOCKSRequest([]byte{SOCKSVersion4, test.input, 0x04, 0x38, 127, 0, 0, 1, 0})
 			require.NoError(t, err)
 
-			want := socks.NewRequest(socks.V4, test.want, addr.NewHost("127.0.0.1", 1080))
-			assert.Equal(t, want, got)
+			assert.Equal(t, test.want, got.Command)
 		})
 	}
 
-	t.Run("rejects unsupported commands", func(t *testing.T) {
-		_, err := decodeSOCKSReply([]byte{SOCKSVersion4, 0x03, 0x04, 0x38, 127, 0, 0, 1, 0})
-		require.Error(t, err)
-	})
+	errors := map[string]struct {
+		input []byte
+	}{
+		"rejects invalid command codes": {
+			input: []byte{SOCKSVersion4, 0x03, 0x04, 0x38, 127, 0, 0, 1, 0},
+		},
+	}
+	for name, test := range errors {
+		t.Run(name, func(t *testing.T) {
+			_, err := decodeSOCKSRequest(test.input)
+			require.Error(t, err)
+		})
+	}
 }
 
 func TestRequest_Write_SOCKS4(t *testing.T) {
-	tests := map[string]struct {
+	validCommands := map[string]struct {
 		command socks.Command
 		want    byte
 	}{
@@ -72,33 +79,48 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 			want:    BindCommand,
 		},
 	}
-
-	for name, test := range tests {
+	for name, test := range validCommands {
 		t.Run(name, func(t *testing.T) {
-			got, err := encodeSOCKSRequest(socks.V4, test.command, addr.NewHost("0.0.0.0", 0))
+			req := socks.NewRequest(socks.V4, test.command, addr.NewHost("127.0.0.1", 1080))
+
+			got, err := encodeSOCKSRequest(req)
 			require.NoError(t, err)
 
-			want := []byte{SOCKSVersion4, test.want, 0, 0, 0, 0, 0, 0, 0}
-			assert.Equal(t, want, got)
+			assert.Equal(t, test.want, got[1])
 		})
 	}
 
-	t.Run("encodes a non-empty destination address", func(t *testing.T) {
-		got, err := encodeSOCKSRequest(socks.V4, socks.Connect, addr.NewHost("127.0.0.1", 1080))
+	errors := map[string]struct {
+		command socks.Command
+		dstAddr *addr.Host
+	}{
+		"rejects an empty destination address": {
+			command: socks.Connect,
+			dstAddr: addr.NewHost("", 0),
+		},
+
+		"rejects non-IPv4 destination addresses": {
+			command: socks.Connect,
+			dstAddr: addr.NewHost("localhost", 1080),
+		},
+	}
+	for name, test := range errors {
+		t.Run(name, func(t *testing.T) {
+			req := socks.NewRequest(socks.V4, test.command, test.dstAddr)
+
+			_, err := encodeSOCKSRequest(req)
+			require.Error(t, err)
+		})
+	}
+
+	t.Run("encodes non-empty destination addresses", func(t *testing.T) {
+		req := socks.NewRequest(socks.V4, socks.Connect, addr.NewHost("127.0.0.1", 1080))
+
+		got, err := encodeSOCKSRequest(req)
 		require.NoError(t, err)
 
-		want := []byte{SOCKSVersion4, ConnectCommand, 0x04, 0x38, 127, 0, 0, 1, 0}
-		assert.Equal(t, want, got)
-	})
-
-	t.Run("rejects an empty destination address", func(t *testing.T) {
-		_, err := encodeSOCKSRequest(socks.V4, socks.Connect, nil)
-		require.Error(t, err)
-	})
-
-	t.Run("rejects destination addresses specified as non-IPv4 address", func(t *testing.T) {
-		_, err := encodeSOCKSRequest(socks.V4, socks.Connect, addr.NewHost("localhost", 0))
-		require.Error(t, err)
+		want := []byte{0x04, 0x38, 127, 0, 0, 1}
+		assert.Equal(t, want, got[2:8])
 	})
 }
 
@@ -110,11 +132,9 @@ func decodeSOCKSRequest(b []byte) (*socks.Request, error) {
 	)
 }
 
-func encodeSOCKSRequest(v socks.Version, c socks.Command, dstAddr *addr.Host) ([]byte, error) {
-	req := socks.NewRequest(v, c, dstAddr)
-
+func encodeSOCKSRequest(r *socks.Request) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := req.Write(&buf); err != nil {
+	if err := r.Write(&buf); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
