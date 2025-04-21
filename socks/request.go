@@ -42,8 +42,7 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		return nil, fmt.Errorf("invalid command code (%v)", hexByte(h.Command))
 	}
 
-	// Check if an empty destination address was specified
-	if h.DstIP == [4]byte{0, 0, 0, 0} {
+	if h.DstIP.IsEmpty() {
 		return nil, fmt.Errorf("empty destination address")
 	}
 
@@ -52,7 +51,7 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		return nil, fmt.Errorf("read username: %w", err)
 	}
 
-	dstAddr := addr.NewHost(addr.IPv4(h.DstIP).String(), h.DstPort)
+	dstAddr := addr.NewHost(h.DstIP.String(), h.DstPort)
 	req := Request{
 		Version:  v,
 		Command:  c,
@@ -109,7 +108,7 @@ type requestHeader struct {
 	Version byte
 	Command byte
 	DstPort uint16
-	DstIP   [4]byte
+	DstIP   addr.IPv4
 }
 
 func readNullString(r *bufio.Reader) (string, error) {
