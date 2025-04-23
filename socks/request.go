@@ -28,9 +28,9 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		return nil, fmt.Errorf("decode version: %w", err)
 	}
 
-	v, ok := decodeVersion(version[0])
-	if !ok {
-		return nil, fmt.Errorf("invalid version code (%v)", hexByte(version[0]))
+	v := Version(version[0])
+	if !isValidVersion(v) {
+		return nil, fmt.Errorf("invalid version %v", v)
 	}
 
 	var h requestHeader
@@ -38,14 +38,14 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		return nil, fmt.Errorf("decode header: %w", err)
 	}
 
-	c, ok := decodeCommand(h.Command)
-	if !ok {
-		return nil, fmt.Errorf("invalid command code (%v)", hexByte(h.Command))
+	c := Command(h.Command)
+	if !isValidCommand(c) {
+		return nil, fmt.Errorf("invalid command %v", c)
 	}
 
 	un, err := readNullString(r)
 	if err != nil {
-		return nil, fmt.Errorf("read username: %w", err)
+		return nil, fmt.Errorf("decode username: %w", err)
 	}
 
 	dstAddr := addr.NewHost(h.DstIP.String(), h.DstPort)
@@ -53,14 +53,13 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		// The destination address is a hostname
 		hn, err := readNullString(r)
 		if err != nil {
-			return nil, fmt.Errorf("read destination hostname: %w", err)
+			return nil, fmt.Errorf("decode destination hostname: %w", err)
 		}
 
 		if hn == "" {
 			return nil, fmt.Errorf("empty destination hostname")
 		}
 		dstAddr.Hostname = hn
-		v = V4a
 	}
 
 	req := Request{
@@ -80,9 +79,11 @@ type Request struct {
 }
 
 func (r *Request) Write(w io.Writer) error {
-	v, ok := encodeVersion(r.Version)
-	if !ok {
-		return fmt.Errorf("invalid version")
+	if !isValidVersion(r.Version) {
+		return fmt.Errorf("invalid version %v", r.Version)
+	}
+	if r.DstAddr.Hostname == "" {
+		return fmt.Errorf("empty destination address")
 	}
 
 	var (
@@ -90,28 +91,19 @@ func (r *Request) Write(w io.Writer) error {
 		dstHostname string
 	)
 
-	switch r.Version {
-	case V4:
-		ip4, ok := r.DstAddr.ToIPv4()
-		if !ok {
-			return fmt.Errorf("not an IPv4 address: %v", r.DstAddr.Hostname)
-		}
+	if ip4, ok := r.DstAddr.ToIPv4(); ok {
 		dstIP = ip4
-	case V4a:
-		if r.DstAddr.Hostname == "" {
-			return fmt.Errorf("empty destination hostname")
-		}
+	} else {
 		dstHostname = r.DstAddr.Hostname
 	}
 
-	c, ok := encodeCommand(r.Command)
-	if !ok {
-		return fmt.Errorf("invalid command")
+	if !isValidCommand(r.Command) {
+		return fmt.Errorf("invalid command %v", r.Command)
 	}
 
 	h := requestHeader{
-		Version: v,
-		Command: c,
+		Version: byte(r.Version),
+		Command: byte(r.Command),
 		DstPort: r.DstAddr.Port,
 		DstIP:   dstIP,
 	}

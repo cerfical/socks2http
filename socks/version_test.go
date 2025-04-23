@@ -9,21 +9,23 @@ import (
 
 func TestVersion_String(t *testing.T) {
 	tests := map[string]struct {
-		ver  socks.Version
-		want string
+		input socks.Version
+		want  string
 	}{
-		"prints valid versions as version name followed by version code in hex": {
-			socks.V4, "SOCKS4 (0x04)",
+		"prints valid version codes as version name followed by version code in hex": {
+			input: socks.V4,
+			want:  "SOCKS4 (0x04)",
 		},
 
-		"prints invalid versions as an empty string": {
-			0x17, "",
+		"prints invalid version codes as version code in hex": {
+			input: 0x17,
+			want:  "(0x17)",
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := test.ver.String()
+			got := test.input.String()
 			assert.Equal(t, test.want, got)
 		})
 	}

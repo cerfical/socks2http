@@ -54,7 +54,7 @@ func (t *ClientTest) TestDial() {
 		proxyConn := t.dialProxy(addr.SOCKS4a, dstHost)
 
 		req := t.readSOCKSRequest(proxyConn)
-		t.Equal(socks.V4a, req.Version)
+		t.Equal(socks.V4, req.Version)
 		t.Equal(dstHost, &req.DstAddr)
 		t.Equal(socks.Connect, req.Command)
 

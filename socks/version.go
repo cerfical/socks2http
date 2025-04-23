@@ -1,54 +1,25 @@
 package socks
 
-import (
-	"fmt"
-	"slices"
-)
+import "fmt"
 
 const (
-	V4 Version = iota + 1
-	V4a
+	V4 Version = 0x04
 )
 
-var versions = []versionInfo{
-	{0x04, V4, "SOCKS4"},
-	{0x04, V4a, "SOCKS4a"},
-}
-
-func decodeVersion(b byte) (Version, bool) {
-	i := slices.IndexFunc(versions, func(vi versionInfo) bool {
-		return vi.byte == b
-	})
-	if i != -1 {
-		return versions[i].Version, true
-	}
-	return 0, false
-}
-
-func encodeVersion(v Version) (byte, bool) {
-	i := slices.IndexFunc(versions, func(vi versionInfo) bool {
-		return vi.Version == v
-	})
-	if i != -1 {
-		return versions[i].byte, true
-	}
-	return 0, false
+var versions = map[Version]string{
+	V4: "SOCKS4",
 }
 
 type Version byte
 
 func (v Version) String() string {
-	i := slices.IndexFunc(versions, func(vi versionInfo) bool {
-		return vi.Version == v
-	})
-	if i != -1 {
-		return fmt.Sprintf("%v (%v)", versions[i].string, hexByte(versions[i].byte))
+	if str, ok := versions[v]; ok {
+		return fmt.Sprintf("%v (%v)", str, hexByte(v))
 	}
-	return ""
+	return fmt.Sprintf("(%v)", hexByte(v))
 }
 
-type versionInfo struct {
-	byte
-	Version
-	string
+func isValidVersion(v Version) bool {
+	_, ok := versions[v]
+	return ok
 }
