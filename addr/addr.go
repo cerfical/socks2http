@@ -10,8 +10,11 @@ import (
 
 const (
 	Direct = "direct"
-	SOCKS4 = "socks4"
-	HTTP   = "http"
+
+	SOCKS4  = "socks4"
+	SOCKS4a = "socks4a"
+
+	HTTP = "http"
 )
 
 var (

@@ -26,7 +26,9 @@ func New(ops ...Option) (*Client, error) {
 
 	switch proto := c.proxyAddr.Scheme; proto {
 	case addr.SOCKS4:
-		c.connect = connectSOCKS
+		c.connect = makeSOCKSConnector(socks.V4)
+	case addr.SOCKS4a:
+		c.connect = makeSOCKSConnector(socks.V4a)
 	case addr.HTTP:
 		c.connect = connectHTTP
 	case addr.Direct:
@@ -55,7 +57,7 @@ type Option func(*Client)
 type Client struct {
 	proxyAddr addr.Addr
 	dialer    proxy.Dialer
-	connect   func(net.Conn, *addr.Host) error
+	connect   connector
 }
 
 func (c *Client) Dial(ctx context.Context, h *addr.Host) (net.Conn, error) {
@@ -80,15 +82,27 @@ func (c *Client) Dial(ctx context.Context, h *addr.Host) (net.Conn, error) {
 	return proxyConn, nil
 }
 
-func connectSOCKS(proxyConn net.Conn, h *addr.Host) error {
-	// SOCKS4 only supports raw IP addresses, name resolution needed
-	ip4, err := h.ResolveToIPv4()
-	if err != nil {
-		return fmt.Errorf("resolve destination: %w", err)
-	}
-	ip4Host := addr.NewHost(ip4.String(), h.Port)
+type connector func(net.Conn, *addr.Host) error
 
-	connReq := socks.NewRequest(socks.V4, socks.Connect, ip4Host)
+func makeSOCKSConnector(v socks.Version) connector {
+	return func(c net.Conn, h *addr.Host) error {
+		return connectSOCKS(v, c, h)
+	}
+}
+
+func connectSOCKS(v socks.Version, proxyConn net.Conn, h *addr.Host) error {
+	dstHost := h
+	if v == socks.V4 {
+		// SOCKS4 doesn't support specifying a hostname as a destination address
+		// We need to resolve it to an IP address first
+		ip4, err := h.ResolveToIPv4()
+		if err != nil {
+			return fmt.Errorf("resolve destination: %w", err)
+		}
+		dstHost = addr.NewHost(ip4.String(), h.Port)
+	}
+
+	connReq := socks.NewRequest(v, socks.Connect, dstHost)
 	if err := connReq.Write(proxyConn); err != nil {
 		return fmt.Errorf("SOCKS CONNECT: %w", err)
 	}

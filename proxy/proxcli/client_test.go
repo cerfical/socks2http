@@ -26,27 +26,35 @@ type ClientTest struct {
 }
 
 func (t *ClientTest) TestDial() {
-	t.Run("makes a CONNECT request to an HTTP proxy", func() {
+	t.Run("connects to an HTTP proxy", func() {
 		dstHost := addr.NewHost("localhost", 8080)
 		proxyConn := t.dialProxy(addr.HTTP, dstHost)
 
-		req, err := http.ReadRequest(bufio.NewReader(proxyConn))
-		t.Require().NoError(err)
-
+		req := t.readHTTPRequest(proxyConn)
 		t.Equal(dstHost.String(), req.Host)
 		t.Equal(http.MethodConnect, req.Method)
 
 		t.writeHTTPStatus(http.StatusOK, proxyConn)
 	})
 
-	t.Run("makes a CONNECT request to a SOCKS proxy", func() {
+	t.Run("connects to a SOCKS4 proxy", func() {
 		dstHost := addr.NewHost("127.0.0.1", 8080)
 		proxyConn := t.dialProxy(addr.SOCKS4, dstHost)
 
-		req, err := socks.ReadRequest(bufio.NewReader(proxyConn))
-		t.Require().NoError(err)
-
+		req := t.readSOCKSRequest(proxyConn)
 		t.Equal(socks.V4, req.Version)
+		t.Equal(dstHost, &req.DstAddr)
+		t.Equal(socks.Connect, req.Command)
+
+		t.writeSOCKSReply(socks.Granted, proxyConn)
+	})
+
+	t.Run("connects to a SOCKS4a proxy", func() {
+		dstHost := addr.NewHost("localhost", 8080)
+		proxyConn := t.dialProxy(addr.SOCKS4a, dstHost)
+
+		req := t.readSOCKSRequest(proxyConn)
+		t.Equal(socks.V4a, req.Version)
 		t.Equal(dstHost, &req.DstAddr)
 		t.Equal(socks.Connect, req.Command)
 
@@ -114,9 +122,27 @@ func (t *ClientTest) writeHTTPStatus(status int, w io.Writer) {
 	t.Require().NoError(resp.Result().Write(w))
 }
 
+func (t *ClientTest) readHTTPRequest(r io.Reader) *http.Request {
+	t.T().Helper()
+
+	req, err := http.ReadRequest(bufio.NewReader(r))
+	t.Require().NoError(err)
+
+	return req
+}
+
 func (t *ClientTest) writeSOCKSReply(s socks.ReplyCode, w io.Writer) {
 	t.T().Helper()
 
 	reply := socks.NewReply(s, nil)
 	t.Require().NoError(reply.Write(w))
+}
+
+func (t *ClientTest) readSOCKSRequest(r io.Reader) *socks.Request {
+	t.T().Helper()
+
+	req, err := socks.ReadRequest(bufio.NewReader(r))
+	t.Require().NoError(err)
+
+	return req
 }
