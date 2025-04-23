@@ -30,7 +30,7 @@ func New(ops ...Option) (*Server, error) {
 	}
 
 	switch s.proto {
-	case addr.SOCKS4:
+	case addr.SOCKS, addr.SOCKS4, addr.SOCKS4a:
 		s.serveConn = s.serveSOCKS
 	case addr.HTTP:
 		s.serveConn = s.serveHTTP

@@ -11,6 +11,7 @@ import (
 const (
 	Direct = "direct"
 
+	SOCKS   = "socks"
 	SOCKS4  = "socks4"
 	SOCKS4a = "socks4a"
 

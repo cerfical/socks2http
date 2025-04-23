@@ -29,7 +29,7 @@ func New(ops ...Option) (*Client, error) {
 		c.connect = func(c net.Conn, h *addr.Host) error {
 			return connectSOCKS(c, h, true)
 		}
-	case addr.SOCKS4a:
+	case addr.SOCKS, addr.SOCKS4a:
 		c.connect = func(c net.Conn, h *addr.Host) error {
 			return connectSOCKS(c, h, false)
 		}
