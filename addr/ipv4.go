@@ -7,7 +7,3 @@ type IPv4 [4]byte
 func (a IPv4) String() string {
 	return fmt.Sprintf("%v.%v.%v.%v", a[0], a[1], a[2], a[3])
 }
-
-func (a IPv4) IsEmpty() bool {
-	return a == [4]byte{0, 0, 0, 0}
-}
