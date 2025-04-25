@@ -37,6 +37,19 @@ func (h *Host) String() string {
 	return net.JoinHostPort(h.Hostname, port)
 }
 
+func (h *Host) MarshalText() ([]byte, error) {
+	return []byte(h.String()), nil
+}
+
+func (h *Host) UnmarshalText(text []byte) error {
+	host, err := ParseHost(string(text))
+	if err != nil {
+		return err
+	}
+	*h = *host
+	return nil
+}
+
 func (h *Host) ToIPv4() (IPv4, bool) {
 	ip := net.ParseIP(h.Hostname)
 	if ip == nil {
