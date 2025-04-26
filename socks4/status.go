@@ -22,5 +22,5 @@ func (s Status) String() string {
 	if str, ok := statuses[s]; ok {
 		return fmt.Sprintf("%v (%v)", str, hexByte(s))
 	}
-	return ""
+	return fmt.Sprintf("Invalid Status (%v)", hexByte(s))
 }

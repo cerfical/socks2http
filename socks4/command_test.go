@@ -4,29 +4,36 @@ import (
 	"testing"
 
 	"github.com/cerfical/socks2http/socks4"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestCommand_String(t *testing.T) {
+func TestCommand(t *testing.T) {
+	suite.Run(t, new(CommandTest))
+}
+
+type CommandTest struct {
+	suite.Suite
+}
+
+func (t *CommandTest) TestString() {
 	tests := map[string]struct {
 		input socks4.Command
 		want  string
 	}{
-		"prints valid command codes as command name followed by command code in hex": {
+		"prints valid commands as command name followed by command code in hex": {
 			input: socks4.CommandConnect,
 			want:  "CONNECT (0x01)",
 		},
 
-		"prints invalid command codes as command code in hex": {
+		"prints invalid commands as error message followed by command code in hex": {
 			input: 0x17,
-			want:  "(0x17)",
+			want:  "Invalid Command (0x17)",
 		},
 	}
-
 	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
+		t.Run(name, func() {
 			got := test.input.String()
-			assert.Equal(t, test.want, got)
+			t.Equal(test.want, got)
 		})
 	}
 }

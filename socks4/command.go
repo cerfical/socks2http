@@ -18,5 +18,5 @@ func (c Command) String() string {
 	if str, ok := commands[c]; ok {
 		return fmt.Sprintf("%v (%v)", str, hexByte(c))
 	}
-	return fmt.Sprintf("(%v)", hexByte(c))
+	return fmt.Sprintf("Invalid Command (%v)", hexByte(c))
 }
