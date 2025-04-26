@@ -3,6 +3,7 @@ package proxcli
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/proxy"
 	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks5"
 )
 
 func New(ops ...Option) (*Client, error) {
@@ -32,6 +34,10 @@ func New(ops ...Option) (*Client, error) {
 	case addr.SOCKS, addr.SOCKS4a:
 		c.connect = func(c net.Conn, h *addr.Host) error {
 			return connectSOCKS(c, h, false)
+		}
+	case addr.SOCKS5, addr.SOCKS5h:
+		c.connect = func(c net.Conn, h *addr.Host) error {
+			return socks5Connect(c, h, proto == addr.SOCKS5)
 		}
 	case addr.HTTP:
 		c.connect = connectHTTP
@@ -80,10 +86,72 @@ func (c *Client) Dial(ctx context.Context, h *addr.Host) (net.Conn, error) {
 	// And connect the proxy to the destination server
 	if err := c.connect(proxyConn, h); err != nil {
 		proxyConn.Close()
-		return nil, fmt.Errorf("connecto to %v: %w", h, err)
+		return nil, fmt.Errorf("connect to %v: %w", h, err)
 	}
 
 	return proxyConn, nil
+}
+
+func socks5Connect(proxyConn net.Conn, dstAddr *addr.Host, resolveLocally bool) error {
+	if resolveLocally {
+		ip4, err := dstAddr.ResolveToIPv4()
+		if err != nil {
+			return fmt.Errorf("resolve destination: %w", err)
+		}
+		dstAddr = addr.NewHost(ip4.String(), dstAddr.Port)
+	}
+
+	if err := socks5Authenticate(proxyConn); err != nil {
+		return fmt.Errorf("SOCKS5 authenticate: %w", err)
+	}
+	if err := socks5ConnectRequest(proxyConn, dstAddr); err != nil {
+		return fmt.Errorf("SOCKS5 connect: %w", err)
+	}
+
+	return nil
+}
+
+func socks5Authenticate(c net.Conn) error {
+	greet := socks5.Greeting{
+		AuthMethods: []socks5.AuthMethod{socks5.AuthNone},
+	}
+	if err := greet.Write(c); err != nil {
+		return fmt.Errorf("encode greeting: %w", err)
+	}
+
+	greetReply, err := socks5.ReadGreetingReply(bufio.NewReader(c))
+	if err != nil {
+		return fmt.Errorf("decode greeting reply: %w", err)
+	}
+
+	switch greetReply.AuthMethod {
+	case socks5.AuthNone:
+		return nil
+	case socks5.AuthNotAcceptable:
+		return errors.New("no acceptable auth method was selected")
+	default:
+		return fmt.Errorf("unsupported auth method: %v", greetReply.AuthMethod)
+	}
+}
+
+func socks5ConnectRequest(c net.Conn, dstAddr *addr.Host) error {
+	req := socks5.Request{
+		Command: socks5.CommandConnect,
+		DstAddr: *dstAddr,
+	}
+	if err := req.Write(c); err != nil {
+		return fmt.Errorf("encode request: %w", err)
+	}
+
+	reply, err := socks5.ReadReply(bufio.NewReader(c))
+	if err != nil {
+		return fmt.Errorf("decode reply: %w", err)
+	}
+
+	if reply.Status != socks5.StatusOK {
+		return fmt.Errorf("connection rejected: %v", reply.Status)
+	}
+	return nil
 }
 
 func connectSOCKS(proxyConn net.Conn, h *addr.Host, resolveLocally bool) error {

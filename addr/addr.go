@@ -15,6 +15,7 @@ const (
 	SOCKS4  = "socks4"
 	SOCKS4a = "socks4a"
 	SOCKS5  = "socks5"
+	SOCKS5h = "socks5h"
 
 	HTTP = "http"
 )

@@ -12,6 +12,7 @@ import (
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/proxy/proxcli"
 	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks5"
 	"github.com/cerfical/socks2http/test/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -78,6 +79,68 @@ func (t *ClientTest) TestDial() {
 		_, err = client.Dial(context.Background(), dstHost)
 		t.Require().NoError(err)
 	})
+}
+
+func (t *ClientTest) TestDial_SOCKS5() {
+	dstAddr := addr.NewHost("localhost", 8080)
+	requestTests := map[string]struct {
+		proto string
+
+		wantGreeting func(*socks5.Greeting)
+		wantRequest  func(*socks5.Request)
+	}{
+		"makes a CONNECT request to proxy": {
+			wantRequest: func(r *socks5.Request) {
+				t.Equal(socks5.CommandConnect, r.Command)
+			},
+		},
+
+		"resolves destination address when using SOCKS5 client": {
+			wantRequest: func(r *socks5.Request) {
+				t.Equal(addr.NewHost("127.0.0.1", dstAddr.Port), &r.DstAddr)
+			},
+		},
+
+		"doesn't resolve destination address when using SOCKS5h client": {
+			proto: addr.SOCKS5h,
+			wantRequest: func(r *socks5.Request) {
+				t.Equal(dstAddr, &r.DstAddr)
+			},
+		},
+
+		"uses no authentication": {
+			wantGreeting: func(g *socks5.Greeting) {
+				t.ElementsMatch([]socks5.AuthMethod{socks5.AuthNone}, g.AuthMethods)
+			},
+		},
+	}
+
+	for name, test := range requestTests {
+		t.Run(name, func() {
+			if test.proto == "" {
+				test.proto = addr.SOCKS5
+			}
+			proxyConn := t.dialProxy(test.proto, dstAddr)
+
+			greet, err := socks5.ReadGreeting(bufio.NewReader(proxyConn))
+			t.Require().NoError(err)
+			if test.wantGreeting != nil {
+				test.wantGreeting(greet)
+			}
+
+			greetReply := socks5.GreetingReply{AuthMethod: socks5.AuthNone}
+			t.Require().NoError(greetReply.Write(proxyConn))
+
+			req, err := socks5.ReadRequest(bufio.NewReader(proxyConn))
+			t.Require().NoError(err)
+			if test.wantRequest != nil {
+				test.wantRequest(req)
+			}
+
+			reply := socks5.Reply{Status: socks5.StatusOK}
+			t.Require().NoError(reply.Write(proxyConn))
+		})
+	}
 }
 
 func (t *ClientTest) dialProxy(proto string, dstHost *addr.Host) (proxyConn net.Conn) {
