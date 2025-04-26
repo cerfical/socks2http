@@ -11,9 +11,8 @@ import (
 	"github.com/cerfical/socks2http/addr"
 )
 
-func NewRequest(v Version, c Command, dstAddr *addr.Host) *Request {
+func NewRequest(c Command, dstAddr *addr.Host) *Request {
 	r := Request{
-		Version: v,
 		Command: c,
 	}
 	if dstAddr != nil {
@@ -28,19 +27,13 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		return nil, fmt.Errorf("decode version: %w", err)
 	}
 
-	v := Version(version[0])
-	if !isValidVersion(v) {
-		return nil, fmt.Errorf("invalid version %v", v)
+	if v := version[0]; v != VersionCode {
+		return nil, fmt.Errorf("invalid version (%v)", hexByte(v))
 	}
 
 	var h requestHeader
 	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
 		return nil, fmt.Errorf("decode header: %w", err)
-	}
-
-	c := Command(h.Command)
-	if !isValidCommand(c) {
-		return nil, fmt.Errorf("invalid command %v", c)
 	}
 
 	un, err := readNullString(r)
@@ -55,16 +48,11 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		if err != nil {
 			return nil, fmt.Errorf("decode destination hostname: %w", err)
 		}
-
-		if hn == "" {
-			return nil, fmt.Errorf("empty destination hostname")
-		}
 		dstAddr.Hostname = hn
 	}
 
 	req := Request{
-		Version:  v,
-		Command:  c,
+		Command:  Command(h.Command),
 		DstAddr:  *dstAddr,
 		Username: un,
 	}
@@ -72,20 +60,12 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 }
 
 type Request struct {
-	Version  Version
 	Command  Command
 	DstAddr  addr.Host
 	Username string
 }
 
 func (r *Request) Write(w io.Writer) error {
-	if !isValidVersion(r.Version) {
-		return fmt.Errorf("invalid version %v", r.Version)
-	}
-	if r.DstAddr.Hostname == "" {
-		return fmt.Errorf("empty destination address")
-	}
-
 	var (
 		dstIP       addr.IPv4
 		dstHostname string
@@ -97,12 +77,8 @@ func (r *Request) Write(w io.Writer) error {
 		dstHostname = r.DstAddr.Hostname
 	}
 
-	if !isValidCommand(r.Command) {
-		return fmt.Errorf("invalid command %v", r.Command)
-	}
-
 	h := requestHeader{
-		Version: byte(r.Version),
+		Version: VersionCode,
 		Command: byte(r.Command),
 		DstPort: r.DstAddr.Port,
 		DstIP:   dstIP,

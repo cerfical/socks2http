@@ -19,17 +19,7 @@ const (
 )
 
 func TestReadRequest(t *testing.T) {
-	t.Run("decodes a SOCKS4 version", func(t *testing.T) {
-		got, err := decodeSOCKSRequest([]byte{
-			SOCKSVersion4, ConnectCommand, 0x04, 0x38, 127, 0, 0, 1, 0,
-		})
-		require.NoError(t, err)
-
-		want := socks4.V4
-		assert.Equal(t, want, got.Version)
-	})
-
-	t.Run("rejects invalid SOCKS versions", func(t *testing.T) {
+	t.Run("rejects an invalid version", func(t *testing.T) {
 		_, err := decodeSOCKSRequest([]byte{0x05})
 		require.Error(t, err)
 	})
@@ -77,13 +67,6 @@ func TestReadRequest_SOCKS4(t *testing.T) {
 		want := "root"
 		assert.Equal(t, want, got.Username)
 	})
-
-	t.Run("rejects invalid command codes", func(t *testing.T) {
-		_, err := decodeSOCKSRequest([]byte{
-			SOCKSVersion4, 0x03, 0x04, 0x38, 127, 0, 0, 1, 0,
-		})
-		require.Error(t, err)
-	})
 }
 
 func TestReadRequest_SOCKS4a(t *testing.T) {
@@ -96,23 +79,6 @@ func TestReadRequest_SOCKS4a(t *testing.T) {
 
 		want := "localhost"
 		assert.Equal(t, want, got.DstAddr.Hostname)
-	})
-
-	t.Run("rejects an empty destination hostname", func(t *testing.T) {
-		_, err := decodeSOCKSRequest([]byte{
-			SOCKSVersion4, ConnectCommand, 0x04, 0x38, 0, 0, 0, 1, 0,
-			0,
-		})
-		require.Error(t, err)
-	})
-}
-
-func TestRequest_Write(t *testing.T) {
-	t.Run("rejects invalid SOCKS versions", func(t *testing.T) {
-		req := socks4.NewRequest(120, socks4.Connect, addr.NewHost("127.0.0.1", 1080))
-
-		_, err := encodeSOCKSRequest(req)
-		require.Error(t, err)
 	})
 }
 
@@ -133,7 +99,7 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	}
 	for name, test := range validCommands {
 		t.Run(name, func(t *testing.T) {
-			req := socks4.NewRequest(socks4.V4, test.command, addr.NewHost("127.0.0.1", 1080))
+			req := socks4.NewRequest(test.command, addr.NewHost("127.0.0.1", 1080))
 
 			got, err := encodeSOCKSRequest(req)
 			require.NoError(t, err)
@@ -142,31 +108,8 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 		})
 	}
 
-	errors := map[string]struct {
-		command socks4.Command
-		dstAddr *addr.Host
-	}{
-		"rejects an empty destination address": {
-			command: socks4.Connect,
-			dstAddr: addr.NewHost("", 0),
-		},
-
-		"rejects invalid command codes": {
-			command: 0x03,
-			dstAddr: addr.NewHost("127.0.0.1", 1080),
-		},
-	}
-	for name, test := range errors {
-		t.Run(name, func(t *testing.T) {
-			req := socks4.NewRequest(socks4.V4, test.command, test.dstAddr)
-
-			_, err := encodeSOCKSRequest(req)
-			require.Error(t, err)
-		})
-	}
-
 	t.Run("encodes an IPv4 destination address", func(t *testing.T) {
-		req := socks4.NewRequest(socks4.V4, socks4.Connect, addr.NewHost("127.0.0.1", 1080))
+		req := socks4.NewRequest(socks4.Connect, addr.NewHost("127.0.0.1", 1080))
 
 		got, err := encodeSOCKSRequest(req)
 		require.NoError(t, err)
@@ -176,7 +119,7 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	})
 
 	t.Run("encodes a non-IPv4 destination address", func(t *testing.T) {
-		req := socks4.NewRequest(socks4.V4, socks4.Connect, addr.NewHost("localhost", 1080))
+		req := socks4.NewRequest(socks4.Connect, addr.NewHost("localhost", 1080))
 
 		got, err := encodeSOCKSRequest(req)
 		require.NoError(t, err)
@@ -186,7 +129,7 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	})
 
 	t.Run("encodes an username", func(t *testing.T) {
-		req := socks4.NewRequest(socks4.V4, socks4.Connect, addr.NewHost("127.0.0.1", 1080))
+		req := socks4.NewRequest(socks4.Connect, addr.NewHost("127.0.0.1", 1080))
 		req.Username = "root"
 
 		got, err := encodeSOCKSRequest(req)

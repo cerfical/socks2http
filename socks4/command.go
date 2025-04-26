@@ -20,8 +20,3 @@ func (c Command) String() string {
 	}
 	return fmt.Sprintf("(%v)", hexByte(c))
 }
-
-func isValidCommand(c Command) bool {
-	_, ok := commands[c]
-	return ok
-}

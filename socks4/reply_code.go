@@ -24,11 +24,3 @@ func (c ReplyCode) String() string {
 	}
 	return ""
 }
-
-func makeReplyCode(b byte) (c ReplyCode, isValid bool) {
-	c = ReplyCode(b)
-	if _, ok := replyCodes[c]; ok {
-		return c, true
-	}
-	return c, false
-}

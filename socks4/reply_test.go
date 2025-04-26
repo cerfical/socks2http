@@ -66,20 +66,6 @@ func TestReadReply_SOCKS4(t *testing.T) {
 		assert.Equal(t, want, &got.BindAddr)
 	})
 
-	t.Run("decodes an empty BIND address to an empty hostname", func(t *testing.T) {
-		got, err := decodeSOCKSReply(slices.Concat(
-			[]byte{ReplyVersion, RequestGranted, 0, 0, 0, 0, 0, 0},
-		))
-		require.NoError(t, err)
-
-		assert.Equal(t, "", got.BindAddr.Hostname)
-	})
-
-	t.Run("rejects replies with unsupported reply codes", func(t *testing.T) {
-		_, err := decodeSOCKSReply([]byte{ReplyVersion, 0x5e, 0, 0, 0, 0, 0, 0})
-		assert.Error(t, err)
-	})
-
 	t.Run("rejects replies with unsupported reply version", func(t *testing.T) {
 		_, err := decodeSOCKSReply([]byte{1})
 		assert.Error(t, err)

@@ -129,7 +129,7 @@ func (t *ServerTest) TestServe_SOCKS() {
 
 		proxyConn := t.openProxyConn(addr.SOCKS4, proxy)
 
-		req := socks4.NewRequest(socks4.V4, socks4.Connect, dstHost)
+		req := socks4.NewRequest(socks4.Connect, dstHost)
 		t.writeSOCKSRequest(req, proxyConn)
 
 		reply := t.readSOCKSReply(proxyConn)
@@ -146,7 +146,7 @@ func (t *ServerTest) TestServe_SOCKS() {
 
 		proxyConn := t.openProxyConn(addr.SOCKS4, proxy)
 
-		req := socks4.NewRequest(socks4.V4, socks4.Connect, dstHost)
+		req := socks4.NewRequest(socks4.Connect, dstHost)
 		t.writeSOCKSRequest(req, proxyConn)
 
 		reply := t.readSOCKSReply(proxyConn)

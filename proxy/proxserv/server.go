@@ -248,9 +248,7 @@ func (s *Server) serveSOCKS(ctx context.Context, clientConn net.Conn) error {
 		return fmt.Errorf("parse request: %w", err)
 	}
 
-	// TODO: Make log.Logger automatically call String()
-	s.log.Info("New SOCKS request",
-		"version", req.Version.String(),
+	s.log.Info("SOCKS4 request",
 		"command", req.Command.String(),
 		"host", req.DstAddr.String(),
 	)
