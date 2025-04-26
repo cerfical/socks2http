@@ -11,7 +11,7 @@ import (
 
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/proxy"
-	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks4"
 	"github.com/cerfical/socks2http/socks5"
 )
 
@@ -164,17 +164,17 @@ func connectSOCKS(proxyConn net.Conn, h *addr.Host, resolveLocally bool) error {
 		dstHost = addr.NewHost(ip4.String(), h.Port)
 	}
 
-	connReq := socks.NewRequest(socks.V4, socks.Connect, dstHost)
+	connReq := socks4.NewRequest(socks4.V4, socks4.Connect, dstHost)
 	if err := connReq.Write(proxyConn); err != nil {
 		return fmt.Errorf("SOCKS CONNECT: %w", err)
 	}
 
-	reply, err := socks.ReadReply(bufio.NewReader(proxyConn))
+	reply, err := socks4.ReadReply(bufio.NewReader(proxyConn))
 	if err != nil {
 		return fmt.Errorf("SOCKS CONNECT reply: %w", err)
 	}
 
-	if reply.Code != socks.Granted {
+	if reply.Code != socks4.Granted {
 		return fmt.Errorf("SOCKS CONNECT rejected: %v", reply)
 	}
 	return nil

@@ -1,19 +1,19 @@
-package socks_test
+package socks4_test
 
 import (
 	"testing"
 
-	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks4"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestVersion_String(t *testing.T) {
 	tests := map[string]struct {
-		input socks.Version
+		input socks4.Version
 		want  string
 	}{
 		"prints valid version codes as version name followed by version code in hex": {
-			input: socks.V4,
+			input: socks4.V4,
 			want:  "SOCKS4 (0x04)",
 		},
 

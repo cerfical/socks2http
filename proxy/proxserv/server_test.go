@@ -15,7 +15,7 @@ import (
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/proxy"
 	"github.com/cerfical/socks2http/proxy/proxserv"
-	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks4"
 	"github.com/cerfical/socks2http/socks5"
 	"github.com/cerfical/socks2http/test/mocks"
 	"github.com/cerfical/socks2http/test/stubs"
@@ -129,11 +129,11 @@ func (t *ServerTest) TestServe_SOCKS() {
 
 		proxyConn := t.openProxyConn(addr.SOCKS4, proxy)
 
-		req := socks.NewRequest(socks.V4, socks.Connect, dstHost)
+		req := socks4.NewRequest(socks4.V4, socks4.Connect, dstHost)
 		t.writeSOCKSRequest(req, proxyConn)
 
 		reply := t.readSOCKSReply(proxyConn)
-		t.Equal(socks.Granted, reply.Code)
+		t.Equal(socks4.Granted, reply.Code)
 	})
 
 	t.Run("responds to CONNECT with Request-Rejected if the destination is unreachable", func() {
@@ -146,11 +146,11 @@ func (t *ServerTest) TestServe_SOCKS() {
 
 		proxyConn := t.openProxyConn(addr.SOCKS4, proxy)
 
-		req := socks.NewRequest(socks.V4, socks.Connect, dstHost)
+		req := socks4.NewRequest(socks4.V4, socks4.Connect, dstHost)
 		t.writeSOCKSRequest(req, proxyConn)
 
 		reply := t.readSOCKSReply(proxyConn)
-		t.Equal(socks.Rejected, reply.Code)
+		t.Equal(socks4.Rejected, reply.Code)
 	})
 }
 
@@ -287,16 +287,16 @@ func (t *ServerTest) writeHTTPRequest(r *http.Request, w io.Writer) {
 	t.Require().NoError(r.WriteProxy(w))
 }
 
-func (t *ServerTest) writeSOCKSRequest(r *socks.Request, w io.Writer) {
+func (t *ServerTest) writeSOCKSRequest(r *socks4.Request, w io.Writer) {
 	t.T().Helper()
 
 	t.Require().NoError(r.Write(w))
 }
 
-func (t *ServerTest) readSOCKSReply(r io.Reader) *socks.Reply {
+func (t *ServerTest) readSOCKSReply(r io.Reader) *socks4.Reply {
 	t.T().Helper()
 
-	reply, err := socks.ReadReply(bufio.NewReader(r))
+	reply, err := socks4.ReadReply(bufio.NewReader(r))
 	t.Require().NoError(err)
 
 	return reply

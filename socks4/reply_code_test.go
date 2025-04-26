@@ -1,19 +1,19 @@
-package socks_test
+package socks4_test
 
 import (
 	"testing"
 
-	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks4"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestReplyCode_String(t *testing.T) {
 	tests := map[string]struct {
-		reply socks.ReplyCode
+		reply socks4.ReplyCode
 		want  string
 	}{
 		"prints valid reply codes as reply message followed by reply code in hex": {
-			socks.Granted, "Request Granted (0x5a)",
+			socks4.Granted, "Request Granted (0x5a)",
 		},
 
 		"prints invalid reply codes as an empty string": {

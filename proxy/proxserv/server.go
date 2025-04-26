@@ -14,7 +14,7 @@ import (
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/log"
 	"github.com/cerfical/socks2http/proxy"
-	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks4"
 	"github.com/cerfical/socks2http/socks5"
 )
 
@@ -243,7 +243,7 @@ func (s *Server) socks5ServeRequest(ctx context.Context, clientConn net.Conn) er
 }
 
 func (s *Server) serveSOCKS(ctx context.Context, clientConn net.Conn) error {
-	req, err := socks.ReadRequest(bufio.NewReader(clientConn))
+	req, err := socks4.ReadRequest(bufio.NewReader(clientConn))
 	if err != nil {
 		return fmt.Errorf("parse request: %w", err)
 	}
@@ -257,10 +257,10 @@ func (s *Server) serveSOCKS(ctx context.Context, clientConn net.Conn) error {
 
 	done, err := s.proxy.OpenTunnel(ctx, clientConn, &req.DstAddr)
 	if err != nil {
-		writeSOCKSReply(socks.Rejected, clientConn)
+		writeSOCKSReply(socks4.Rejected, clientConn)
 		return fmt.Errorf("open tunnel to %v: %w", &req.DstAddr, err)
 	}
-	writeSOCKSReply(socks.Granted, clientConn)
+	writeSOCKSReply(socks4.Granted, clientConn)
 	return <-done
 }
 
@@ -301,8 +301,8 @@ func writeHTTPStatus(status int, clientConn net.Conn) {
 	r.Write(clientConn)
 }
 
-func writeSOCKSReply(s socks.ReplyCode, clientConn net.Conn) {
-	reply := socks.NewReply(s, nil)
+func writeSOCKSReply(s socks4.ReplyCode, clientConn net.Conn) {
+	reply := socks4.NewReply(s, nil)
 	reply.Write(clientConn)
 }
 

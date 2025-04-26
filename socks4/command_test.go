@@ -1,19 +1,19 @@
-package socks_test
+package socks4_test
 
 import (
 	"testing"
 
-	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks4"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCommand_String(t *testing.T) {
 	tests := map[string]struct {
-		input socks.Command
+		input socks4.Command
 		want  string
 	}{
 		"prints valid command codes as command name followed by command code in hex": {
-			input: socks.Connect,
+			input: socks4.Connect,
 			want:  "CONNECT (0x01)",
 		},
 

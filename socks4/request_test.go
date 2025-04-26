@@ -1,4 +1,4 @@
-package socks_test
+package socks4_test
 
 import (
 	"bufio"
@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/cerfical/socks2http/addr"
-	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,7 +25,7 @@ func TestReadRequest(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		want := socks.V4
+		want := socks4.V4
 		assert.Equal(t, want, got.Version)
 	})
 
@@ -38,16 +38,16 @@ func TestReadRequest(t *testing.T) {
 func TestReadRequest_SOCKS4(t *testing.T) {
 	validCommands := map[string]struct {
 		input byte
-		want  socks.Command
+		want  socks4.Command
 	}{
 		"decodes a CONNECT command": {
 			input: ConnectCommand,
-			want:  socks.Connect,
+			want:  socks4.Connect,
 		},
 
 		"decodes a BIND command": {
 			input: BindCommand,
-			want:  socks.Bind,
+			want:  socks4.Bind,
 		},
 	}
 	for name, test := range validCommands {
@@ -109,7 +109,7 @@ func TestReadRequest_SOCKS4a(t *testing.T) {
 
 func TestRequest_Write(t *testing.T) {
 	t.Run("rejects invalid SOCKS versions", func(t *testing.T) {
-		req := socks.NewRequest(120, socks.Connect, addr.NewHost("127.0.0.1", 1080))
+		req := socks4.NewRequest(120, socks4.Connect, addr.NewHost("127.0.0.1", 1080))
 
 		_, err := encodeSOCKSRequest(req)
 		require.Error(t, err)
@@ -118,22 +118,22 @@ func TestRequest_Write(t *testing.T) {
 
 func TestRequest_Write_SOCKS4(t *testing.T) {
 	validCommands := map[string]struct {
-		command socks.Command
+		command socks4.Command
 		want    byte
 	}{
 		"encodes a CONNECT command": {
-			command: socks.Connect,
+			command: socks4.Connect,
 			want:    ConnectCommand,
 		},
 
 		"encodes a BIND command": {
-			command: socks.Bind,
+			command: socks4.Bind,
 			want:    BindCommand,
 		},
 	}
 	for name, test := range validCommands {
 		t.Run(name, func(t *testing.T) {
-			req := socks.NewRequest(socks.V4, test.command, addr.NewHost("127.0.0.1", 1080))
+			req := socks4.NewRequest(socks4.V4, test.command, addr.NewHost("127.0.0.1", 1080))
 
 			got, err := encodeSOCKSRequest(req)
 			require.NoError(t, err)
@@ -143,11 +143,11 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	}
 
 	errors := map[string]struct {
-		command socks.Command
+		command socks4.Command
 		dstAddr *addr.Host
 	}{
 		"rejects an empty destination address": {
-			command: socks.Connect,
+			command: socks4.Connect,
 			dstAddr: addr.NewHost("", 0),
 		},
 
@@ -158,7 +158,7 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	}
 	for name, test := range errors {
 		t.Run(name, func(t *testing.T) {
-			req := socks.NewRequest(socks.V4, test.command, test.dstAddr)
+			req := socks4.NewRequest(socks4.V4, test.command, test.dstAddr)
 
 			_, err := encodeSOCKSRequest(req)
 			require.Error(t, err)
@@ -166,7 +166,7 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	}
 
 	t.Run("encodes an IPv4 destination address", func(t *testing.T) {
-		req := socks.NewRequest(socks.V4, socks.Connect, addr.NewHost("127.0.0.1", 1080))
+		req := socks4.NewRequest(socks4.V4, socks4.Connect, addr.NewHost("127.0.0.1", 1080))
 
 		got, err := encodeSOCKSRequest(req)
 		require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	})
 
 	t.Run("encodes a non-IPv4 destination address", func(t *testing.T) {
-		req := socks.NewRequest(socks.V4, socks.Connect, addr.NewHost("localhost", 1080))
+		req := socks4.NewRequest(socks4.V4, socks4.Connect, addr.NewHost("localhost", 1080))
 
 		got, err := encodeSOCKSRequest(req)
 		require.NoError(t, err)
@@ -186,7 +186,7 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	})
 
 	t.Run("encodes an username", func(t *testing.T) {
-		req := socks.NewRequest(socks.V4, socks.Connect, addr.NewHost("127.0.0.1", 1080))
+		req := socks4.NewRequest(socks4.V4, socks4.Connect, addr.NewHost("127.0.0.1", 1080))
 		req.Username = "root"
 
 		got, err := encodeSOCKSRequest(req)
@@ -197,15 +197,15 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	})
 }
 
-func decodeSOCKSRequest(b []byte) (*socks.Request, error) {
-	return socks.ReadRequest(
+func decodeSOCKSRequest(b []byte) (*socks4.Request, error) {
+	return socks4.ReadRequest(
 		bufio.NewReader(
 			bytes.NewReader(b),
 		),
 	)
 }
 
-func encodeSOCKSRequest(r *socks.Request) ([]byte, error) {
+func encodeSOCKSRequest(r *socks4.Request) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := r.Write(&buf); err != nil {
 		return nil, err

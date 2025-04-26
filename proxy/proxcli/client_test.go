@@ -11,7 +11,7 @@ import (
 
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/proxy/proxcli"
-	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks4"
 	"github.com/cerfical/socks2http/socks5"
 	"github.com/cerfical/socks2http/test/mocks"
 	"github.com/stretchr/testify/mock"
@@ -43,11 +43,11 @@ func (t *ClientTest) TestDial() {
 		proxyConn := t.dialProxy(addr.SOCKS4, dstHost)
 
 		req := t.readSOCKSRequest(proxyConn)
-		t.Equal(socks.V4, req.Version)
+		t.Equal(socks4.V4, req.Version)
 		t.Equal(dstHost, &req.DstAddr)
-		t.Equal(socks.Connect, req.Command)
+		t.Equal(socks4.Connect, req.Command)
 
-		t.writeSOCKSReply(socks.Granted, proxyConn)
+		t.writeSOCKSReply(socks4.Granted, proxyConn)
 	})
 
 	t.Run("connects to a SOCKS4a proxy", func() {
@@ -55,11 +55,11 @@ func (t *ClientTest) TestDial() {
 		proxyConn := t.dialProxy(addr.SOCKS4a, dstHost)
 
 		req := t.readSOCKSRequest(proxyConn)
-		t.Equal(socks.V4, req.Version)
+		t.Equal(socks4.V4, req.Version)
 		t.Equal(dstHost, &req.DstAddr)
-		t.Equal(socks.Connect, req.Command)
+		t.Equal(socks4.Connect, req.Command)
 
-		t.writeSOCKSReply(socks.Granted, proxyConn)
+		t.writeSOCKSReply(socks4.Granted, proxyConn)
 	})
 
 	t.Run("establishes a direct connection to the destination if Direct is used", func() {
@@ -194,17 +194,17 @@ func (t *ClientTest) readHTTPRequest(r io.Reader) *http.Request {
 	return req
 }
 
-func (t *ClientTest) writeSOCKSReply(s socks.ReplyCode, w io.Writer) {
+func (t *ClientTest) writeSOCKSReply(s socks4.ReplyCode, w io.Writer) {
 	t.T().Helper()
 
-	reply := socks.NewReply(s, nil)
+	reply := socks4.NewReply(s, nil)
 	t.Require().NoError(reply.Write(w))
 }
 
-func (t *ClientTest) readSOCKSRequest(r io.Reader) *socks.Request {
+func (t *ClientTest) readSOCKSRequest(r io.Reader) *socks4.Request {
 	t.T().Helper()
 
-	req, err := socks.ReadRequest(bufio.NewReader(r))
+	req, err := socks4.ReadRequest(bufio.NewReader(r))
 	t.Require().NoError(err)
 
 	return req
