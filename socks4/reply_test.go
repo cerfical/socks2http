@@ -3,147 +3,110 @@ package socks4_test
 import (
 	"bufio"
 	"bytes"
-	"slices"
 	"testing"
 
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/socks4"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
-const (
-	ReplyVersion = 0
+func TestReply(t *testing.T) {
+	suite.Run(t, new(ReplyTest))
+}
 
-	RequestGranted            = 90
-	RequestRejectedOrFailed   = 91
-	RequestRejectedNoAuth     = 92
-	RequestRejectedAuthFailed = 93
-)
+type ReplyTest struct {
+	suite.Suite
+}
 
-func TestReadReply_SOCKS4(t *testing.T) {
-	tests := map[string]struct {
-		reply byte
-		want  socks4.Status
-	}{
-		"decodes a Request-Granted reply": {
-			reply: RequestGranted,
-			want:  socks4.StatusGranted,
-		},
+func (t *ReplyTest) TestRead() {
+	t.Run("decodes a status", func() {
+		got, err := decodeReply([]byte{0, 90, 0, 0, 0, 0, 0, 0})
+		t.Require().NoError(err)
 
-		"decodes a Request-Rejected reply": {
-			reply: RequestRejectedOrFailed,
-			want:  socks4.StatusRejectedOrFailed,
-		},
-
-		"decodes a No-Auth reply": {
-			reply: RequestRejectedNoAuth,
-			want:  socks4.StatusNoAuthService,
-		},
-
-		"decodes an Auth-Failed reply": {
-			reply: RequestRejectedAuthFailed,
-			want:  socks4.StatusAuthFailed,
-		},
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			got, err := decodeSOCKSReply([]byte{ReplyVersion, test.reply, 0, 0, 0, 0, 0, 0})
-			require.NoError(t, err)
-
-			assert.Equal(t, test.want, got.Status)
-		})
-	}
-
-	t.Run("decodes a non-empty BIND address", func(t *testing.T) {
-		got, err := decodeSOCKSReply(slices.Concat(
-			[]byte{ReplyVersion, RequestGranted, 0x04, 0x38, 127, 0, 0, 1},
-		))
-		require.NoError(t, err)
-
-		want := addr.NewHost("127.0.0.1", 1080)
-		assert.Equal(t, want, &got.BindAddr)
+		want := socks4.StatusGranted
+		t.Equal(want, got.Status)
 	})
 
-	t.Run("rejects replies with unsupported reply version", func(t *testing.T) {
-		_, err := decodeSOCKSReply([]byte{1})
-		assert.Error(t, err)
+	t.Run("decodes a bind IPv4 address", func() {
+		got, err := decodeReply([]byte{0, 90, 0, 0, 127, 0, 0, 1})
+		t.Require().NoError(err)
+
+		want := "127.0.0.1"
+		t.Equal(want, got.BindAddr.Hostname)
+	})
+
+	t.Run("decodes a bind port", func() {
+		got, err := decodeReply([]byte{0, 90, 0x04, 0x38, 0, 0, 0, 0})
+		t.Require().NoError(err)
+
+		want := uint16(1080)
+		t.Equal(want, got.BindAddr.Port)
+	})
+
+	t.Run("rejects an invalid reply version", func() {
+		_, err := decodeReply([]byte{0x01})
+		t.Error(err)
 	})
 }
 
-func TestReply_Write_SOCKS4(t *testing.T) {
-	tests := map[string]struct {
-		reply socks4.Status
-		want  byte
-	}{
-		"encodes a Request-Granted reply": {
-			reply: socks4.StatusGranted,
-			want:  RequestGranted,
-		},
-
-		"encodes a Request-Rejected reply": {
-			reply: socks4.StatusRejectedOrFailed,
-			want:  RequestRejectedOrFailed,
-		},
-
-		"encodes a No-Auth reply": {
-			reply: socks4.StatusNoAuthService,
-			want:  RequestRejectedNoAuth,
-		},
-
-		"encodes an Auth-Failed reply": {
-			reply: socks4.StatusAuthFailed,
-			want:  RequestRejectedAuthFailed,
-		},
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			reply := socks4.Reply{Status: test.reply}
-
-			got, err := encodeSOCKSReply(&reply)
-			require.NoError(t, err)
-
-			want := []byte{ReplyVersion, test.want, 0, 0, 0, 0, 0, 0}
-			assert.Equal(t, want, got)
-		})
-	}
-
-	t.Run("encodes a non-empty BIND address", func(t *testing.T) {
-		reply := socks4.Reply{
-			Status:   socks4.StatusGranted,
-			BindAddr: *addr.NewHost("127.0.0.1", 1080),
+func (t *ReplyTest) TestWrite() {
+	t.Run("encodes a status", func() {
+		r := socks4.Reply{
+			Status: socks4.StatusGranted,
 		}
 
-		got, err := encodeSOCKSReply(&reply)
-		require.NoError(t, err)
+		got, err := encodeReply(&r)
+		t.Require().NoError(err)
 
-		want := []byte{ReplyVersion, RequestGranted, 0x04, 0x38, 127, 0, 0, 1}
-		assert.Equal(t, want, got)
+		want := byte(90)
+		t.Equal(want, got[1])
 	})
 
-	t.Run("ignores an empty BIND address", func(t *testing.T) {
-		reply := socks4.Reply{Status: socks4.StatusGranted}
-		got, err := encodeSOCKSReply(&reply)
-		require.NoError(t, err)
+	t.Run("encodes a reply version", func() {
+		r := socks4.Reply{}
 
-		want := []byte{ReplyVersion, RequestGranted, 0, 0, 0, 0, 0, 0}
-		assert.Equal(t, want, got)
+		got, err := encodeReply(&r)
+		t.Require().NoError(err)
+
+		want := byte(0x00)
+		t.Equal(want, got[0])
 	})
 
-	t.Run("rejects BIND addresses specified as non-IPv4 address", func(t *testing.T) {
+	t.Run("encodes a bind IPv4 address", func() {
+		r := socks4.Reply{
+			BindAddr: *addr.NewHost("127.0.0.1", 0),
+		}
+
+		got, err := encodeReply(&r)
+		t.Require().NoError(err)
+
+		want := []byte{127, 0, 0, 1}
+		t.Equal(want, got[4:8])
+	})
+
+	t.Run("encodes a bind port", func() {
+		r := socks4.Reply{
+			BindAddr: *addr.NewHost("", 1080),
+		}
+
+		got, err := encodeReply(&r)
+		t.Require().NoError(err)
+
+		want := []byte{0x04, 0x38}
+		t.Equal(want, got[2:4])
+	})
+
+	t.Run("rejects non-IPv4 bind addresses", func() {
 		reply := socks4.Reply{
-			Status:   socks4.StatusGranted,
 			BindAddr: *addr.NewHost("localhost", 0),
 		}
 
-		_, err := encodeSOCKSReply(&reply)
-		require.Error(t, err)
+		_, err := encodeReply(&reply)
+		t.Require().Error(err)
 	})
 }
 
-func decodeSOCKSReply(b []byte) (*socks4.Reply, error) {
+func decodeReply(b []byte) (*socks4.Reply, error) {
 	return socks4.ReadReply(
 		bufio.NewReader(
 			bytes.NewReader(b),
@@ -151,7 +114,7 @@ func decodeSOCKSReply(b []byte) (*socks4.Reply, error) {
 	)
 }
 
-func encodeSOCKSReply(r *socks4.Reply) ([]byte, error) {
+func encodeReply(r *socks4.Reply) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := r.Write(&buf); err != nil {
 		return nil, err

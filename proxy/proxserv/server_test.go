@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -52,7 +51,7 @@ func (t *ServerTest) TestServe() {
 }
 
 func (t *ServerTest) TestServe_HTTP() {
-	t.Run("non-CONNECT requests are forwarded to the destination", func() {
+	t.Run("non-CONNECT requests are forwarded to destination", func() {
 		dstHost := addr.NewHost("localhost", 1111)
 
 		proxy := mocks.NewProxy(t.T())
@@ -63,10 +62,10 @@ func (t *ServerTest) TestServe_HTTP() {
 		proxyConn := t.openProxyConn(addr.HTTP, proxy)
 
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("http://%v", dstHost), nil)
-		t.writeHTTPRequest(req, proxyConn)
+		t.Require().NoError(req.WriteProxy(proxyConn))
 	})
 
-	t.Run("responds to non-CONNECT requests with 502-Bad-Gateway if the destination is unreachable", func() {
+	t.Run("replies to non-CONNECT requests with 502-Bad-Gateway if destination is unreachable", func() {
 		dstHost := addr.NewHost("unreachable-host", 1111)
 
 		proxy := mocks.NewProxy(t.T())
@@ -77,13 +76,15 @@ func (t *ServerTest) TestServe_HTTP() {
 		proxyConn := t.openProxyConn(addr.HTTP, proxy)
 
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("http://%v", dstHost), nil)
-		t.writeHTTPRequest(req, proxyConn)
+		t.Require().NoError(req.WriteProxy(proxyConn))
 
-		resp := t.readHTTPResponse(proxyConn)
+		resp, err := http.ReadResponse(bufio.NewReader(proxyConn), nil)
+		t.Require().NoError(err)
+
 		t.Equal(http.StatusBadGateway, resp.StatusCode)
 	})
 
-	t.Run("CONNECT opens a tunnel to the destination", func() {
+	t.Run("CONNECT opens a tunnel to destination", func() {
 		dstHost := addr.NewHost("localhost", 1111)
 
 		proxy := mocks.NewProxy(t.T())
@@ -94,13 +95,15 @@ func (t *ServerTest) TestServe_HTTP() {
 		proxyConn := t.openProxyConn(addr.HTTP, proxy)
 
 		req := httptest.NewRequest(http.MethodConnect, dstHost.String(), nil)
-		t.writeHTTPRequest(req, proxyConn)
+		t.Require().NoError(req.WriteProxy(proxyConn))
 
-		resp := t.readHTTPResponse(proxyConn)
+		resp, err := http.ReadResponse(bufio.NewReader(proxyConn), nil)
+		t.Require().NoError(err)
+
 		t.Equal(http.StatusOK, resp.StatusCode)
 	})
 
-	t.Run("responds to CONNECT with 502-Bad-Gateway if the destination is unreachable", func() {
+	t.Run("replies to CONNECT with 502-Bad-Gateway if destination is unreachable", func() {
 		dstHost := addr.NewHost("unreachable-host", 1111)
 
 		proxy := mocks.NewProxy(t.T())
@@ -111,15 +114,17 @@ func (t *ServerTest) TestServe_HTTP() {
 		proxyConn := t.openProxyConn(addr.HTTP, proxy)
 
 		req := httptest.NewRequest(http.MethodConnect, dstHost.String(), nil)
-		t.writeHTTPRequest(req, proxyConn)
+		t.Require().NoError(req.WriteProxy(proxyConn))
 
-		resp := t.readHTTPResponse(proxyConn)
+		resp, err := http.ReadResponse(bufio.NewReader(proxyConn), nil)
+		t.Require().NoError(err)
+
 		t.Equal(http.StatusBadGateway, resp.StatusCode)
 	})
 }
 
-func (t *ServerTest) TestServe_SOCKS() {
-	t.Run("CONNECT opens a tunnel to the destination", func() {
+func (t *ServerTest) TestServe_SOCKS4() {
+	t.Run("CONNECT opens a tunnel to destination", func() {
 		dstHost := addr.NewHost("127.0.0.1", 1111)
 
 		proxy := mocks.NewProxy(t.T())
@@ -133,13 +138,15 @@ func (t *ServerTest) TestServe_SOCKS() {
 			Command: socks4.CommandConnect,
 			DstAddr: *dstHost,
 		}
-		t.writeSOCKSRequest(&req, proxyConn)
+		t.Require().NoError(req.Write(proxyConn))
 
-		reply := t.readSOCKSReply(proxyConn)
+		reply, err := socks4.ReadReply(bufio.NewReader(proxyConn))
+		t.Require().NoError(err)
+
 		t.Equal(socks4.StatusGranted, reply.Status)
 	})
 
-	t.Run("responds to CONNECT with Request-Rejected if the destination is unreachable", func() {
+	t.Run("replies to CONNECT with Request-Rejected if destination is unreachable", func() {
 		dstHost := addr.NewHost("127.0.0.1", 1080)
 
 		proxy := mocks.NewProxy(t.T())
@@ -153,9 +160,11 @@ func (t *ServerTest) TestServe_SOCKS() {
 			Command: socks4.CommandConnect,
 			DstAddr: *dstHost,
 		}
-		t.writeSOCKSRequest(&req, proxyConn)
+		t.Require().NoError(req.Write(proxyConn))
 
-		reply := t.readSOCKSReply(proxyConn)
+		reply, err := socks4.ReadReply(bufio.NewReader(proxyConn))
+		t.Require().NoError(err)
+
 		t.Equal(socks4.StatusRejectedOrFailed, reply.Status)
 	})
 }
@@ -275,37 +284,6 @@ func (t *ServerTest) socks5Authenticate(c net.Conn) {
 	t.Require().NoError(err)
 
 	t.Equal(socks5.AuthNone, greetReply.AuthMethod)
-}
-
-func (t *ServerTest) readHTTPResponse(r io.Reader) *http.Response {
-	t.T().Helper()
-
-	resp, err := http.ReadResponse(bufio.NewReader(r), nil)
-	t.Require().NoError(err)
-	t.T().Cleanup(func() { resp.Body.Close() })
-
-	return resp
-}
-
-func (t *ServerTest) writeHTTPRequest(r *http.Request, w io.Writer) {
-	t.T().Helper()
-
-	t.Require().NoError(r.WriteProxy(w))
-}
-
-func (t *ServerTest) writeSOCKSRequest(r *socks4.Request, w io.Writer) {
-	t.T().Helper()
-
-	t.Require().NoError(r.Write(w))
-}
-
-func (t *ServerTest) readSOCKSReply(r io.Reader) *socks4.Reply {
-	t.T().Helper()
-
-	reply, err := socks4.ReadReply(bufio.NewReader(r))
-	t.Require().NoError(err)
-
-	return reply
 }
 
 func dummyChan() chan error {

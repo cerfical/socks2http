@@ -7,152 +7,138 @@ import (
 
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/socks4"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
-const (
-	SOCKSVersion4 = 0x04
-
-	ConnectCommand = 0x01
-	BindCommand    = 0x02
-)
-
-func TestReadRequest(t *testing.T) {
-	t.Run("rejects an invalid version", func(t *testing.T) {
-		_, err := decodeSOCKSRequest([]byte{0x05})
-		require.Error(t, err)
-	})
+func TestRequest(t *testing.T) {
+	suite.Run(t, new(RequestTest))
 }
 
-func TestReadRequest_SOCKS4(t *testing.T) {
-	validCommands := map[string]struct {
-		input byte
-		want  socks4.Command
-	}{
-		"decodes a CONNECT command": {
-			input: ConnectCommand,
-			want:  socks4.CommandConnect,
-		},
-
-		"decodes a BIND command": {
-			input: BindCommand,
-			want:  socks4.CommandBind,
-		},
-	}
-	for name, test := range validCommands {
-		t.Run(name, func(t *testing.T) {
-			got, err := decodeSOCKSRequest([]byte{SOCKSVersion4, test.input, 0x04, 0x38, 127, 0, 0, 1, 0})
-			require.NoError(t, err)
-
-			assert.Equal(t, test.want, got.Command)
-		})
-	}
-
-	t.Run("decodes a non-empty destination address", func(t *testing.T) {
-		got, err := decodeSOCKSRequest([]byte{SOCKSVersion4, ConnectCommand, 0x04, 0x38, 127, 0, 0, 1, 0})
-		require.NoError(t, err)
-
-		want := addr.NewHost("127.0.0.1", 1080)
-		assert.Equal(t, want, &got.DstAddr)
-	})
-
-	t.Run("decodes a non-empty username", func(t *testing.T) {
-		got, err := decodeSOCKSRequest([]byte{
-			SOCKSVersion4, ConnectCommand, 0x04, 0x38, 127, 0, 0, 1,
-			'r', 'o', 'o', 't', 0,
-		})
-		require.NoError(t, err)
-
-		want := "root"
-		assert.Equal(t, want, got.Username)
-	})
+type RequestTest struct {
+	suite.Suite
 }
 
-func TestReadRequest_SOCKS4a(t *testing.T) {
-	t.Run("decodes a non-empty destination hostname", func(t *testing.T) {
-		got, err := decodeSOCKSRequest([]byte{
-			SOCKSVersion4, ConnectCommand, 0x04, 0x38, 0, 0, 0, 1, 0,
+func (t *RequestTest) TestRead() {
+	t.Run("decodes a command", func() {
+		got, err := decodeRequest([]byte{4, 0x01, 0, 0, 127, 0, 0, 1, 0})
+		t.Require().NoError(err)
+
+		want := socks4.CommandConnect
+		t.Equal(want, got.Command)
+	})
+
+	t.Run("decodes a destination IPv4 address", func() {
+		got, err := decodeRequest([]byte{4, 0, 0, 0, 127, 0, 0, 1, 0})
+		t.Require().NoError(err)
+
+		want := "127.0.0.1"
+		t.Equal(want, got.DstAddr.Hostname)
+	})
+
+	t.Run("decodes a destination hostname", func() {
+		got, err := decodeRequest([]byte{
+			4, 0, 0, 0, 0, 0, 0, 1, 0,
 			'l', 'o', 'c', 'a', 'l', 'h', 'o', 's', 't', 0,
 		})
-		require.NoError(t, err)
+		t.Require().NoError(err)
 
 		want := "localhost"
-		assert.Equal(t, want, got.DstAddr.Hostname)
+		t.Equal(want, got.DstAddr.Hostname)
+	})
+
+	t.Run("decodes a destination port", func() {
+		got, err := decodeRequest([]byte{4, 0, 0x04, 0x38, 127, 0, 0, 1, 0})
+		t.Require().NoError(err)
+
+		want := uint16(1080)
+		t.Equal(want, got.DstAddr.Port)
+	})
+
+	t.Run("decodes a username", func() {
+		got, err := decodeRequest([]byte{4, 0, 0, 0, 127, 0, 0, 1, 'r', 'o', 'o', 't', 0})
+		t.Require().NoError(err)
+
+		want := "root"
+		t.Equal(want, got.Username)
+	})
+
+	t.Run("rejects an invalid version", func() {
+		_, err := decodeRequest([]byte{0x05})
+		t.Require().Error(err)
 	})
 }
 
-func TestRequest_Write_SOCKS4(t *testing.T) {
-	validCommands := map[string]struct {
-		command socks4.Command
-		want    byte
-	}{
-		"encodes a CONNECT command": {
-			command: socks4.CommandConnect,
-			want:    ConnectCommand,
-		},
-
-		"encodes a BIND command": {
-			command: socks4.CommandBind,
-			want:    BindCommand,
-		},
-	}
-	for name, test := range validCommands {
-		t.Run(name, func(t *testing.T) {
-			req := socks4.Request{
-				Command: test.command,
-				DstAddr: *addr.NewHost("127.0.0.1", 1080),
-			}
-
-			got, err := encodeSOCKSRequest(&req)
-			require.NoError(t, err)
-
-			assert.Equal(t, test.want, got[1])
-		})
-	}
-
-	t.Run("encodes an IPv4 destination address", func(t *testing.T) {
-		req := socks4.Request{
+func (t *RequestTest) TestWrite() {
+	t.Run("encodes a command", func() {
+		r := socks4.Request{
 			Command: socks4.CommandConnect,
-			DstAddr: *addr.NewHost("127.0.0.1", 1080),
 		}
 
-		got, err := encodeSOCKSRequest(&req)
-		require.NoError(t, err)
+		got, err := encodeRequest(&r)
+		t.Require().NoError(err)
 
-		want := []byte{0x04, 0x38, 127, 0, 0, 1}
-		assert.Equal(t, want, got[2:8])
+		want := byte(0x01)
+		t.Equal(want, got[1])
 	})
 
-	t.Run("encodes a non-IPv4 destination address", func(t *testing.T) {
-		req := socks4.Request{
-			Command: socks4.CommandConnect,
-			DstAddr: *addr.NewHost("localhost", 1080),
+	t.Run("encodes a SOCKS4 version", func() {
+		r := socks4.Request{}
+
+		got, err := encodeRequest(&r)
+		t.Require().NoError(err)
+
+		want := byte(0x04)
+		t.Equal(want, got[0])
+	})
+
+	t.Run("encodes a destination IPv4 address", func() {
+		r := socks4.Request{
+			DstAddr: *addr.NewHost("127.0.0.1", 0),
 		}
 
-		got, err := encodeSOCKSRequest(&req)
-		require.NoError(t, err)
+		got, err := encodeRequest(&r)
+		t.Require().NoError(err)
+
+		want := []byte{127, 0, 0, 1}
+		t.Equal(want, got[4:8])
+	})
+
+	t.Run("encodes a destination hostname", func() {
+		r := socks4.Request{
+			DstAddr: *addr.NewHost("localhost", 0),
+		}
+
+		got, err := encodeRequest(&r)
+		t.Require().NoError(err)
 
 		want := []byte{'l', 'o', 'c', 'a', 'l', 'h', 'o', 's', 't', 0}
-		assert.Equal(t, want, got[9:])
+		t.Equal(want, got[9:])
 	})
 
-	t.Run("encodes an username", func(t *testing.T) {
-		req := socks4.Request{
-			Command: socks4.CommandConnect,
-			DstAddr: *addr.NewHost("127.0.0.1", 1080),
+	t.Run("encodes a destination port", func() {
+		r := socks4.Request{
+			DstAddr: *addr.NewHost("", 1080),
 		}
-		req.Username = "root"
 
-		got, err := encodeSOCKSRequest(&req)
-		require.NoError(t, err)
+		got, err := encodeRequest(&r)
+		t.Require().NoError(err)
+
+		want := []byte{0x04, 0x38}
+		t.Equal(want, got[2:4])
+	})
+
+	t.Run("encodes a username", func() {
+		req := socks4.Request{Username: "root"}
+
+		got, err := encodeRequest(&req)
+		t.Require().NoError(err)
 
 		want := []byte{'r', 'o', 'o', 't', 0}
-		assert.Equal(t, want, got[8:])
+		t.Equal(want, got[8:])
 	})
 }
 
-func decodeSOCKSRequest(b []byte) (*socks4.Request, error) {
+func decodeRequest(b []byte) (*socks4.Request, error) {
 	return socks4.ReadRequest(
 		bufio.NewReader(
 			bytes.NewReader(b),
@@ -160,7 +146,7 @@ func decodeSOCKSRequest(b []byte) (*socks4.Request, error) {
 	)
 }
 
-func encodeSOCKSRequest(r *socks4.Request) ([]byte, error) {
+func encodeRequest(r *socks4.Request) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := r.Write(&buf); err != nil {
 		return nil, err
