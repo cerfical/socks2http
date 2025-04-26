@@ -195,7 +195,7 @@ func (t *ClientTest) readHTTPRequest(r io.Reader) *http.Request {
 func (t *ClientTest) writeSOCKSReply(s socks4.Status, w io.Writer) {
 	t.T().Helper()
 
-	reply := socks4.NewReply(s, nil)
+	reply := socks4.Reply{Status: s}
 	t.Require().NoError(reply.Write(w))
 }
 

@@ -300,7 +300,7 @@ func writeHTTPStatus(status int, clientConn net.Conn) {
 }
 
 func writeSOCKSReply(s socks4.Status, clientConn net.Conn) {
-	reply := socks4.NewReply(s, nil)
+	reply := socks4.Reply{Status: s}
 	reply.Write(clientConn)
 }
 

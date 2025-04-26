@@ -99,9 +99,12 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	}
 	for name, test := range validCommands {
 		t.Run(name, func(t *testing.T) {
-			req := socks4.NewRequest(test.command, addr.NewHost("127.0.0.1", 1080))
+			req := socks4.Request{
+				Command: test.command,
+				DstAddr: *addr.NewHost("127.0.0.1", 1080),
+			}
 
-			got, err := encodeSOCKSRequest(req)
+			got, err := encodeSOCKSRequest(&req)
 			require.NoError(t, err)
 
 			assert.Equal(t, test.want, got[1])
@@ -109,9 +112,12 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	}
 
 	t.Run("encodes an IPv4 destination address", func(t *testing.T) {
-		req := socks4.NewRequest(socks4.CommandConnect, addr.NewHost("127.0.0.1", 1080))
+		req := socks4.Request{
+			Command: socks4.CommandConnect,
+			DstAddr: *addr.NewHost("127.0.0.1", 1080),
+		}
 
-		got, err := encodeSOCKSRequest(req)
+		got, err := encodeSOCKSRequest(&req)
 		require.NoError(t, err)
 
 		want := []byte{0x04, 0x38, 127, 0, 0, 1}
@@ -119,9 +125,12 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	})
 
 	t.Run("encodes a non-IPv4 destination address", func(t *testing.T) {
-		req := socks4.NewRequest(socks4.CommandConnect, addr.NewHost("localhost", 1080))
+		req := socks4.Request{
+			Command: socks4.CommandConnect,
+			DstAddr: *addr.NewHost("localhost", 1080),
+		}
 
-		got, err := encodeSOCKSRequest(req)
+		got, err := encodeSOCKSRequest(&req)
 		require.NoError(t, err)
 
 		want := []byte{'l', 'o', 'c', 'a', 'l', 'h', 'o', 's', 't', 0}
@@ -129,10 +138,13 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	})
 
 	t.Run("encodes an username", func(t *testing.T) {
-		req := socks4.NewRequest(socks4.CommandConnect, addr.NewHost("127.0.0.1", 1080))
+		req := socks4.Request{
+			Command: socks4.CommandConnect,
+			DstAddr: *addr.NewHost("127.0.0.1", 1080),
+		}
 		req.Username = "root"
 
-		got, err := encodeSOCKSRequest(req)
+		got, err := encodeSOCKSRequest(&req)
 		require.NoError(t, err)
 
 		want := []byte{'r', 'o', 'o', 't', 0}

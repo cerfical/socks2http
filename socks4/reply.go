@@ -11,14 +11,6 @@ import (
 
 const replyVersion = 0
 
-func NewReply(s Status, bindAddr *addr.Host) *Reply {
-	r := Reply{Status: s}
-	if bindAddr != nil {
-		r.BindAddr = *bindAddr
-	}
-	return &r
-}
-
 func ReadReply(r *bufio.Reader) (*Reply, error) {
 	version, err := r.Peek(1)
 	if err != nil {
@@ -34,7 +26,10 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 	}
 
 	bindAddr := addr.NewHost(addr.IPv4(h.BindIP).String(), h.BindPort)
-	return NewReply(Status(h.Code), bindAddr), nil
+	return &Reply{
+		Status:   Status(h.Code),
+		BindAddr: *bindAddr,
+	}, nil
 }
 
 type Reply struct {

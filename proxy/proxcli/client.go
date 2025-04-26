@@ -164,7 +164,10 @@ func connectSOCKS(proxyConn net.Conn, h *addr.Host, resolveLocally bool) error {
 		dstHost = addr.NewHost(ip4.String(), h.Port)
 	}
 
-	connReq := socks4.NewRequest(socks4.CommandConnect, dstHost)
+	connReq := socks4.Request{
+		Command: socks4.CommandConnect,
+		DstAddr: *dstHost,
+	}
 	if err := connReq.Write(proxyConn); err != nil {
 		return fmt.Errorf("SOCKS CONNECT: %w", err)
 	}

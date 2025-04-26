@@ -11,16 +11,6 @@ import (
 	"github.com/cerfical/socks2http/addr"
 )
 
-func NewRequest(c Command, dstAddr *addr.Host) *Request {
-	r := Request{
-		Command: c,
-	}
-	if dstAddr != nil {
-		r.DstAddr = *dstAddr
-	}
-	return &r
-}
-
 func ReadRequest(r *bufio.Reader) (*Request, error) {
 	version, err := r.Peek(1)
 	if err != nil {

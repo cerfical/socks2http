@@ -100,7 +100,9 @@ func TestReply_Write_SOCKS4(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := encodeSOCKSReply(test.reply, nil)
+			reply := socks4.Reply{Status: test.reply}
+
+			got, err := encodeSOCKSReply(&reply)
 			require.NoError(t, err)
 
 			want := []byte{ReplyVersion, test.want, 0, 0, 0, 0, 0, 0}
@@ -109,7 +111,12 @@ func TestReply_Write_SOCKS4(t *testing.T) {
 	}
 
 	t.Run("encodes a non-empty BIND address", func(t *testing.T) {
-		got, err := encodeSOCKSReply(socks4.StatusGranted, addr.NewHost("127.0.0.1", 1080))
+		reply := socks4.Reply{
+			Status:   socks4.StatusGranted,
+			BindAddr: *addr.NewHost("127.0.0.1", 1080),
+		}
+
+		got, err := encodeSOCKSReply(&reply)
 		require.NoError(t, err)
 
 		want := []byte{ReplyVersion, RequestGranted, 0x04, 0x38, 127, 0, 0, 1}
@@ -117,7 +124,8 @@ func TestReply_Write_SOCKS4(t *testing.T) {
 	})
 
 	t.Run("ignores an empty BIND address", func(t *testing.T) {
-		got, err := encodeSOCKSReply(socks4.StatusGranted, nil)
+		reply := socks4.Reply{Status: socks4.StatusGranted}
+		got, err := encodeSOCKSReply(&reply)
 		require.NoError(t, err)
 
 		want := []byte{ReplyVersion, RequestGranted, 0, 0, 0, 0, 0, 0}
@@ -125,7 +133,12 @@ func TestReply_Write_SOCKS4(t *testing.T) {
 	})
 
 	t.Run("rejects BIND addresses specified as non-IPv4 address", func(t *testing.T) {
-		_, err := encodeSOCKSReply(socks4.StatusGranted, addr.NewHost("localhost", 0))
+		reply := socks4.Reply{
+			Status:   socks4.StatusGranted,
+			BindAddr: *addr.NewHost("localhost", 0),
+		}
+
+		_, err := encodeSOCKSReply(&reply)
 		require.Error(t, err)
 	})
 }
@@ -138,11 +151,9 @@ func decodeSOCKSReply(b []byte) (*socks4.Reply, error) {
 	)
 }
 
-func encodeSOCKSReply(s socks4.Status, bindAddr *addr.Host) ([]byte, error) {
-	reply := socks4.NewReply(s, bindAddr)
-
+func encodeSOCKSReply(r *socks4.Reply) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := reply.Write(&buf); err != nil {
+	if err := r.Write(&buf); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
