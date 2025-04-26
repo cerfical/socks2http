@@ -129,11 +129,11 @@ func (t *ServerTest) TestServe_SOCKS() {
 
 		proxyConn := t.openProxyConn(addr.SOCKS4, proxy)
 
-		req := socks4.NewRequest(socks4.Connect, dstHost)
+		req := socks4.NewRequest(socks4.CommandConnect, dstHost)
 		t.writeSOCKSRequest(req, proxyConn)
 
 		reply := t.readSOCKSReply(proxyConn)
-		t.Equal(socks4.Granted, reply.Code)
+		t.Equal(socks4.StatusGranted, reply.Status)
 	})
 
 	t.Run("responds to CONNECT with Request-Rejected if the destination is unreachable", func() {
@@ -146,11 +146,11 @@ func (t *ServerTest) TestServe_SOCKS() {
 
 		proxyConn := t.openProxyConn(addr.SOCKS4, proxy)
 
-		req := socks4.NewRequest(socks4.Connect, dstHost)
+		req := socks4.NewRequest(socks4.CommandConnect, dstHost)
 		t.writeSOCKSRequest(req, proxyConn)
 
 		reply := t.readSOCKSReply(proxyConn)
-		t.Equal(socks4.Rejected, reply.Code)
+		t.Equal(socks4.StatusRejectedOrFailed, reply.Status)
 	})
 }
 

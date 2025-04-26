@@ -3,13 +3,13 @@ package socks4
 import "fmt"
 
 const (
-	Connect Command = 0x01
-	Bind    Command = 0x02
+	CommandConnect Command = 0x01
+	CommandBind    Command = 0x02
 )
 
 var commands = map[Command]string{
-	Connect: "CONNECT",
-	Bind:    "BIND",
+	CommandConnect: "CONNECT",
+	CommandBind:    "BIND",
 }
 
 type Command byte

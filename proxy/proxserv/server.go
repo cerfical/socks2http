@@ -255,10 +255,10 @@ func (s *Server) serveSOCKS(ctx context.Context, clientConn net.Conn) error {
 
 	done, err := s.proxy.OpenTunnel(ctx, clientConn, &req.DstAddr)
 	if err != nil {
-		writeSOCKSReply(socks4.Rejected, clientConn)
+		writeSOCKSReply(socks4.StatusRejectedOrFailed, clientConn)
 		return fmt.Errorf("open tunnel to %v: %w", &req.DstAddr, err)
 	}
-	writeSOCKSReply(socks4.Granted, clientConn)
+	writeSOCKSReply(socks4.StatusGranted, clientConn)
 	return <-done
 }
 
@@ -299,7 +299,7 @@ func writeHTTPStatus(status int, clientConn net.Conn) {
 	r.Write(clientConn)
 }
 
-func writeSOCKSReply(s socks4.ReplyCode, clientConn net.Conn) {
+func writeSOCKSReply(s socks4.Status, clientConn net.Conn) {
 	reply := socks4.NewReply(s, nil)
 	reply.Write(clientConn)
 }

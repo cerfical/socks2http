@@ -7,23 +7,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestReplyCode_String(t *testing.T) {
+func TestStatus_String(t *testing.T) {
 	tests := map[string]struct {
-		reply socks4.ReplyCode
+		input socks4.Status
 		want  string
 	}{
-		"prints valid reply codes as reply message followed by reply code in hex": {
-			socks4.Granted, "Request Granted (0x5a)",
+		"prints valid statuses as short description followed by status code in hex": {
+			socks4.StatusGranted, "Request Granted (0x5a)",
 		},
 
-		"prints invalid reply codes as an empty string": {
+		"prints invalid statuses as an empty string": {
 			0x17, "",
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got := test.reply.String()
+			got := test.input.String()
 			assert.Equal(t, test.want, got)
 		})
 	}

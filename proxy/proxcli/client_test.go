@@ -44,9 +44,9 @@ func (t *ClientTest) TestDial() {
 
 		req := t.readSOCKSRequest(proxyConn)
 		t.Equal(dstHost, &req.DstAddr)
-		t.Equal(socks4.Connect, req.Command)
+		t.Equal(socks4.CommandConnect, req.Command)
 
-		t.writeSOCKSReply(socks4.Granted, proxyConn)
+		t.writeSOCKSReply(socks4.StatusGranted, proxyConn)
 	})
 
 	t.Run("connects to a SOCKS4a proxy", func() {
@@ -55,9 +55,9 @@ func (t *ClientTest) TestDial() {
 
 		req := t.readSOCKSRequest(proxyConn)
 		t.Equal(dstHost, &req.DstAddr)
-		t.Equal(socks4.Connect, req.Command)
+		t.Equal(socks4.CommandConnect, req.Command)
 
-		t.writeSOCKSReply(socks4.Granted, proxyConn)
+		t.writeSOCKSReply(socks4.StatusGranted, proxyConn)
 	})
 
 	t.Run("establishes a direct connection to the destination if Direct is used", func() {
@@ -192,7 +192,7 @@ func (t *ClientTest) readHTTPRequest(r io.Reader) *http.Request {
 	return req
 }
 
-func (t *ClientTest) writeSOCKSReply(s socks4.ReplyCode, w io.Writer) {
+func (t *ClientTest) writeSOCKSReply(s socks4.Status, w io.Writer) {
 	t.T().Helper()
 
 	reply := socks4.NewReply(s, nil)

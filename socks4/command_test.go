@@ -13,7 +13,7 @@ func TestCommand_String(t *testing.T) {
 		want  string
 	}{
 		"prints valid command codes as command name followed by command code in hex": {
-			input: socks4.Connect,
+			input: socks4.CommandConnect,
 			want:  "CONNECT (0x01)",
 		},
 

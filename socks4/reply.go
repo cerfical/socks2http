@@ -11,8 +11,8 @@ import (
 
 const replyVersion = 0
 
-func NewReply(c ReplyCode, bindAddr *addr.Host) *Reply {
-	r := Reply{Code: c}
+func NewReply(s Status, bindAddr *addr.Host) *Reply {
+	r := Reply{Status: s}
 	if bindAddr != nil {
 		r.BindAddr = *bindAddr
 	}
@@ -34,18 +34,18 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 	}
 
 	bindAddr := addr.NewHost(addr.IPv4(h.BindIP).String(), h.BindPort)
-	return NewReply(ReplyCode(h.Code), bindAddr), nil
+	return NewReply(Status(h.Code), bindAddr), nil
 }
 
 type Reply struct {
-	Code     ReplyCode
+	Status   Status
 	BindAddr addr.Host
 }
 
 func (r *Reply) Write(w io.Writer) error {
 	h := replyHeader{
 		Version:  replyVersion,
-		Code:     byte(r.Code),
+		Code:     byte(r.Status),
 		BindPort: r.BindAddr.Port,
 	}
 

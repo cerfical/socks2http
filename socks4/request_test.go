@@ -32,12 +32,12 @@ func TestReadRequest_SOCKS4(t *testing.T) {
 	}{
 		"decodes a CONNECT command": {
 			input: ConnectCommand,
-			want:  socks4.Connect,
+			want:  socks4.CommandConnect,
 		},
 
 		"decodes a BIND command": {
 			input: BindCommand,
-			want:  socks4.Bind,
+			want:  socks4.CommandBind,
 		},
 	}
 	for name, test := range validCommands {
@@ -88,12 +88,12 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 		want    byte
 	}{
 		"encodes a CONNECT command": {
-			command: socks4.Connect,
+			command: socks4.CommandConnect,
 			want:    ConnectCommand,
 		},
 
 		"encodes a BIND command": {
-			command: socks4.Bind,
+			command: socks4.CommandBind,
 			want:    BindCommand,
 		},
 	}
@@ -109,7 +109,7 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	}
 
 	t.Run("encodes an IPv4 destination address", func(t *testing.T) {
-		req := socks4.NewRequest(socks4.Connect, addr.NewHost("127.0.0.1", 1080))
+		req := socks4.NewRequest(socks4.CommandConnect, addr.NewHost("127.0.0.1", 1080))
 
 		got, err := encodeSOCKSRequest(req)
 		require.NoError(t, err)
@@ -119,7 +119,7 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	})
 
 	t.Run("encodes a non-IPv4 destination address", func(t *testing.T) {
-		req := socks4.NewRequest(socks4.Connect, addr.NewHost("localhost", 1080))
+		req := socks4.NewRequest(socks4.CommandConnect, addr.NewHost("localhost", 1080))
 
 		got, err := encodeSOCKSRequest(req)
 		require.NoError(t, err)
@@ -129,7 +129,7 @@ func TestRequest_Write_SOCKS4(t *testing.T) {
 	})
 
 	t.Run("encodes an username", func(t *testing.T) {
-		req := socks4.NewRequest(socks4.Connect, addr.NewHost("127.0.0.1", 1080))
+		req := socks4.NewRequest(socks4.CommandConnect, addr.NewHost("127.0.0.1", 1080))
 		req.Username = "root"
 
 		got, err := encodeSOCKSRequest(req)
