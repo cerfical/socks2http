@@ -5,48 +5,50 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"strings"
-	"unsafe"
+	"slices"
 
 	"github.com/cerfical/socks2http/addr"
 )
 
 func ReadRequest(r *bufio.Reader) (*Request, error) {
-	version, err := r.Peek(1)
-	if err != nil {
+	if err := checkVersion(r, VersionCode); err != nil {
 		return nil, fmt.Errorf("decode version: %w", err)
 	}
+	r.Discard(1)
 
-	if v := version[0]; v != VersionCode {
-		return nil, fmt.Errorf("invalid version (%v)", hexByte(v))
+	command, err := r.ReadByte()
+	if err != nil {
+		return nil, fmt.Errorf("decode command: %w", err)
 	}
 
-	var h requestHeader
-	if err := binary.Read(r, binary.BigEndian, &h); err != nil {
-		return nil, fmt.Errorf("decode header: %w", err)
+	dstIP4, dstPort, err := readAddr(r)
+	if err != nil {
+		return nil, fmt.Errorf("decode destination address: %w", err)
 	}
 
-	un, err := readNullString(r)
+	username, err := r.ReadString('\x00')
 	if err != nil {
 		return nil, fmt.Errorf("decode username: %w", err)
 	}
+	username = username[:len(username)-1] // Remove the null terminator
 
-	dstAddr := addr.NewHost(h.DstIP.String(), h.DstPort)
-	if strings.HasPrefix(dstAddr.Hostname, "0.0.0") {
+	hostname := ""
+	if slices.Equal(dstIP4[:3], []byte{0, 0, 0}) {
 		// The destination address is a hostname
-		hn, err := readNullString(r)
+		hostname, err = r.ReadString('\x00')
 		if err != nil {
 			return nil, fmt.Errorf("decode destination hostname: %w", err)
 		}
-		dstAddr.Hostname = hn
+		hostname = hostname[:len(hostname)-1] // Remove the null terminator
+	} else {
+		hostname = dstIP4.String()
 	}
 
-	req := Request{
-		Command:  Command(h.Command),
-		DstAddr:  *dstAddr,
-		Username: un,
-	}
-	return &req, nil
+	return &Request{
+		Command(command),
+		*addr.NewHost(hostname, dstPort),
+		username,
+	}, nil
 }
 
 type Request struct {
@@ -56,30 +58,22 @@ type Request struct {
 }
 
 func (r *Request) Write(w io.Writer) error {
+	bytes := []byte{VersionCode, byte(r.Command)}
 	var (
 		dstIP       addr.IPv4
 		dstHostname string
 	)
 
+	// Append destination IPv4 address and port
+	bytes = binary.BigEndian.AppendUint16(bytes, r.DstAddr.Port)
 	if ip4, ok := r.DstAddr.ToIPv4(); ok {
 		dstIP = ip4
 	} else {
 		dstHostname = r.DstAddr.Hostname
 	}
+	bytes = append(bytes, dstIP[:]...)
 
-	h := requestHeader{
-		Version: VersionCode,
-		Command: byte(r.Command),
-		DstPort: r.DstAddr.Port,
-		DstIP:   dstIP,
-	}
-
-	bytes := make([]byte, unsafe.Sizeof(h))
-	if _, err := binary.Encode(bytes, binary.BigEndian, &h); err != nil {
-		return fmt.Errorf("encode header: %w", err)
-	}
-
-	// Append the username bytes
+	// Append the username
 	bytes = append(bytes, []byte(r.Username)...)
 	bytes = append(bytes, 0)
 
@@ -91,26 +85,4 @@ func (r *Request) Write(w io.Writer) error {
 
 	_, err := w.Write(bytes)
 	return err
-}
-
-type requestHeader struct {
-	Version byte
-	Command byte
-	DstPort uint16
-	DstIP   addr.IPv4
-}
-
-func readNullString(r *bufio.Reader) (string, error) {
-	var buf []byte
-	for {
-		b, err := r.ReadByte()
-		if err != nil {
-			return "", fmt.Errorf("read byte: %w", err)
-		}
-		if b == 0 {
-			break
-		}
-		buf = append(buf, b)
-	}
-	return string(buf), nil
 }
