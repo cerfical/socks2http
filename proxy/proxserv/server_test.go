@@ -16,6 +16,7 @@ import (
 	"github.com/cerfical/socks2http/proxy"
 	"github.com/cerfical/socks2http/proxy/proxserv"
 	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks5"
 	"github.com/cerfical/socks2http/test/mocks"
 	"github.com/cerfical/socks2http/test/stubs"
 	"github.com/stretchr/testify/mock"
@@ -153,6 +154,84 @@ func (t *ServerTest) TestServe_SOCKS() {
 	})
 }
 
+func (t *ServerTest) TestServe_SOCKS5() {
+	t.Run("CONNECT opens a tunnel to destination", func() {
+		dstHost := addr.NewHost("localhost", 1111)
+
+		proxy := mocks.NewProxy(t.T())
+		proxy.EXPECT().
+			OpenTunnel(mock.Anything, mock.Anything, dstHost).
+			Return(dummyChan(), nil)
+
+		proxyConn := t.openProxyConn(addr.SOCKS5, proxy)
+		t.socks5Authenticate(proxyConn)
+
+		req := socks5.Request{
+			Command: socks5.CommandConnect,
+			DstAddr: *dstHost,
+		}
+		t.Require().NoError(req.Write(proxyConn))
+
+		reply, err := socks5.ReadReply(bufio.NewReader(proxyConn))
+		t.Require().NoError(err)
+
+		t.Equal(socks5.StatusOK, reply.Status)
+	})
+
+	t.Run("replies to non-CONNECT requests with Command-Not-Supported", func() {
+		dstHost := addr.NewHost("localhost", 1111)
+
+		proxyConn := t.openProxyConn(addr.SOCKS5, nil)
+		t.socks5Authenticate(proxyConn)
+
+		req := socks5.Request{
+			Command: socks5.CommandBind,
+			DstAddr: *dstHost,
+		}
+		t.Require().NoError(req.Write(proxyConn))
+
+		reply, err := socks5.ReadReply(bufio.NewReader(proxyConn))
+		t.Require().NoError(err)
+
+		t.Equal(socks5.StatusCommandNotSupported, reply.Status)
+	})
+
+	t.Run("replies to unsupported auth methods with Not-Acceptable", func() {
+		proxyConn := t.openProxyConn(addr.SOCKS5, nil)
+
+		greet := socks5.Greeting{AuthMethods: []socks5.AuthMethod{0xf0}}
+		t.Require().NoError(greet.Write(proxyConn))
+
+		greetReply, err := socks5.ReadGreetingReply(bufio.NewReader(proxyConn))
+		t.Require().NoError(err)
+
+		t.Equal(socks5.AuthNotAcceptable, greetReply.AuthMethod)
+	})
+
+	t.Run("replies to CONNECT with Host-Unreachable if destination is unreachable", func() {
+		dstHost := addr.NewHost("localhost", 1111)
+
+		proxy := mocks.NewProxy(t.T())
+		proxy.EXPECT().
+			OpenTunnel(mock.Anything, mock.Anything, dstHost).
+			Return(nil, errors.New("unreachable host"))
+
+		proxyConn := t.openProxyConn(addr.SOCKS5, proxy)
+		t.socks5Authenticate(proxyConn)
+
+		req := socks5.Request{
+			Command: socks5.CommandConnect,
+			DstAddr: *dstHost,
+		}
+		t.Require().NoError(req.Write(proxyConn))
+
+		reply, err := socks5.ReadReply(bufio.NewReader(proxyConn))
+		t.Require().NoError(err)
+
+		t.Equal(socks5.StatusHostUnreachable, reply.Status)
+	})
+}
+
 func (t *ServerTest) openProxyConn(proto string, p proxy.Proxy) net.Conn {
 	server, err := proxserv.New(
 		proxserv.WithProto(proto),
@@ -178,6 +257,18 @@ func (t *ServerTest) openProxyConn(proto string, p proxy.Proxy) net.Conn {
 	t.T().Cleanup(func() { conn.Close() })
 
 	return conn
+}
+
+func (t *ServerTest) socks5Authenticate(c net.Conn) {
+	greet := socks5.Greeting{
+		AuthMethods: []socks5.AuthMethod{socks5.AuthNone},
+	}
+	t.Require().NoError(greet.Write(c))
+
+	greetReply, err := socks5.ReadGreetingReply(bufio.NewReader(c))
+	t.Require().NoError(err)
+
+	t.Equal(socks5.AuthNone, greetReply.AuthMethod)
 }
 
 func (t *ServerTest) readHTTPResponse(r io.Reader) *http.Response {

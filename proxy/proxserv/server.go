@@ -15,6 +15,7 @@ import (
 	"github.com/cerfical/socks2http/log"
 	"github.com/cerfical/socks2http/proxy"
 	"github.com/cerfical/socks2http/socks"
+	"github.com/cerfical/socks2http/socks5"
 )
 
 func New(ops ...Option) (*Server, error) {
@@ -32,6 +33,8 @@ func New(ops ...Option) (*Server, error) {
 	switch s.proto {
 	case addr.SOCKS, addr.SOCKS4, addr.SOCKS4a:
 		s.serveConn = s.serveSOCKS
+	case addr.SOCKS5:
+		s.serveConn = s.socks5Serve
 	case addr.HTTP:
 		s.serveConn = s.serveHTTP
 	default:
@@ -167,6 +170,78 @@ func (s *Server) serveHTTP(ctx context.Context, clientConn net.Conn) error {
 	return resp.Write(clientConn)
 }
 
+func (s *Server) socks5Serve(ctx context.Context, clientConn net.Conn) error {
+	if err := s.socks5Authenticate(clientConn); err != nil {
+		s.log.Error("Failed to perform SOCKS5 authentication", err)
+		return nil
+	}
+
+	if err := s.socks5ServeRequest(ctx, clientConn); err != nil {
+		s.log.Error("Failed to serve a SOCKS5 request", err)
+		return nil
+	}
+	return nil
+}
+
+func (s *Server) socks5Authenticate(clientConn net.Conn) error {
+	greet, err := socks5.ReadGreeting(bufio.NewReader(clientConn))
+	if err != nil {
+		return fmt.Errorf("decode greeting: %w", err)
+	}
+	s.log.Info("SOCKS5 greeting", "auth_methods", greet.AuthMethods)
+
+	greetReply := socks5.GreetingReply{
+		AuthMethod: selectSOCKS5AuthMethod(greet.AuthMethods),
+	}
+	s.log.Info("SOCKS5 greeting reply", "auth_method", greetReply.AuthMethod)
+
+	if err := greetReply.Write(clientConn); err != nil {
+		return fmt.Errorf("encode greeting reply: %w", err)
+	}
+
+	if greetReply.AuthMethod == socks5.AuthNotAcceptable {
+		return errors.New("no acceptable auth method was selected")
+	}
+
+	return nil
+}
+
+func (s *Server) socks5ServeRequest(ctx context.Context, clientConn net.Conn) error {
+	req, err := socks5.ReadRequest(bufio.NewReader(clientConn))
+	if err != nil {
+		return fmt.Errorf("decode request: %w", err)
+	}
+	s.log.Info("SOCKS5 request", "command", req.Command, "destination", &req.DstAddr)
+
+	status := socks5.StatusOK
+	switch req.Command {
+	case socks5.CommandConnect:
+		tunnelDone, err := s.proxy.OpenTunnel(ctx, clientConn, &req.DstAddr)
+		if err != nil {
+			s.log.Error("Failed to open a SOCKS5 proxy tunnel", err)
+			status = socks5.StatusHostUnreachable
+			break
+		}
+
+		defer func() {
+			if err := <-tunnelDone; err != nil {
+				s.log.Error("SOCKS5 proxy tunnel closed unexpectedly", err)
+			}
+		}()
+	default:
+		status = socks5.StatusCommandNotSupported
+	}
+
+	reply := socks5.Reply{Status: status}
+	s.log.Info("SOCKS5 reply", "status", reply.Status)
+
+	if err := reply.Write(clientConn); err != nil {
+		return fmt.Errorf("encode reply: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Server) serveSOCKS(ctx context.Context, clientConn net.Conn) error {
 	req, err := socks.ReadRequest(bufio.NewReader(clientConn))
 	if err != nil {
@@ -229,4 +304,13 @@ func writeHTTPStatus(status int, clientConn net.Conn) {
 func writeSOCKSReply(s socks.ReplyCode, clientConn net.Conn) {
 	reply := socks.NewReply(s, nil)
 	reply.Write(clientConn)
+}
+
+func selectSOCKS5AuthMethod(methods []socks5.AuthMethod) socks5.AuthMethod {
+	for _, m := range methods {
+		if m == socks5.AuthNone {
+			return m
+		}
+	}
+	return socks5.AuthNotAcceptable
 }
