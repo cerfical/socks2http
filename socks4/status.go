@@ -24,3 +24,7 @@ func (s Status) String() string {
 	}
 	return fmt.Sprintf("Invalid Status (%v)", hexByte(s))
 }
+
+func (s Status) MarshalText() ([]byte, error) {
+	return []byte(s.String()), nil
+}

@@ -20,3 +20,7 @@ func (c Command) String() string {
 	}
 	return fmt.Sprintf("Invalid Command (%v)", hexByte(c))
 }
+
+func (c Command) MarshalText() ([]byte, error) {
+	return []byte(c.String()), nil
+}
