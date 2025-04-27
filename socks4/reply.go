@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"slices"
 
 	"github.com/cerfical/socks2http/addr"
 )
@@ -22,14 +23,26 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 		return nil, fmt.Errorf("decode status: %w", err)
 	}
 
-	bindIP4, bindPort, err := readAddr(r)
+	bindIP, bindPort, err := readAddr(r)
 	if err != nil {
 		return nil, fmt.Errorf("decode bind address: %w", err)
 	}
 
+	bindAddr := ""
+	if slices.Equal(bindIP[:3], []byte{0, 0, 0}) && bindIP[3] != 0 {
+		// The bind address is a hostname
+		bindAddr, err = r.ReadString('\x00')
+		if err != nil {
+			return nil, fmt.Errorf("decode bind hostname: %w", err)
+		}
+		bindAddr = bindAddr[:len(bindAddr)-1] // Remove the null terminator
+	} else {
+		bindAddr = bindIP.String()
+	}
+
 	return &Reply{
 		Status(status),
-		*addr.NewHost(bindIP4.String(), bindPort),
+		*addr.NewHost(bindAddr, bindPort),
 	}, nil
 }
 
@@ -40,19 +53,26 @@ type Reply struct {
 
 func (r *Reply) Write(w io.Writer) error {
 	bytes := []byte{replyVersion, byte(r.Status)}
+	var (
+		bindIP   addr.IPv4
+		bindAddr string
+	)
 
 	// Append bind IPv4 address and port
 	bytes = binary.BigEndian.AppendUint16(bytes, r.BindAddr.Port)
-
-	var bindIP addr.IPv4
-	if r.BindAddr.Hostname != "" {
-		ip, ok := r.BindAddr.ToIPv4()
-		if !ok {
-			return fmt.Errorf("not an IPv4 address: %v", r.BindAddr.Hostname)
-		}
-		bindIP = ip
+	if ip4, ok := r.BindAddr.ToIPv4(); ok {
+		bindIP = ip4
+	} else {
+		bindIP[3] = 1
+		bindAddr = r.BindAddr.Hostname
 	}
 	bytes = append(bytes, bindIP[:]...)
+
+	// Append the bind hostname, if any
+	if len(bindAddr) > 0 {
+		bytes = append(bytes, []byte(bindAddr)...)
+		bytes = append(bytes, 0)
+	}
 
 	_, err := w.Write(bytes)
 	return err

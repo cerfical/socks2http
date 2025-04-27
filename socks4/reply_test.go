@@ -28,15 +28,26 @@ func (t *ReplyTest) TestRead() {
 	})
 
 	t.Run("decodes a bind IPv4 address", func() {
-		got, err := decodeReply([]byte{0, 90, 0, 0, 127, 0, 0, 1})
+		got, err := decodeReply([]byte{0, 0, 0, 0, 127, 0, 0, 1})
 		t.Require().NoError(err)
 
 		want := "127.0.0.1"
 		t.Equal(want, got.BindAddr.Hostname)
 	})
 
+	t.Run("decodes a bind hostname", func() {
+		got, err := decodeReply([]byte{
+			0, 0, 0, 0, 0, 0, 0, 1,
+			'l', 'o', 'c', 'a', 'l', 'h', 'o', 's', 't', 0,
+		})
+		t.Require().NoError(err)
+
+		want := "localhost"
+		t.Equal(want, got.BindAddr.Hostname)
+	})
+
 	t.Run("decodes a bind port", func() {
-		got, err := decodeReply([]byte{0, 90, 0x04, 0x38, 0, 0, 0, 0})
+		got, err := decodeReply([]byte{0, 0, 0x04, 0x38, 0, 0, 0, 0})
 		t.Require().NoError(err)
 
 		want := uint16(1080)
@@ -84,6 +95,18 @@ func (t *ReplyTest) TestWrite() {
 		t.Equal(want, got[4:8])
 	})
 
+	t.Run("encodes a bind hostname", func() {
+		r := socks4.Reply{
+			BindAddr: *addr.NewHost("localhost", 0),
+		}
+
+		got, err := encodeReply(&r)
+		t.Require().NoError(err)
+
+		want := []byte{'l', 'o', 'c', 'a', 'l', 'h', 'o', 's', 't', 0}
+		t.Equal(want, got[8:])
+	})
+
 	t.Run("encodes a bind port", func() {
 		r := socks4.Reply{
 			BindAddr: *addr.NewHost("", 1080),
@@ -94,15 +117,6 @@ func (t *ReplyTest) TestWrite() {
 
 		want := []byte{0x04, 0x38}
 		t.Equal(want, got[2:4])
-	})
-
-	t.Run("rejects non-IPv4 bind addresses", func() {
-		reply := socks4.Reply{
-			BindAddr: *addr.NewHost("localhost", 0),
-		}
-
-		_, err := encodeReply(&reply)
-		t.Require().Error(err)
 	})
 }
 

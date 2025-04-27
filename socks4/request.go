@@ -21,7 +21,7 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 		return nil, fmt.Errorf("decode command: %w", err)
 	}
 
-	dstIP4, dstPort, err := readAddr(r)
+	dstIP, dstPort, err := readAddr(r)
 	if err != nil {
 		return nil, fmt.Errorf("decode destination address: %w", err)
 	}
@@ -32,21 +32,21 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 	}
 	username = username[:len(username)-1] // Remove the null terminator
 
-	hostname := ""
-	if slices.Equal(dstIP4[:3], []byte{0, 0, 0}) {
+	dstAddr := ""
+	if slices.Equal(dstIP[:3], []byte{0, 0, 0}) && dstIP[3] != 0 {
 		// The destination address is a hostname
-		hostname, err = r.ReadString('\x00')
+		dstAddr, err = r.ReadString('\x00')
 		if err != nil {
 			return nil, fmt.Errorf("decode destination hostname: %w", err)
 		}
-		hostname = hostname[:len(hostname)-1] // Remove the null terminator
+		dstAddr = dstAddr[:len(dstAddr)-1] // Remove the null terminator
 	} else {
-		hostname = dstIP4.String()
+		dstAddr = dstIP.String()
 	}
 
 	return &Request{
 		Command(command),
-		*addr.NewHost(hostname, dstPort),
+		*addr.NewHost(dstAddr, dstPort),
 		username,
 	}, nil
 }
@@ -60,8 +60,8 @@ type Request struct {
 func (r *Request) Write(w io.Writer) error {
 	bytes := []byte{VersionCode, byte(r.Command)}
 	var (
-		dstIP       addr.IPv4
-		dstHostname string
+		dstIP   addr.IPv4
+		dstAddr string
 	)
 
 	// Append destination IPv4 address and port
@@ -69,7 +69,8 @@ func (r *Request) Write(w io.Writer) error {
 	if ip4, ok := r.DstAddr.ToIPv4(); ok {
 		dstIP = ip4
 	} else {
-		dstHostname = r.DstAddr.Hostname
+		dstIP[3] = 1
+		dstAddr = r.DstAddr.Hostname
 	}
 	bytes = append(bytes, dstIP[:]...)
 
@@ -78,8 +79,8 @@ func (r *Request) Write(w io.Writer) error {
 	bytes = append(bytes, 0)
 
 	// Append the destination hostname, if any
-	if len(dstHostname) > 0 {
-		bytes = append(bytes, []byte(dstHostname)...)
+	if len(dstAddr) > 0 {
+		bytes = append(bytes, []byte(dstAddr)...)
 		bytes = append(bytes, 0)
 	}
 
