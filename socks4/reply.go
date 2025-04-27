@@ -29,13 +29,17 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 	}
 
 	bindAddr := ""
-	if slices.Equal(bindIP[:3], []byte{0, 0, 0}) && bindIP[3] != 0 {
-		// The bind address is a hostname
-		bindAddr, err = r.ReadString('\x00')
-		if err != nil {
-			return nil, fmt.Errorf("decode bind hostname: %w", err)
+	if slices.Equal(bindIP[:3], []byte{0, 0, 0}) {
+		if bindIP[3] != 0 {
+			// The bind address is a hostname
+			bindAddr, err = r.ReadString('\x00')
+			if err != nil {
+				return nil, fmt.Errorf("decode bind hostname: %w", err)
+			}
+			bindAddr = bindAddr[:len(bindAddr)-1] // Remove the null terminator
+		} else {
+			bindAddr = ""
 		}
-		bindAddr = bindAddr[:len(bindAddr)-1] // Remove the null terminator
 	} else {
 		bindAddr = bindIP.String()
 	}
@@ -60,11 +64,15 @@ func (r *Reply) Write(w io.Writer) error {
 
 	// Append bind IPv4 address and port
 	bytes = binary.BigEndian.AppendUint16(bytes, r.BindAddr.Port)
-	if ip4, ok := r.BindAddr.ToIPv4(); ok {
-		bindIP = ip4
+	if r.BindAddr.Hostname != "" {
+		if ip4, ok := r.BindAddr.ToIPv4(); ok {
+			bindIP = ip4
+		} else {
+			bindIP[3] = 1
+			bindAddr = r.BindAddr.Hostname
+		}
 	} else {
-		bindIP[3] = 1
-		bindAddr = r.BindAddr.Hostname
+		bindIP = addr.IPv4{0, 0, 0, 0}
 	}
 	bytes = append(bytes, bindIP[:]...)
 

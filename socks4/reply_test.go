@@ -46,6 +46,14 @@ func (t *ReplyTest) TestRead() {
 		t.Equal(want, got.BindAddr.Hostname)
 	})
 
+	t.Run("decodes an empty bind address", func() {
+		got, err := decodeReply([]byte{0, 0, 0, 0, 0x00, 0x00, 0x00, 0x00})
+		t.Require().NoError(err)
+
+		want := ""
+		t.Equal(want, got.BindAddr.Hostname)
+	})
+
 	t.Run("decodes a bind port", func() {
 		got, err := decodeReply([]byte{0, 0, 0x04, 0x38, 0, 0, 0, 0})
 		t.Require().NoError(err)
@@ -105,6 +113,18 @@ func (t *ReplyTest) TestWrite() {
 
 		want := []byte{'l', 'o', 'c', 'a', 'l', 'h', 'o', 's', 't', 0}
 		t.Equal(want, got[8:])
+	})
+
+	t.Run("encodes an empty bind address", func() {
+		r := socks4.Reply{
+			BindAddr: *addr.NewHost("", 0),
+		}
+
+		got, err := encodeReply(&r)
+		t.Require().NoError(err)
+
+		want := []byte{0, 0, 0, 0}
+		t.Equal(want, got[4:8])
 	})
 
 	t.Run("encodes a bind port", func() {

@@ -46,6 +46,14 @@ func (t *RequestTest) TestRead() {
 		t.Equal(want, got.DstAddr.Hostname)
 	})
 
+	t.Run("decodes an empty destination address", func() {
+		got, err := decodeRequest([]byte{4, 0, 0, 0, 0x00, 0x00, 0x00, 0x00, 0})
+		t.Require().NoError(err)
+
+		want := ""
+		t.Equal(want, got.DstAddr.Hostname)
+	})
+
 	t.Run("decodes a destination port", func() {
 		got, err := decodeRequest([]byte{4, 0, 0x04, 0x38, 127, 0, 0, 1, 0})
 		t.Require().NoError(err)
@@ -113,6 +121,18 @@ func (t *RequestTest) TestWrite() {
 
 		want := []byte{'l', 'o', 'c', 'a', 'l', 'h', 'o', 's', 't', 0}
 		t.Equal(want, got[9:])
+	})
+
+	t.Run("encodes an destination address", func() {
+		r := socks4.Request{
+			DstAddr: *addr.NewHost("", 0),
+		}
+
+		got, err := encodeRequest(&r)
+		t.Require().NoError(err)
+
+		want := []byte{0, 0, 0, 0}
+		t.Equal(want, got[4:8])
 	})
 
 	t.Run("encodes a destination port", func() {
