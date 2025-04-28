@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/proxy"
@@ -27,20 +28,16 @@ func New(ops ...Option) (*Client, error) {
 	}
 
 	switch proto := c.proxyAddr.Scheme; proto {
-	case addr.SOCKS4:
+	case addr.SOCKS4, addr.SOCKS4a:
 		c.connect = func(c net.Conn, h *addr.Host) error {
-			return connectSOCKS(c, h, true)
-		}
-	case addr.SOCKS, addr.SOCKS4a:
-		c.connect = func(c net.Conn, h *addr.Host) error {
-			return connectSOCKS(c, h, false)
+			return socks4Connect(c, h, proto == addr.SOCKS4)
 		}
 	case addr.SOCKS5, addr.SOCKS5h:
 		c.connect = func(c net.Conn, h *addr.Host) error {
 			return socks5Connect(c, h, proto == addr.SOCKS5)
 		}
 	case addr.HTTP:
-		c.connect = connectHTTP
+		c.connect = httpConnect
 	case addr.Direct:
 		c.connect = nil
 	default:
@@ -71,7 +68,7 @@ type Client struct {
 }
 
 func (c *Client) Dial(ctx context.Context, h *addr.Host) (net.Conn, error) {
-	// Connect to the server directly if no proxy is used
+	// Connect to destination directly if no proxy is used
 	if c.connect == nil {
 		return c.dialer.Dial(ctx, h)
 	}
@@ -80,15 +77,14 @@ func (c *Client) Dial(ctx context.Context, h *addr.Host) (net.Conn, error) {
 	proxyHost := &c.proxyAddr.Host
 	proxyConn, err := c.dialer.Dial(ctx, proxyHost)
 	if err != nil {
-		return nil, fmt.Errorf("connect to proxy %v: %w", proxyHost, err)
+		return nil, fmt.Errorf("dial proxy %v: %w", proxyHost, err)
 	}
 
-	// And connect the proxy to the destination server
+	// And connect the proxy to destination
 	if err := c.connect(proxyConn, h); err != nil {
 		proxyConn.Close()
-		return nil, fmt.Errorf("connect to %v: %w", h, err)
+		return nil, fmt.Errorf("%v connect: %w", strings.ToUpper(c.proxyAddr.Scheme), err)
 	}
-
 	return proxyConn, nil
 }
 
@@ -101,49 +97,37 @@ func socks5Connect(proxyConn net.Conn, dstAddr *addr.Host, resolveLocally bool) 
 		dstAddr = addr.NewHost(ip4.String(), dstAddr.Port)
 	}
 
-	if err := socks5Authenticate(proxyConn); err != nil {
-		return fmt.Errorf("SOCKS5 authenticate: %w", err)
-	}
-	if err := socks5ConnectRequest(proxyConn, dstAddr); err != nil {
-		return fmt.Errorf("SOCKS5 connect: %w", err)
-	}
-
-	return nil
-}
-
-func socks5Authenticate(c net.Conn) error {
+	proxyRead := bufio.NewReader(proxyConn)
 	greet := socks5.Greeting{
 		AuthMethods: []socks5.AuthMethod{socks5.AuthNone},
 	}
-	if err := greet.Write(c); err != nil {
+	if err := greet.Write(proxyConn); err != nil {
 		return fmt.Errorf("encode greeting: %w", err)
 	}
 
-	greetReply, err := socks5.ReadGreetingReply(bufio.NewReader(c))
+	greetReply, err := socks5.ReadGreetingReply(proxyRead)
 	if err != nil {
 		return fmt.Errorf("decode greeting reply: %w", err)
 	}
 
 	switch greetReply.AuthMethod {
 	case socks5.AuthNone:
-		return nil
+		// No authentication required
 	case socks5.AuthNotAcceptable:
 		return errors.New("no acceptable auth method was selected")
 	default:
 		return fmt.Errorf("unsupported auth method: %v", greetReply.AuthMethod)
 	}
-}
 
-func socks5ConnectRequest(c net.Conn, dstAddr *addr.Host) error {
-	req := socks5.Request{
+	connReq := socks5.Request{
 		Command: socks5.CommandConnect,
 		DstAddr: *dstAddr,
 	}
-	if err := req.Write(c); err != nil {
+	if err := connReq.Write(proxyConn); err != nil {
 		return fmt.Errorf("encode request: %w", err)
 	}
 
-	reply, err := socks5.ReadReply(bufio.NewReader(c))
+	reply, err := socks5.ReadReply(proxyRead)
 	if err != nil {
 		return fmt.Errorf("decode reply: %w", err)
 	}
@@ -154,56 +138,54 @@ func socks5ConnectRequest(c net.Conn, dstAddr *addr.Host) error {
 	return nil
 }
 
-func connectSOCKS(proxyConn net.Conn, h *addr.Host, resolveLocally bool) error {
-	dstHost := h
+func socks4Connect(proxyConn net.Conn, dstAddr *addr.Host, resolveLocally bool) error {
 	if resolveLocally {
-		ip4, err := h.ResolveToIPv4()
+		ip4, err := dstAddr.ResolveToIPv4()
 		if err != nil {
 			return fmt.Errorf("resolve destination: %w", err)
 		}
-		dstHost = addr.NewHost(ip4.String(), h.Port)
+		dstAddr = addr.NewHost(ip4.String(), dstAddr.Port)
 	}
 
 	connReq := socks4.Request{
 		Command: socks4.CommandConnect,
-		DstAddr: *dstHost,
+		DstAddr: *dstAddr,
 	}
 	if err := connReq.Write(proxyConn); err != nil {
-		return fmt.Errorf("SOCKS CONNECT: %w", err)
+		return fmt.Errorf("encode request: %w", err)
 	}
 
 	reply, err := socks4.ReadReply(bufio.NewReader(proxyConn))
 	if err != nil {
-		return fmt.Errorf("SOCKS CONNECT reply: %w", err)
+		return fmt.Errorf("decode reply: %w", err)
 	}
 
 	if reply.Status != socks4.StatusGranted {
-		return fmt.Errorf("SOCKS CONNECT rejected: %v", reply)
+		return fmt.Errorf("connection rejected: %v", reply)
 	}
 	return nil
 }
 
-func connectHTTP(proxyConn net.Conn, h *addr.Host) error {
+func httpConnect(proxyConn net.Conn, dstAddr *addr.Host) error {
 	connReq, err := http.NewRequest(http.MethodConnect, "", nil)
 	if err != nil {
 		return err
 	}
-	connReq.Host = h.String()
+	connReq.Host = dstAddr.String()
 
 	if err := connReq.WriteProxy(proxyConn); err != nil {
-		return fmt.Errorf("HTTP CONNECT: %w", err)
+		return fmt.Errorf("encode request: %w", err)
 	}
 
 	resp, err := http.ReadResponse(bufio.NewReader(proxyConn), connReq)
 	if err != nil {
-		return fmt.Errorf("HTTP CONNECT response: %w", err)
+		return fmt.Errorf("decode response: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		code, msg := resp.StatusCode, http.StatusText(resp.StatusCode)
-		return fmt.Errorf("HTTP CONNECT rejected: %v %v", code, msg)
+		return fmt.Errorf("connection rejected: %v %v", code, msg)
 	}
-
 	return nil
 }

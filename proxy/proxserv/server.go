@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/cerfical/socks2http/addr"
@@ -31,12 +32,14 @@ func New(ops ...Option) (*Server, error) {
 	}
 
 	switch s.proto {
-	case addr.SOCKS, addr.SOCKS4, addr.SOCKS4a:
-		s.serveConn = s.serveSOCKS
+	case addr.SOCKS:
+		s.serveConn = s.socksServe
+	case addr.SOCKS4:
+		s.serveConn = s.socks4Serve
 	case addr.SOCKS5:
 		s.serveConn = s.socks5Serve
 	case addr.HTTP:
-		s.serveConn = s.serveHTTP
+		s.serveConn = s.httpServe
 	default:
 		return nil, fmt.Errorf("unsupported protocol scheme: %v", s.proto)
 	}
@@ -67,7 +70,7 @@ type Option func(*Server)
 type Server struct {
 	proto string
 
-	serveConn func(context.Context, net.Conn) error
+	serveConn func(context.Context, *bufio.Reader, net.Conn) error
 	proxy     proxy.Proxy
 
 	log *log.Logger
@@ -114,11 +117,13 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 					activeConns.Done()
 				}()
 
-				if err := s.serveConn(context.Background(), clientConn); err != nil {
-					// Ignore less important errors
-					if !errors.Is(err, io.EOF) {
-						s.log.Error("Failed to serve a request", err)
+				err := s.serveConn(context.Background(), bufio.NewReader(clientConn), clientConn)
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						// Ignore connections closed by client
+						return
 					}
+					s.log.Error(fmt.Sprintf("%v proxy failure", strings.ToUpper(s.proto)), err)
 				}
 			}()
 		}
@@ -131,60 +136,61 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	return err
 }
 
-func (s *Server) serveHTTP(ctx context.Context, clientConn net.Conn) error {
-	req, err := http.ReadRequest(bufio.NewReader(clientConn))
+func (s *Server) httpServe(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn) (err error) {
+	req, err := http.ReadRequest(clientRead)
 	if err != nil {
-		return fmt.Errorf("parse request: %w", err)
+		return fmt.Errorf("decode request: %w", err)
 	}
 	defer req.Body.Close()
 
-	s.log.Info("New HTTP request",
-		"method", req.Method,
-		"uri", req.RequestURI,
-		"proto", req.Proto,
-	)
+	s.log.Info("HTTP request", "method", req.Method, "uri", req.RequestURI)
 
-	dstHost, err := hostFromHTTPRequest(req)
+	dstAddr, err := hostFromHTTPRequest(req)
 	if err != nil {
-		return fmt.Errorf("lookup destination host: %w", err)
+		return fmt.Errorf("decode destination address: %w", err)
 	}
 
-	// Special case for HTTP CONNECT
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		ProtoMajor: req.ProtoMajor,
+		ProtoMinor: req.ProtoMinor,
+	}
+
+	var proxyErr error
 	if req.Method == http.MethodConnect {
-		done, err := s.proxy.OpenTunnel(ctx, clientConn, dstHost)
+		// Special case for HTTP CONNECT
+		tunnelDone, err := s.proxy.OpenTunnel(ctx, clientConn, dstAddr)
 		if err != nil {
-			writeHTTPStatus(http.StatusBadGateway, clientConn)
-			return fmt.Errorf("open tunnel to %v: %w", dstHost, err)
+			proxyErr = fmt.Errorf("open tunnel: %w", err)
+			resp.StatusCode = http.StatusBadGateway
+		} else {
+			defer func() {
+				if tunnelErr := <-tunnelDone; tunnelErr != nil && err == nil {
+					err = fmt.Errorf("close tunnel: %w", tunnelErr)
+				}
+			}()
 		}
-		writeHTTPStatus(http.StatusOK, clientConn)
-		return <-done
+	} else {
+		// All other requests are forwarded to destination as is
+		r, err := s.proxy.ForwardHTTP(ctx, req, dstAddr)
+		if err != nil {
+			proxyErr = fmt.Errorf("HTTP forward: %w", err)
+			resp.StatusCode = http.StatusBadGateway
+		} else {
+			resp = r
+		}
 	}
 
-	// All other requests are forwarded to the destination server as is
-	resp, err := s.proxy.ForwardHTTP(ctx, req, dstHost)
-	if err != nil {
-		writeHTTPStatus(http.StatusBadGateway, clientConn)
-		return fmt.Errorf("forward HTTP to %v: %w", dstHost, err)
-	}
+	s.log.Info("HTTP response", "status", makeHTTPStatusString(resp.StatusCode))
 
-	return resp.Write(clientConn)
+	if err := resp.Write(clientConn); err != nil {
+		return fmt.Errorf("encode response: %w", err)
+	}
+	return proxyErr
 }
 
-func (s *Server) socks5Serve(ctx context.Context, clientConn net.Conn) error {
-	if err := s.socks5Authenticate(clientConn); err != nil {
-		s.log.Error("Failed to perform SOCKS5 authentication", err)
-		return nil
-	}
-
-	if err := s.socks5ServeRequest(ctx, clientConn); err != nil {
-		s.log.Error("Failed to serve a SOCKS5 request", err)
-		return nil
-	}
-	return nil
-}
-
-func (s *Server) socks5Authenticate(clientConn net.Conn) error {
-	greet, err := socks5.ReadGreeting(bufio.NewReader(clientConn))
+func (s *Server) socks5Serve(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn) (err error) {
+	greet, err := socks5.ReadGreeting(clientRead)
 	if err != nil {
 		return fmt.Errorf("decode greeting: %w", err)
 	}
@@ -203,63 +209,89 @@ func (s *Server) socks5Authenticate(clientConn net.Conn) error {
 		return errors.New("no acceptable auth method was selected")
 	}
 
-	return nil
-}
-
-func (s *Server) socks5ServeRequest(ctx context.Context, clientConn net.Conn) error {
-	req, err := socks5.ReadRequest(bufio.NewReader(clientConn))
+	req, err := socks5.ReadRequest(clientRead)
 	if err != nil {
 		return fmt.Errorf("decode request: %w", err)
 	}
 	s.log.Info("SOCKS5 request", "command", req.Command, "destination", &req.DstAddr)
 
-	status := socks5.StatusOK
+	reply := socks5.Reply{Status: socks5.StatusOK}
+	var proxyErr error
+
 	switch req.Command {
 	case socks5.CommandConnect:
 		tunnelDone, err := s.proxy.OpenTunnel(ctx, clientConn, &req.DstAddr)
 		if err != nil {
-			s.log.Error("Failed to open a SOCKS5 proxy tunnel", err)
-			status = socks5.StatusHostUnreachable
-			break
+			proxyErr = fmt.Errorf("open tunnel: %w", err)
+			reply.Status = socks5.StatusHostUnreachable
+		} else {
+			defer func() {
+				if tunnelErr := <-tunnelDone; tunnelErr != nil && err == nil {
+					err = fmt.Errorf("close tunnel: %w", tunnelErr)
+				}
+			}()
 		}
-
-		defer func() {
-			if err := <-tunnelDone; err != nil {
-				s.log.Error("SOCKS5 proxy tunnel closed unexpectedly", err)
-			}
-		}()
 	default:
-		status = socks5.StatusCommandNotSupported
+		reply.Status = socks5.StatusCommandNotSupported
 	}
 
-	reply := socks5.Reply{Status: status}
 	s.log.Info("SOCKS5 reply", "status", reply.Status)
 
 	if err := reply.Write(clientConn); err != nil {
 		return fmt.Errorf("encode reply: %w", err)
 	}
-
-	return nil
+	return proxyErr
 }
 
-func (s *Server) serveSOCKS(ctx context.Context, clientConn net.Conn) error {
-	req, err := socks4.ReadRequest(bufio.NewReader(clientConn))
+func (s *Server) socks4Serve(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn) (err error) {
+	req, err := socks4.ReadRequest(clientRead)
 	if err != nil {
-		return fmt.Errorf("parse request: %w", err)
+		return fmt.Errorf("decode request: %w", err)
+	}
+	s.log.Info("SOCKS4 request", "command", req.Command, "destination", &req.DstAddr)
+
+	reply := socks4.Reply{Status: socks4.StatusGranted}
+	var proxyErr error
+
+	switch req.Command {
+	case socks4.CommandConnect:
+		tunnelDone, err := s.proxy.OpenTunnel(ctx, clientConn, &req.DstAddr)
+		if err != nil {
+			proxyErr = fmt.Errorf("open tunnel: %w", err)
+			reply.Status = socks4.StatusRejectedOrFailed
+		} else {
+			defer func() {
+				if tunnelErr := <-tunnelDone; tunnelErr != nil && err == nil {
+					err = fmt.Errorf("close tunnel: %w", tunnelErr)
+				}
+			}()
+		}
+	default:
+		reply.Status = socks4.StatusRejectedOrFailed
 	}
 
-	s.log.Info("SOCKS4 request",
-		"command", req.Command.String(),
-		"host", req.DstAddr.String(),
-	)
+	s.log.Info("SOCKS4 reply", "status", reply.Status)
 
-	done, err := s.proxy.OpenTunnel(ctx, clientConn, &req.DstAddr)
-	if err != nil {
-		writeSOCKSReply(socks4.StatusRejectedOrFailed, clientConn)
-		return fmt.Errorf("open tunnel to %v: %w", &req.DstAddr, err)
+	if err := reply.Write(clientConn); err != nil {
+		return fmt.Errorf("encode reply: %w", err)
 	}
-	writeSOCKSReply(socks4.StatusGranted, clientConn)
-	return <-done
+	return proxyErr
+}
+
+func (s *Server) socksServe(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn) error {
+	version, err := clientRead.Peek(1)
+	if err != nil {
+		return fmt.Errorf("decode version: %w", err)
+	}
+
+	switch version[0] {
+	case socks4.VersionCode:
+		return s.socks4Serve(ctx, clientRead, clientConn)
+	case socks5.VersionCode:
+		return s.socks5Serve(ctx, clientRead, clientConn)
+	default:
+		return fmt.Errorf("invalid version (%#02x)", version[0])
+	}
 }
 
 func hostFromHTTPRequest(r *http.Request) (*addr.Host, error) {
@@ -292,18 +324,6 @@ func hostFromHTTPRequest(r *http.Request) (*addr.Host, error) {
 	return addr.NewHost(r.URL.Hostname(), portNum), nil
 }
 
-func writeHTTPStatus(status int, clientConn net.Conn) {
-	r := http.Response{ProtoMajor: 1, ProtoMinor: 1}
-	r.StatusCode = status
-
-	r.Write(clientConn)
-}
-
-func writeSOCKSReply(s socks4.Status, clientConn net.Conn) {
-	reply := socks4.Reply{Status: s}
-	reply.Write(clientConn)
-}
-
 func selectSOCKS5AuthMethod(methods []socks5.AuthMethod) socks5.AuthMethod {
 	for _, m := range methods {
 		if m == socks5.AuthNone {
@@ -311,4 +331,8 @@ func selectSOCKS5AuthMethod(methods []socks5.AuthMethod) socks5.AuthMethod {
 		}
 	}
 	return socks5.AuthNotAcceptable
+}
+
+func makeHTTPStatusString(status int) string {
+	return fmt.Sprintf("%v %v", status, http.StatusText(status))
 }
