@@ -33,7 +33,7 @@ func Load(args []string) *Config {
 	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
 	flags.TextVar(&config.ServeAddr, "serve", defaultServeAddr, "listen `address` for the proxy server")
 	flags.TextVar(&config.ProxyAddr, "proxy", defaultProxyAddr, "`address` of an optional intermediate proxy")
-	flags.TextVar(&config.LogLevel, "log", log.Verbose, "severity `level` of logging messages")
+	flags.TextVar(&config.LogLevel, "log", log.LevelVerbose, "severity `level` of logging messages")
 	flags.DurationVar(&config.Timeout, "timeout", 0, "wait time for I/O operations")
 
 	// flag.ExitOnError: ignore errors

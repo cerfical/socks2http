@@ -21,7 +21,7 @@ func TestLevel_String(t *testing.T) {
 	t.Run("returns a valid string representation", func(t *testing.T) {
 		config := quick.Config{
 			Values: func(v []reflect.Value, r *rand.Rand) {
-				i := randR(r, int(log.Silent), int(log.Verbose)+1)
+				i := randR(r, int(log.LevelSilent), int(log.LevelVerbose)+1)
 				v[0] = reflect.ValueOf(log.Level(i))
 			},
 		}
@@ -34,7 +34,7 @@ func TestLevel_String(t *testing.T) {
 	})
 
 	t.Run("returns an empty string on unknown log level", func(t *testing.T) {
-		l := log.Level(log.Verbose + 1)
+		l := log.Level(log.LevelVerbose + 1)
 		assert.Equal(t, "", l.String())
 	})
 }
@@ -75,7 +75,7 @@ func TestLevel_MarshalText(t *testing.T) {
 	t.Run("preserves input value when followed by unmarshalling", func(t *testing.T) {
 		config := quick.Config{
 			Values: func(v []reflect.Value, r *rand.Rand) {
-				i := randR(r, int(log.Silent), int(log.Verbose)+1)
+				i := randR(r, int(log.LevelSilent), int(log.LevelVerbose)+1)
 				v[0] = reflect.ValueOf(log.Level(i))
 			},
 		}
@@ -98,7 +98,7 @@ func TestLevel_MarshalText(t *testing.T) {
 	})
 
 	t.Run("reports an error on invalid input", func(t *testing.T) {
-		l := log.Verbose + 1
+		l := log.LevelVerbose + 1
 
 		_, err := l.MarshalText()
 		assert.Error(t, err)

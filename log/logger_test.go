@@ -13,8 +13,8 @@ import (
 
 func TestLogger(t *testing.T) {
 	levels := []log.Level{
-		log.Info,
-		log.Error,
+		log.LevelInfo,
+		log.LevelError,
 	}
 
 	for _, level := range levels {
@@ -32,7 +32,7 @@ func TestLogger(t *testing.T) {
 	}
 
 	t.Run("silent is never logged", func(t *testing.T) {
-		got := writeLog(log.Silent, log.Info)
+		got := writeLog(log.LevelSilent, log.LevelInfo)
 		assert.Equal(t, "", got)
 	})
 }
@@ -42,9 +42,9 @@ func writeLog(logLevel, msgLevel log.Level) string {
 	l := log.New(log.WithLevel(logLevel), log.WithWriter(&buf))
 
 	switch msgLevel {
-	case log.Error:
+	case log.LevelError:
 		l.Error("log message", errors.New("description"))
-	case log.Info:
+	case log.LevelInfo:
 		l.Info("log message", "error", "description")
 	}
 

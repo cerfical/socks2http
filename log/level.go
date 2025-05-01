@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	Silent Level = iota
-	Error
-	Info
-	Verbose
+	LevelSilent Level = iota
+	LevelError
+	LevelInfo
+	LevelVerbose
 )
 
 var levels = []levelDesc{
@@ -23,7 +23,7 @@ var levels = []levelDesc{
 }
 
 func makeZerologLevel(l Level) zerolog.Level {
-	if l < Silent || l > Verbose {
+	if l < LevelSilent || l > LevelVerbose {
 		panic("unknown log level")
 	}
 	return levels[l].level
@@ -45,7 +45,7 @@ func (l Level) String() string {
 }
 
 func (l Level) MarshalText() ([]byte, error) {
-	if l < Silent || l > Verbose {
+	if l < LevelSilent || l > LevelVerbose {
 		return nil, errors.New("unknown log level")
 	}
 	return []byte(levels[l].text), nil

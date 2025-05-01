@@ -10,12 +10,12 @@ import (
 	"golang.org/x/term"
 )
 
-var Discard = New(WithLevel(Silent), WithWriter(io.Discard))
+var Discard = New(WithLevel(LevelSilent), WithWriter(io.Discard))
 
 func New(ops ...Option) *Logger {
 	defaults := []Option{
 		WithWriter(os.Stdout),
-		WithLevel(Info),
+		WithLevel(LevelInfo),
 	}
 
 	l := Logger{zerolog.New(nil).
@@ -60,11 +60,11 @@ type Logger struct {
 }
 
 func (l *Logger) Error(msg string, err error) {
-	l.logEntry(Error, msg, []any{"error", err})
+	l.logEntry(LevelError, msg, []any{"error", err})
 }
 
 func (l *Logger) Info(msg string, fields ...any) {
-	l.logEntry(Info, msg, fields)
+	l.logEntry(LevelInfo, msg, fields)
 }
 
 func (l *Logger) logEntry(level Level, msg string, fields []any) {
