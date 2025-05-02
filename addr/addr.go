@@ -14,9 +14,13 @@ func New(host string, port uint16) *Addr {
 }
 
 func Parse(addr string) (*Addr, error) {
-	hostname, port, err := net.SplitHostPort(addr)
+	if addr == "" {
+		return New("", 0), nil
+	}
+
+	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("split host from port: %w", err)
 	}
 
 	portNum, err := ParsePort(port)
@@ -24,7 +28,7 @@ func Parse(addr string) (*Addr, error) {
 		return nil, fmt.Errorf("parse port %v: %w", port, err)
 	}
 
-	return New(hostname, portNum), nil
+	return New(host, portNum), nil
 }
 
 type Addr struct {
@@ -33,8 +37,10 @@ type Addr struct {
 }
 
 func (a *Addr) String() string {
-	port := strconv.Itoa(int(a.Port))
-	return net.JoinHostPort(a.Host, port)
+	if a.Host == "" && a.Port == 0 {
+		return ""
+	}
+	return net.JoinHostPort(a.Host, strconv.Itoa(int(a.Port)))
 }
 
 func (a *Addr) MarshalText() ([]byte, error) {

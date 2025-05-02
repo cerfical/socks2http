@@ -29,6 +29,11 @@ func (t *AddrTest) TestParse() {
 			input: ":80",
 			want:  addr.New("", 80),
 		},
+
+		"parses an empty input to a default value": {
+			input: "",
+			want:  &addr.Addr{},
+		},
 	}
 
 	for name, test := range tests {
@@ -39,11 +44,6 @@ func (t *AddrTest) TestParse() {
 			t.Equal(test.want, addr)
 		})
 	}
-
-	t.Run("rejects an empty input", func() {
-		_, err := addr.Parse("")
-		t.Error(err)
-	})
 
 	t.Run("rejects an empty port", func() {
 		_, err := addr.Parse("localhost:")
@@ -62,13 +62,18 @@ func (t *AddrTest) TestString() {
 		},
 
 		"prints an empty host": {
-			addr: addr.New("", 0),
-			want: ":0",
+			addr: addr.New("", 80),
+			want: ":80",
+		},
+
+		"prints a default value as an empty string": {
+			addr: &addr.Addr{},
+			want: "",
 		},
 
 		"prints an IPv4-address": {
-			addr: addr.New("127.0.0.1", 0),
-			want: "127.0.0.1:0",
+			addr: addr.New("127.0.0.1", 80),
+			want: "127.0.0.1:80",
 		},
 	}
 
