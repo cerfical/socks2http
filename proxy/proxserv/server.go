@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/cerfical/socks2http/addr"
@@ -21,7 +20,7 @@ import (
 
 func New(ops ...Option) (*Server, error) {
 	defaults := []Option{
-		WithServeProto(addr.HTTP),
+		WithServeProto(proxy.ProtoHTTP),
 		WithProxy(proxy.New(proxy.DirectDialer)),
 		WithLog(log.Discard),
 	}
@@ -31,17 +30,17 @@ func New(ops ...Option) (*Server, error) {
 		op(&s)
 	}
 
-	switch s.proto {
-	case addr.SOCKS:
+	switch s.serveProto {
+	case proxy.ProtoSOCKS:
 		s.serveConn = s.socksServe
-	case addr.SOCKS4:
+	case proxy.ProtoSOCKS4:
 		s.serveConn = s.socks4Serve
-	case addr.SOCKS5:
+	case proxy.ProtoSOCKS5:
 		s.serveConn = s.socks5Serve
-	case addr.HTTP:
+	case proxy.ProtoHTTP:
 		s.serveConn = s.httpServe
 	default:
-		return nil, fmt.Errorf("unsupported protocol scheme: %v", s.proto)
+		return nil, fmt.Errorf("unsupported protocol scheme: %v", s.serveProto)
 	}
 
 	return &s, nil
@@ -53,9 +52,9 @@ func WithProxy(p proxy.Proxy) Option {
 	}
 }
 
-func WithServeProto(proto string) Option {
+func WithServeProto(p proxy.Proto) Option {
 	return func(s *Server) {
-		s.proto = proto
+		s.serveProto = p
 	}
 }
 
@@ -68,7 +67,7 @@ func WithLog(l *log.Logger) Option {
 type Option func(*Server)
 
 type Server struct {
-	proto string
+	serveProto proxy.Proto
 
 	serveConn func(context.Context, *bufio.Reader, net.Conn) error
 	proxy     proxy.Proxy
@@ -87,7 +86,7 @@ func (s *Server) ListenAndServe(ctx context.Context, serveAddr *addr.Addr) error
 
 	// Use an automatically assigned port if one was not specified
 	addr := addr.New(serveAddr.Host, uint16(l.Addr().(*net.TCPAddr).Port))
-	s.log.Info("Server is up", "proto", s.proto, "addr", addr)
+	s.log.Info("Server is up", "proto", s.serveProto, "addr", addr)
 
 	return s.Serve(ctx, l)
 }
@@ -121,7 +120,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 						// Ignore connections closed by client
 						return
 					}
-					s.log.Error(fmt.Sprintf("%v proxy failure", strings.ToUpper(s.proto)), err)
+					s.log.Error("Server failure", fmt.Errorf("%v proxy: %w", s.serveProto, err))
 				}
 			}()
 		}

@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"slices"
-	"strings"
 
 	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/proxy"
@@ -19,7 +18,7 @@ import (
 func New(ops ...Option) (*Client, error) {
 	defaults := []Option{
 		WithProxyAddr(addr.New("localhost", 8080)),
-		WithProxyProto(addr.HTTP),
+		WithProxyProto(proxy.ProtoHTTP),
 		WithDialer(proxy.DirectDialer),
 	}
 
@@ -29,17 +28,17 @@ func New(ops ...Option) (*Client, error) {
 	}
 
 	switch proto := c.proxyProto; proto {
-	case addr.SOCKS4, addr.SOCKS4a:
+	case proxy.ProtoSOCKS4, proxy.ProtoSOCKS4a:
 		c.connect = func(c net.Conn, h *addr.Addr) error {
-			return socks4Connect(c, h, proto == addr.SOCKS4)
+			return socks4Connect(c, h, proto == proxy.ProtoSOCKS4)
 		}
-	case addr.SOCKS5, addr.SOCKS5h:
+	case proxy.ProtoSOCKS5, proxy.ProtoSOCKS5h:
 		c.connect = func(c net.Conn, h *addr.Addr) error {
-			return socks5Connect(c, h, proto == addr.SOCKS5)
+			return socks5Connect(c, h, proto == proxy.ProtoSOCKS5)
 		}
-	case addr.HTTP:
+	case proxy.ProtoHTTP:
 		c.connect = httpConnect
-	case addr.Direct:
+	case proxy.ProtoDirect:
 		c.connect = nil
 	default:
 		return nil, fmt.Errorf("unsupported protocol scheme: %v", proto)
@@ -54,9 +53,9 @@ func WithProxyAddr(a *addr.Addr) Option {
 	}
 }
 
-func WithProxyProto(proto string) Option {
+func WithProxyProto(p proxy.Proto) Option {
 	return func(c *Client) {
-		c.proxyProto = proto
+		c.proxyProto = p
 	}
 }
 
@@ -70,7 +69,7 @@ type Option func(*Client)
 
 type Client struct {
 	proxyAddr  addr.Addr
-	proxyProto string
+	proxyProto proxy.Proto
 
 	dialer  proxy.Dialer
 	connect func(net.Conn, *addr.Addr) error
@@ -91,7 +90,7 @@ func (c *Client) Dial(ctx context.Context, h *addr.Addr) (net.Conn, error) {
 	// And connect the proxy to destination
 	if err := c.connect(proxyConn, h); err != nil {
 		proxyConn.Close()
-		return nil, fmt.Errorf("%v connect: %w", strings.ToUpper(c.proxyProto), err)
+		return nil, fmt.Errorf("connect %v : %w", c.proxyProto, err)
 	}
 	return proxyConn, nil
 }

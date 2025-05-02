@@ -6,18 +6,6 @@ import (
 	"strconv"
 )
 
-const (
-	Direct = "direct"
-
-	SOCKS   = "socks"
-	SOCKS4  = "socks4"
-	SOCKS4a = "socks4a"
-	SOCKS5  = "socks5"
-	SOCKS5h = "socks5h"
-
-	HTTP = "http"
-)
-
 func New(host string, port uint16) *Addr {
 	return &Addr{
 		Host: host,
