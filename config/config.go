@@ -8,31 +8,19 @@ import (
 	"github.com/cerfical/socks2http/log"
 )
 
-var defaultServeAddr = addr.New(addr.HTTP, "localhost", 8080)
-var defaultProxyAddr = addr.New(addr.Direct, "", 0)
+var defaultServeAddr = addr.New("localhost", 8080)
+var defaultProxyAddr = addr.New("", 0)
+var defaultProxyProto = addr.Direct
+var defaultServerProto = addr.HTTP
 
-// Config defines configurable application settings.
-type Config struct {
-	// ServeAddr is a listen address of the proxy server.
-	ServeAddr addr.Addr
-
-	// ProxyAddr is an address for the proxy client to connect to.
-	ProxyAddr addr.Addr
-
-	// Timeout specifies a timeout for I/O operations.
-	Timeout time.Duration
-
-	// LogLevel specifies verbosity level of log messages.
-	LogLevel log.Level
-}
-
-// Load reads configuration options from command-line arguments.
 func Load(args []string) *Config {
 	var config Config
 
 	flags := flag.NewFlagSet(args[0], flag.ExitOnError)
-	flags.TextVar(&config.ServeAddr, "serve", defaultServeAddr, "listen `address` for the proxy server")
-	flags.TextVar(&config.ProxyAddr, "proxy", defaultProxyAddr, "`address` of an optional intermediate proxy")
+	flags.TextVar(&config.Server.Addr, "serve-addr", defaultServeAddr, "`address` to listen to by proxy server")
+	flags.TextVar(&config.Proxy.Addr, "proxy-addr", defaultProxyAddr, "proxy server `address` to connect via proxy client")
+	flags.StringVar(&config.Proxy.Proto, "proxy-proto", defaultProxyProto, "proxy client `protocol` to use")
+	flags.StringVar(&config.Server.Proto, "serve-proto", defaultServerProto, "proxy server `protocol` to use")
 	flags.TextVar(&config.LogLevel, "log", log.LevelVerbose, "severity `level` of logging messages")
 	flags.DurationVar(&config.Timeout, "timeout", 0, "wait time for I/O operations")
 
@@ -40,4 +28,21 @@ func Load(args []string) *Config {
 	_ = flags.Parse(args[1:])
 
 	return &config
+}
+
+type Config struct {
+	Proxy  ProxyConfig
+	Server ServerConfig
+
+	Timeout  time.Duration
+	LogLevel log.Level
+}
+
+type ServerConfig struct {
+	Proto string
+	Addr  addr.Addr
+}
+type ProxyConfig struct {
+	Proto string
+	Addr  addr.Addr
 }

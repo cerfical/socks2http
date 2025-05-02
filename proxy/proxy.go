@@ -17,15 +17,15 @@ func New(d Dialer) Proxy {
 }
 
 type Proxy interface {
-	ForwardHTTP(ctx context.Context, r *http.Request, dstHost *addr.Host) (*http.Response, error)
-	OpenTunnel(ctx context.Context, srcConn net.Conn, dstHost *addr.Host) (done <-chan error, err error)
+	ForwardHTTP(ctx context.Context, r *http.Request, dstHost *addr.Addr) (*http.Response, error)
+	OpenTunnel(ctx context.Context, srcConn net.Conn, dstHost *addr.Addr) (done <-chan error, err error)
 }
 
 type proxy struct {
 	dialer Dialer
 }
 
-func (p *proxy) ForwardHTTP(ctx context.Context, r *http.Request, dstHost *addr.Host) (*http.Response, error) {
+func (p *proxy) ForwardHTTP(ctx context.Context, r *http.Request, dstHost *addr.Addr) (*http.Response, error) {
 	dstConn, err := p.dialer.Dial(ctx, dstHost)
 	if err != nil {
 		return nil, fmt.Errorf("dial %v: %w", dstHost, err)
@@ -43,7 +43,7 @@ func (p *proxy) ForwardHTTP(ctx context.Context, r *http.Request, dstHost *addr.
 	return resp, nil
 }
 
-func (p *proxy) OpenTunnel(ctx context.Context, srcConn net.Conn, dstHost *addr.Host) (<-chan error, error) {
+func (p *proxy) OpenTunnel(ctx context.Context, srcConn net.Conn, dstHost *addr.Addr) (<-chan error, error) {
 	dstConn, err := p.dialer.Dial(ctx, dstHost)
 	if err != nil {
 		return nil, fmt.Errorf("dial %v: %w", dstHost, err)

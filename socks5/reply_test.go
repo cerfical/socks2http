@@ -33,7 +33,7 @@ func (t *ReplyTest) TestRead() {
 		t.Require().NoError(err)
 
 		want := "127.0.0.1"
-		t.Equal(want, got.BindAddr.Hostname)
+		t.Equal(want, got.BindAddr.Host)
 	})
 
 	t.Run("decodes a bind hostname", func() {
@@ -41,7 +41,7 @@ func (t *ReplyTest) TestRead() {
 		t.Require().NoError(err)
 
 		want := "localhost"
-		t.Equal(want, got.BindAddr.Hostname)
+		t.Equal(want, got.BindAddr.Host)
 	})
 
 	t.Run("decodes a bind port", func() {
@@ -114,7 +114,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind IPv4 address", func() {
 		r := socks5.Reply{
-			BindAddr: *addr.NewHost("127.0.0.1", 0),
+			BindAddr: *addr.New("127.0.0.1", 0),
 		}
 
 		got, err := encodeReply(&r)
@@ -126,7 +126,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind hostname", func() {
 		r := socks5.Reply{
-			BindAddr: *addr.NewHost("localhost", 0),
+			BindAddr: *addr.New("localhost", 0),
 		}
 
 		got, err := encodeReply(&r)
@@ -138,7 +138,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind port", func() {
 		r := socks5.Reply{
-			BindAddr: *addr.NewHost("", 1080),
+			BindAddr: *addr.New("", 1080),
 		}
 
 		got, err := encodeReply(&r)
@@ -150,7 +150,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("rejects a bind hostname longer than 255 bytes", func() {
 		r := socks5.Reply{
-			BindAddr: *addr.NewHost(strings.Repeat("a", 256), 0),
+			BindAddr: *addr.New(strings.Repeat("a", 256), 0),
 		}
 
 		_, err := encodeReply(&r)

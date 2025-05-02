@@ -34,7 +34,7 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 
 type Reply struct {
 	Status   Status
-	BindAddr addr.Host
+	BindAddr addr.Addr
 }
 
 func (r *Reply) Write(w io.Writer) error {
@@ -46,7 +46,7 @@ func (r *Reply) Write(w io.Writer) error {
 		bytes = append(bytes, ip4AddrType)
 		bytes = append(bytes, ip4[:]...)
 	} else {
-		n := len(r.BindAddr.Hostname)
+		n := len(r.BindAddr.Host)
 		if n > math.MaxUint8 {
 			return fmt.Errorf("encode bind address: %w (%v)", ErrHostnameTooLong, n)
 		}
@@ -54,7 +54,7 @@ func (r *Reply) Write(w io.Writer) error {
 		// Append bind hostname
 		bytes = append(bytes, hostnameAddrType)
 		bytes = append(bytes, byte(n))
-		bytes = append(bytes, []byte(r.BindAddr.Hostname)...)
+		bytes = append(bytes, []byte(r.BindAddr.Host)...)
 	}
 
 	// Append bind port

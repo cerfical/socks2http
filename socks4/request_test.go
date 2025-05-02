@@ -32,7 +32,7 @@ func (t *RequestTest) TestRead() {
 		t.Require().NoError(err)
 
 		want := "127.0.0.1"
-		t.Equal(want, got.DstAddr.Hostname)
+		t.Equal(want, got.DstAddr.Host)
 	})
 
 	t.Run("decodes a destination hostname", func() {
@@ -43,7 +43,7 @@ func (t *RequestTest) TestRead() {
 		t.Require().NoError(err)
 
 		want := "localhost"
-		t.Equal(want, got.DstAddr.Hostname)
+		t.Equal(want, got.DstAddr.Host)
 	})
 
 	t.Run("decodes an empty destination address", func() {
@@ -51,7 +51,7 @@ func (t *RequestTest) TestRead() {
 		t.Require().NoError(err)
 
 		want := ""
-		t.Equal(want, got.DstAddr.Hostname)
+		t.Equal(want, got.DstAddr.Host)
 	})
 
 	t.Run("decodes a destination port", func() {
@@ -101,7 +101,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes a destination IPv4 address", func() {
 		r := socks4.Request{
-			DstAddr: *addr.NewHost("127.0.0.1", 0),
+			DstAddr: *addr.New("127.0.0.1", 0),
 		}
 
 		got, err := encodeRequest(&r)
@@ -113,7 +113,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes a destination hostname", func() {
 		r := socks4.Request{
-			DstAddr: *addr.NewHost("localhost", 0),
+			DstAddr: *addr.New("localhost", 0),
 		}
 
 		got, err := encodeRequest(&r)
@@ -125,7 +125,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes an destination address", func() {
 		r := socks4.Request{
-			DstAddr: *addr.NewHost("", 0),
+			DstAddr: *addr.New("", 0),
 		}
 
 		got, err := encodeRequest(&r)
@@ -137,7 +137,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes a destination port", func() {
 		r := socks4.Request{
-			DstAddr: *addr.NewHost("", 1080),
+			DstAddr: *addr.New("", 1080),
 		}
 
 		got, err := encodeRequest(&r)

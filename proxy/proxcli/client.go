@@ -18,7 +18,8 @@ import (
 
 func New(ops ...Option) (*Client, error) {
 	defaults := []Option{
-		WithProxyAddr(addr.New(addr.HTTP, "localhost", 8080)),
+		WithProxyAddr(addr.New("localhost", 8080)),
+		WithProxyProto(addr.HTTP),
 		WithDialer(proxy.DirectDialer),
 	}
 
@@ -27,13 +28,13 @@ func New(ops ...Option) (*Client, error) {
 		op(&c)
 	}
 
-	switch proto := c.proxyAddr.Scheme; proto {
+	switch proto := c.proxyProto; proto {
 	case addr.SOCKS4, addr.SOCKS4a:
-		c.connect = func(c net.Conn, h *addr.Host) error {
+		c.connect = func(c net.Conn, h *addr.Addr) error {
 			return socks4Connect(c, h, proto == addr.SOCKS4)
 		}
 	case addr.SOCKS5, addr.SOCKS5h:
-		c.connect = func(c net.Conn, h *addr.Host) error {
+		c.connect = func(c net.Conn, h *addr.Addr) error {
 			return socks5Connect(c, h, proto == addr.SOCKS5)
 		}
 	case addr.HTTP:
@@ -53,6 +54,12 @@ func WithProxyAddr(a *addr.Addr) Option {
 	}
 }
 
+func WithProxyProto(proto string) Option {
+	return func(c *Client) {
+		c.proxyProto = proto
+	}
+}
+
 func WithDialer(d proxy.Dialer) Option {
 	return func(c *Client) {
 		c.dialer = d
@@ -62,39 +69,40 @@ func WithDialer(d proxy.Dialer) Option {
 type Option func(*Client)
 
 type Client struct {
-	proxyAddr addr.Addr
-	dialer    proxy.Dialer
-	connect   func(net.Conn, *addr.Host) error
+	proxyAddr  addr.Addr
+	proxyProto string
+
+	dialer  proxy.Dialer
+	connect func(net.Conn, *addr.Addr) error
 }
 
-func (c *Client) Dial(ctx context.Context, h *addr.Host) (net.Conn, error) {
+func (c *Client) Dial(ctx context.Context, h *addr.Addr) (net.Conn, error) {
 	// Connect to destination directly if no proxy is used
 	if c.connect == nil {
 		return c.dialer.Dial(ctx, h)
 	}
 
 	// Otherwise establish a connection to a proxy
-	proxyHost := &c.proxyAddr.Host
-	proxyConn, err := c.dialer.Dial(ctx, proxyHost)
+	proxyConn, err := c.dialer.Dial(ctx, &c.proxyAddr)
 	if err != nil {
-		return nil, fmt.Errorf("dial proxy %v: %w", proxyHost, err)
+		return nil, fmt.Errorf("dial proxy %v: %w", &c.proxyAddr, err)
 	}
 
 	// And connect the proxy to destination
 	if err := c.connect(proxyConn, h); err != nil {
 		proxyConn.Close()
-		return nil, fmt.Errorf("%v connect: %w", strings.ToUpper(c.proxyAddr.Scheme), err)
+		return nil, fmt.Errorf("%v connect: %w", strings.ToUpper(c.proxyProto), err)
 	}
 	return proxyConn, nil
 }
 
-func socks5Connect(proxyConn net.Conn, dstAddr *addr.Host, resolveLocally bool) error {
+func socks5Connect(proxyConn net.Conn, dstAddr *addr.Addr, resolveLocally bool) error {
 	if resolveLocally {
 		ip4, err := dstAddr.ResolveToIPv4()
 		if err != nil {
 			return fmt.Errorf("resolve destination: %w", err)
 		}
-		dstAddr = addr.NewHost(ip4.String(), dstAddr.Port)
+		dstAddr = addr.New(ip4.String(), dstAddr.Port)
 	}
 
 	proxyRead := bufio.NewReader(proxyConn)
@@ -138,13 +146,13 @@ func socks5Connect(proxyConn net.Conn, dstAddr *addr.Host, resolveLocally bool) 
 	return nil
 }
 
-func socks4Connect(proxyConn net.Conn, dstAddr *addr.Host, resolveLocally bool) error {
+func socks4Connect(proxyConn net.Conn, dstAddr *addr.Addr, resolveLocally bool) error {
 	if resolveLocally {
 		ip4, err := dstAddr.ResolveToIPv4()
 		if err != nil {
 			return fmt.Errorf("resolve destination: %w", err)
 		}
-		dstAddr = addr.NewHost(ip4.String(), dstAddr.Port)
+		dstAddr = addr.New(ip4.String(), dstAddr.Port)
 	}
 
 	connReq := socks4.Request{
@@ -166,7 +174,7 @@ func socks4Connect(proxyConn net.Conn, dstAddr *addr.Host, resolveLocally bool) 
 	return nil
 }
 
-func httpConnect(proxyConn net.Conn, dstAddr *addr.Host) error {
+func httpConnect(proxyConn net.Conn, dstAddr *addr.Addr) error {
 	connReq, err := http.NewRequest(http.MethodConnect, "", nil)
 	if err != nil {
 		return err

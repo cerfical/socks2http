@@ -44,20 +44,20 @@ func checkReserved(r *bufio.Reader) error {
 	return nil
 }
 
-func readAddr(r *bufio.Reader) (*addr.Host, error) {
+func readAddr(r *bufio.Reader) (*addr.Addr, error) {
 	addrType, err := r.ReadByte()
 	if err != nil {
 		return nil, fmt.Errorf("decode address type: %w", err)
 	}
 
-	var host addr.Host
+	var host addr.Addr
 	switch addrType {
 	case ip4AddrType:
 		var ip4 addr.IPv4
 		if _, err := io.ReadFull(r, ip4[:]); err != nil {
 			return nil, fmt.Errorf("decode IPv4 address: %w", err)
 		}
-		host.Hostname = ip4.String()
+		host.Host = ip4.String()
 	case hostnameAddrType:
 		n, err := r.ReadByte()
 		if err != nil {
@@ -68,7 +68,7 @@ func readAddr(r *bufio.Reader) (*addr.Host, error) {
 		if _, err := io.ReadFull(r, hostname); err != nil {
 			return nil, fmt.Errorf("decode hostname: %w", err)
 		}
-		host.Hostname = string(hostname)
+		host.Host = string(hostname)
 	default:
 		return nil, fmt.Errorf("%w (%v)", ErrInvalidAddrType, hexByte(addrType))
 	}

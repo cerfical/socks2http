@@ -28,7 +28,7 @@ func (_m *Proxy) EXPECT() *Proxy_Expecter {
 }
 
 // ForwardHTTP provides a mock function with given fields: ctx, r, dstHost
-func (_m *Proxy) ForwardHTTP(ctx context.Context, r *http.Request, dstHost *addr.Host) (*http.Response, error) {
+func (_m *Proxy) ForwardHTTP(ctx context.Context, r *http.Request, dstHost *addr.Addr) (*http.Response, error) {
 	ret := _m.Called(ctx, r, dstHost)
 
 	if len(ret) == 0 {
@@ -37,10 +37,10 @@ func (_m *Proxy) ForwardHTTP(ctx context.Context, r *http.Request, dstHost *addr
 
 	var r0 *http.Response
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *http.Request, *addr.Host) (*http.Response, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *http.Request, *addr.Addr) (*http.Response, error)); ok {
 		return rf(ctx, r, dstHost)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *http.Request, *addr.Host) *http.Response); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *http.Request, *addr.Addr) *http.Response); ok {
 		r0 = rf(ctx, r, dstHost)
 	} else {
 		if ret.Get(0) != nil {
@@ -48,7 +48,7 @@ func (_m *Proxy) ForwardHTTP(ctx context.Context, r *http.Request, dstHost *addr
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *http.Request, *addr.Host) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *http.Request, *addr.Addr) error); ok {
 		r1 = rf(ctx, r, dstHost)
 	} else {
 		r1 = ret.Error(1)
@@ -70,9 +70,9 @@ func (_e *Proxy_Expecter) ForwardHTTP(ctx interface{}, r interface{}, dstHost in
 	return &Proxy_ForwardHTTP_Call{Call: _e.mock.On("ForwardHTTP", ctx, r, dstHost)}
 }
 
-func (_c *Proxy_ForwardHTTP_Call) Run(run func(ctx context.Context, r *http.Request, dstHost *addr.Host)) *Proxy_ForwardHTTP_Call {
+func (_c *Proxy_ForwardHTTP_Call) Run(run func(ctx context.Context, r *http.Request, dstHost *addr.Addr)) *Proxy_ForwardHTTP_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*http.Request), args[2].(*addr.Host))
+		run(args[0].(context.Context), args[1].(*http.Request), args[2].(*addr.Addr))
 	})
 	return _c
 }
@@ -82,13 +82,13 @@ func (_c *Proxy_ForwardHTTP_Call) Return(_a0 *http.Response, _a1 error) *Proxy_F
 	return _c
 }
 
-func (_c *Proxy_ForwardHTTP_Call) RunAndReturn(run func(context.Context, *http.Request, *addr.Host) (*http.Response, error)) *Proxy_ForwardHTTP_Call {
+func (_c *Proxy_ForwardHTTP_Call) RunAndReturn(run func(context.Context, *http.Request, *addr.Addr) (*http.Response, error)) *Proxy_ForwardHTTP_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // OpenTunnel provides a mock function with given fields: ctx, srcConn, dstHost
-func (_m *Proxy) OpenTunnel(ctx context.Context, srcConn net.Conn, dstHost *addr.Host) (<-chan error, error) {
+func (_m *Proxy) OpenTunnel(ctx context.Context, srcConn net.Conn, dstHost *addr.Addr) (<-chan error, error) {
 	ret := _m.Called(ctx, srcConn, dstHost)
 
 	if len(ret) == 0 {
@@ -97,10 +97,10 @@ func (_m *Proxy) OpenTunnel(ctx context.Context, srcConn net.Conn, dstHost *addr
 
 	var r0 <-chan error
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, net.Conn, *addr.Host) (<-chan error, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, net.Conn, *addr.Addr) (<-chan error, error)); ok {
 		return rf(ctx, srcConn, dstHost)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, net.Conn, *addr.Host) <-chan error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, net.Conn, *addr.Addr) <-chan error); ok {
 		r0 = rf(ctx, srcConn, dstHost)
 	} else {
 		if ret.Get(0) != nil {
@@ -108,7 +108,7 @@ func (_m *Proxy) OpenTunnel(ctx context.Context, srcConn net.Conn, dstHost *addr
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, net.Conn, *addr.Host) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, net.Conn, *addr.Addr) error); ok {
 		r1 = rf(ctx, srcConn, dstHost)
 	} else {
 		r1 = ret.Error(1)
@@ -130,9 +130,9 @@ func (_e *Proxy_Expecter) OpenTunnel(ctx interface{}, srcConn interface{}, dstHo
 	return &Proxy_OpenTunnel_Call{Call: _e.mock.On("OpenTunnel", ctx, srcConn, dstHost)}
 }
 
-func (_c *Proxy_OpenTunnel_Call) Run(run func(ctx context.Context, srcConn net.Conn, dstHost *addr.Host)) *Proxy_OpenTunnel_Call {
+func (_c *Proxy_OpenTunnel_Call) Run(run func(ctx context.Context, srcConn net.Conn, dstHost *addr.Addr)) *Proxy_OpenTunnel_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(net.Conn), args[2].(*addr.Host))
+		run(args[0].(context.Context), args[1].(net.Conn), args[2].(*addr.Addr))
 	})
 	return _c
 }
@@ -142,7 +142,7 @@ func (_c *Proxy_OpenTunnel_Call) Return(done <-chan error, err error) *Proxy_Ope
 	return _c
 }
 
-func (_c *Proxy_OpenTunnel_Call) RunAndReturn(run func(context.Context, net.Conn, *addr.Host) (<-chan error, error)) *Proxy_OpenTunnel_Call {
+func (_c *Proxy_OpenTunnel_Call) RunAndReturn(run func(context.Context, net.Conn, *addr.Addr) (<-chan error, error)) *Proxy_OpenTunnel_Call {
 	_c.Call.Return(run)
 	return _c
 }

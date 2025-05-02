@@ -21,7 +21,7 @@ import (
 
 func New(ops ...Option) (*Server, error) {
 	defaults := []Option{
-		WithProto(addr.HTTP),
+		WithServeProto(addr.HTTP),
 		WithProxy(proxy.New(proxy.DirectDialer)),
 		WithLog(log.Discard),
 	}
@@ -53,7 +53,7 @@ func WithProxy(p proxy.Proxy) Option {
 	}
 }
 
-func WithProto(proto string) Option {
+func WithServeProto(proto string) Option {
 	return func(s *Server) {
 		s.proto = proto
 	}
@@ -76,7 +76,7 @@ type Server struct {
 	log *log.Logger
 }
 
-func (s *Server) ListenAndServe(ctx context.Context, serveAddr *addr.Host) error {
+func (s *Server) ListenAndServe(ctx context.Context, serveAddr *addr.Addr) error {
 	s.log.Info("Starting up a server")
 
 	var lc net.ListenConfig
@@ -86,10 +86,8 @@ func (s *Server) ListenAndServe(ctx context.Context, serveAddr *addr.Host) error
 	}
 
 	// Use an automatically assigned port if one was not specified
-	addr := addr.New(s.proto, serveAddr.Hostname, uint16(l.Addr().(*net.TCPAddr).Port))
-	s.log.Info("Server is up",
-		"addr", addr,
-	)
+	addr := addr.New(serveAddr.Host, uint16(l.Addr().(*net.TCPAddr).Port))
+	s.log.Info("Server is up", "proto", s.proto, "addr", addr)
 
 	return s.Serve(ctx, l)
 }
@@ -294,10 +292,10 @@ func (s *Server) socksServe(ctx context.Context, clientRead *bufio.Reader, clien
 	}
 }
 
-func hostFromHTTPRequest(r *http.Request) (*addr.Host, error) {
+func hostFromHTTPRequest(r *http.Request) (*addr.Addr, error) {
 	// For HTTP CONNECT requests, the host is in the Request URL
 	if r.Method == http.MethodConnect {
-		h, err := addr.ParseHost(r.URL.Host)
+		h, err := addr.Parse(r.URL.Host)
 		if err != nil {
 			return nil, fmt.Errorf("parse request URL: %w", err)
 		}
@@ -312,7 +310,7 @@ func hostFromHTTPRequest(r *http.Request) (*addr.Host, error) {
 		if err != nil {
 			return nil, fmt.Errorf("lookup port by scheme: %w", err)
 		}
-		return addr.NewHost(r.URL.Hostname(), uint16(portNum)), nil
+		return addr.New(r.URL.Hostname(), uint16(portNum)), nil
 	}
 
 	// If the port is specified, we can use it directly
@@ -321,7 +319,7 @@ func hostFromHTTPRequest(r *http.Request) (*addr.Host, error) {
 		return nil, fmt.Errorf("parse port: %w", err)
 	}
 
-	return addr.NewHost(r.URL.Hostname(), portNum), nil
+	return addr.New(r.URL.Hostname(), portNum), nil
 }
 
 func selectSOCKS5AuthMethod(methods []socks5.AuthMethod) socks5.AuthMethod {

@@ -32,7 +32,7 @@ func (t *ReplyTest) TestRead() {
 		t.Require().NoError(err)
 
 		want := "127.0.0.1"
-		t.Equal(want, got.BindAddr.Hostname)
+		t.Equal(want, got.BindAddr.Host)
 	})
 
 	t.Run("decodes a bind hostname", func() {
@@ -43,7 +43,7 @@ func (t *ReplyTest) TestRead() {
 		t.Require().NoError(err)
 
 		want := "localhost"
-		t.Equal(want, got.BindAddr.Hostname)
+		t.Equal(want, got.BindAddr.Host)
 	})
 
 	t.Run("decodes an empty bind address", func() {
@@ -51,7 +51,7 @@ func (t *ReplyTest) TestRead() {
 		t.Require().NoError(err)
 
 		want := ""
-		t.Equal(want, got.BindAddr.Hostname)
+		t.Equal(want, got.BindAddr.Host)
 	})
 
 	t.Run("decodes a bind port", func() {
@@ -93,7 +93,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind IPv4 address", func() {
 		r := socks4.Reply{
-			BindAddr: *addr.NewHost("127.0.0.1", 0),
+			BindAddr: *addr.New("127.0.0.1", 0),
 		}
 
 		got, err := encodeReply(&r)
@@ -105,7 +105,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind hostname", func() {
 		r := socks4.Reply{
-			BindAddr: *addr.NewHost("localhost", 0),
+			BindAddr: *addr.New("localhost", 0),
 		}
 
 		got, err := encodeReply(&r)
@@ -117,7 +117,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes an empty bind address", func() {
 		r := socks4.Reply{
-			BindAddr: *addr.NewHost("", 0),
+			BindAddr: *addr.New("", 0),
 		}
 
 		got, err := encodeReply(&r)
@@ -129,7 +129,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind port", func() {
 		r := socks4.Reply{
-			BindAddr: *addr.NewHost("", 1080),
+			BindAddr: *addr.New("", 1080),
 		}
 
 		got, err := encodeReply(&r)

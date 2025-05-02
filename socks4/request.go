@@ -50,14 +50,14 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 
 	return &Request{
 		Command(command),
-		*addr.NewHost(dstAddr, dstPort),
+		*addr.New(dstAddr, dstPort),
 		username,
 	}, nil
 }
 
 type Request struct {
 	Command  Command
-	DstAddr  addr.Host
+	DstAddr  addr.Addr
 	Username string
 }
 
@@ -70,12 +70,12 @@ func (r *Request) Write(w io.Writer) error {
 
 	// Append destination IPv4 address and port
 	bytes = binary.BigEndian.AppendUint16(bytes, r.DstAddr.Port)
-	if r.DstAddr.Hostname != "" {
+	if r.DstAddr.Host != "" {
 		if ip4, ok := r.DstAddr.ToIPv4(); ok {
 			dstIP = ip4
 		} else {
 			dstIP[3] = 1
-			dstAddr = r.DstAddr.Hostname
+			dstAddr = r.DstAddr.Host
 		}
 	} else {
 		dstIP = addr.IPv4{0, 0, 0, 0}

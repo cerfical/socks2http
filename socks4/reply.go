@@ -46,13 +46,13 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 
 	return &Reply{
 		Status(status),
-		*addr.NewHost(bindAddr, bindPort),
+		*addr.New(bindAddr, bindPort),
 	}, nil
 }
 
 type Reply struct {
 	Status   Status
-	BindAddr addr.Host
+	BindAddr addr.Addr
 }
 
 func (r *Reply) Write(w io.Writer) error {
@@ -64,12 +64,12 @@ func (r *Reply) Write(w io.Writer) error {
 
 	// Append bind IPv4 address and port
 	bytes = binary.BigEndian.AppendUint16(bytes, r.BindAddr.Port)
-	if r.BindAddr.Hostname != "" {
+	if r.BindAddr.Host != "" {
 		if ip4, ok := r.BindAddr.ToIPv4(); ok {
 			bindIP = ip4
 		} else {
 			bindIP[3] = 1
-			bindAddr = r.BindAddr.Hostname
+			bindAddr = r.BindAddr.Host
 		}
 	} else {
 		bindIP = addr.IPv4{0, 0, 0, 0}

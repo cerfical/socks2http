@@ -34,7 +34,7 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 
 type Request struct {
 	Command Command
-	DstAddr addr.Host
+	DstAddr addr.Addr
 }
 
 func (r *Request) Write(w io.Writer) error {
@@ -46,7 +46,7 @@ func (r *Request) Write(w io.Writer) error {
 		bytes = append(bytes, ip4AddrType)
 		bytes = append(bytes, ip4[:]...)
 	} else {
-		n := len(r.DstAddr.Hostname)
+		n := len(r.DstAddr.Host)
 		if n > math.MaxUint8 {
 			return fmt.Errorf("encode destination address: %w (%v)", ErrHostnameTooLong, n)
 		}
@@ -54,7 +54,7 @@ func (r *Request) Write(w io.Writer) error {
 		// Append destination hostname
 		bytes = append(bytes, hostnameAddrType)
 		bytes = append(bytes, byte(n))
-		bytes = append(bytes, []byte(r.DstAddr.Hostname)...)
+		bytes = append(bytes, []byte(r.DstAddr.Host)...)
 	}
 
 	// Append destination port

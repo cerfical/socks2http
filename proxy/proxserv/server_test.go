@@ -52,7 +52,7 @@ func (t *ServerTest) TestServe() {
 
 func (t *ServerTest) TestServe_HTTP() {
 	t.Run("non-CONNECT requests are forwarded to destination", func() {
-		dstHost := addr.NewHost("localhost", 1111)
+		dstHost := addr.New("localhost", 1111)
 
 		proxy := mocks.NewProxy(t.T())
 		proxy.EXPECT().
@@ -66,7 +66,7 @@ func (t *ServerTest) TestServe_HTTP() {
 	})
 
 	t.Run("replies to non-CONNECT requests with 502-Bad-Gateway if destination is unreachable", func() {
-		dstHost := addr.NewHost("unreachable-host", 1111)
+		dstHost := addr.New("unreachable-host", 1111)
 
 		proxy := mocks.NewProxy(t.T())
 		proxy.EXPECT().
@@ -85,7 +85,7 @@ func (t *ServerTest) TestServe_HTTP() {
 	})
 
 	t.Run("CONNECT opens a tunnel to destination", func() {
-		dstHost := addr.NewHost("localhost", 1111)
+		dstHost := addr.New("localhost", 1111)
 
 		proxy := mocks.NewProxy(t.T())
 		proxy.EXPECT().
@@ -104,7 +104,7 @@ func (t *ServerTest) TestServe_HTTP() {
 	})
 
 	t.Run("replies to CONNECT with 502-Bad-Gateway if destination is unreachable", func() {
-		dstHost := addr.NewHost("unreachable-host", 1111)
+		dstHost := addr.New("unreachable-host", 1111)
 
 		proxy := mocks.NewProxy(t.T())
 		proxy.EXPECT().
@@ -125,7 +125,7 @@ func (t *ServerTest) TestServe_HTTP() {
 
 func (t *ServerTest) TestServe_SOCKS4() {
 	t.Run("CONNECT opens a tunnel to destination", func() {
-		dstHost := addr.NewHost("127.0.0.1", 1111)
+		dstHost := addr.New("127.0.0.1", 1111)
 
 		proxy := mocks.NewProxy(t.T())
 		proxy.EXPECT().
@@ -147,7 +147,7 @@ func (t *ServerTest) TestServe_SOCKS4() {
 	})
 
 	t.Run("replies to CONNECT with Request-Rejected if destination is unreachable", func() {
-		dstHost := addr.NewHost("127.0.0.1", 1080)
+		dstHost := addr.New("127.0.0.1", 1080)
 
 		proxy := mocks.NewProxy(t.T())
 		proxy.EXPECT().
@@ -171,7 +171,7 @@ func (t *ServerTest) TestServe_SOCKS4() {
 
 func (t *ServerTest) TestServe_SOCKS5() {
 	t.Run("CONNECT opens a tunnel to destination", func() {
-		dstHost := addr.NewHost("localhost", 1111)
+		dstHost := addr.New("localhost", 1111)
 
 		proxy := mocks.NewProxy(t.T())
 		proxy.EXPECT().
@@ -194,7 +194,7 @@ func (t *ServerTest) TestServe_SOCKS5() {
 	})
 
 	t.Run("replies to non-CONNECT requests with Command-Not-Supported", func() {
-		dstHost := addr.NewHost("localhost", 1111)
+		dstHost := addr.New("localhost", 1111)
 
 		proxyConn := t.openProxyConn(addr.SOCKS5, nil)
 		t.socks5Authenticate(proxyConn)
@@ -224,7 +224,7 @@ func (t *ServerTest) TestServe_SOCKS5() {
 	})
 
 	t.Run("replies to CONNECT with Host-Unreachable if destination is unreachable", func() {
-		dstHost := addr.NewHost("localhost", 1111)
+		dstHost := addr.New("localhost", 1111)
 
 		proxy := mocks.NewProxy(t.T())
 		proxy.EXPECT().
@@ -249,7 +249,7 @@ func (t *ServerTest) TestServe_SOCKS5() {
 
 func (t *ServerTest) openProxyConn(proto string, p proxy.Proxy) net.Conn {
 	server, err := proxserv.New(
-		proxserv.WithProto(proto),
+		proxserv.WithServeProto(proto),
 		proxserv.WithProxy(p),
 	)
 	t.Require().NoError(err)

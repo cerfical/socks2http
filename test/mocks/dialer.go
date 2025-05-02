@@ -26,7 +26,7 @@ func (_m *Dialer) EXPECT() *Dialer_Expecter {
 }
 
 // Dial provides a mock function with given fields: _a0, _a1
-func (_m *Dialer) Dial(_a0 context.Context, _a1 *addr.Host) (net.Conn, error) {
+func (_m *Dialer) Dial(_a0 context.Context, _a1 *addr.Addr) (net.Conn, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
@@ -35,10 +35,10 @@ func (_m *Dialer) Dial(_a0 context.Context, _a1 *addr.Host) (net.Conn, error) {
 
 	var r0 net.Conn
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *addr.Host) (net.Conn, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *addr.Addr) (net.Conn, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *addr.Host) net.Conn); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *addr.Addr) net.Conn); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
@@ -46,7 +46,7 @@ func (_m *Dialer) Dial(_a0 context.Context, _a1 *addr.Host) (net.Conn, error) {
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *addr.Host) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *addr.Addr) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
@@ -67,9 +67,9 @@ func (_e *Dialer_Expecter) Dial(_a0 interface{}, _a1 interface{}) *Dialer_Dial_C
 	return &Dialer_Dial_Call{Call: _e.mock.On("Dial", _a0, _a1)}
 }
 
-func (_c *Dialer_Dial_Call) Run(run func(_a0 context.Context, _a1 *addr.Host)) *Dialer_Dial_Call {
+func (_c *Dialer_Dial_Call) Run(run func(_a0 context.Context, _a1 *addr.Addr)) *Dialer_Dial_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*addr.Host))
+		run(args[0].(context.Context), args[1].(*addr.Addr))
 	})
 	return _c
 }
@@ -79,7 +79,7 @@ func (_c *Dialer_Dial_Call) Return(_a0 net.Conn, _a1 error) *Dialer_Dial_Call {
 	return _c
 }
 
-func (_c *Dialer_Dial_Call) RunAndReturn(run func(context.Context, *addr.Host) (net.Conn, error)) *Dialer_Dial_Call {
+func (_c *Dialer_Dial_Call) RunAndReturn(run func(context.Context, *addr.Addr) (net.Conn, error)) *Dialer_Dial_Call {
 	_c.Call.Return(run)
 	return _c
 }
