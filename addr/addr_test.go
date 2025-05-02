@@ -4,126 +4,142 @@ import (
 	"testing"
 
 	"github.com/cerfical/socks2http/addr"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestParseHost(t *testing.T) {
-	okTests := map[string]struct {
+func TestAddr(t *testing.T) {
+	suite.Run(t, new(AddrTest))
+}
+
+type AddrTest struct {
+	suite.Suite
+}
+
+func (t *AddrTest) TestParse() {
+	tests := map[string]struct {
 		input string
 		want  *addr.Addr
 	}{
-		"parses hostname-port":                  {"localhost:80", addr.New("localhost", 80)},
-		"parses only port if hostname is empty": {":80", addr.New("", 80)},
+		"parses a host-port pair": {
+			input: "localhost:80",
+			want:  addr.New("localhost", 80),
+		},
+
+		"parses an empty host": {
+			input: ":80",
+			want:  addr.New("", 80),
+		},
 	}
 
-	for name, test := range okTests {
-		t.Run(name, func(t *testing.T) {
-			h, err := addr.Parse(test.input)
-			require.NoError(t, err)
+	for name, test := range tests {
+		t.Run(name, func() {
+			addr, err := addr.Parse(test.input)
+			t.Require().NoError(err)
 
-			assert.Equal(t, test.want, h)
+			t.Equal(test.want, addr)
 		})
 	}
 
-	failTests := map[string]struct {
-		input string
-	}{
-		"rejects empty input": {""},
-		"rejects_empty_port":  {"localhost:"},
-	}
+	t.Run("rejects an empty input", func() {
+		_, err := addr.Parse("")
+		t.Error(err)
+	})
 
-	for name, test := range failTests {
-		t.Run(name, func(t *testing.T) {
-			_, err := addr.Parse(test.input)
-			assert.Error(t, err)
-		})
-	}
+	t.Run("rejects an empty port", func() {
+		_, err := addr.Parse("localhost:")
+		t.Error(err)
+	})
 }
 
-func TestHost_String(t *testing.T) {
+func (t *AddrTest) TestString() {
 	tests := map[string]struct {
-		host *addr.Addr
+		addr *addr.Addr
 		want string
 	}{
-		"prints zero value as zero port":        {addr.New("", 0), ":0"},
-		"prints only port if hostname is empty": {addr.New("", 80), ":80"},
-		"prints hostname-port if non-zero":      {addr.New("localhost", 80), "localhost:80"},
-		"prints IPv4-address-port if non-zero":  {addr.New("127.0.0.1", 80), "127.0.0.1:80"},
+		"prints a host-port pair": {
+			addr: addr.New("localhost", 80),
+			want: "localhost:80",
+		},
+
+		"prints an empty host": {
+			addr: addr.New("", 0),
+			want: ":0",
+		},
+
+		"prints an IPv4-address": {
+			addr: addr.New("127.0.0.1", 0),
+			want: "127.0.0.1:0",
+		},
 	}
 
 	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			got := test.host.String()
-			assert.Equal(t, test.want, got)
+		t.Run(name, func() {
+			got := test.addr.String()
+			t.Equal(test.want, got)
 		})
 	}
 }
 
-func TestHost_ResolveToIPv4(t *testing.T) {
-	okTests := map[string]struct {
-		host *addr.Addr
+func (t *AddrTest) TestResolveToIPv4() {
+	tests := map[string]struct {
+		addr *addr.Addr
 		want addr.IPv4
 	}{
-		"resolves localhost to 127-0-0-1":         {addr.New("localhost", 0), addr.IPv4{127, 0, 0, 1}},
-		"resolves an empty hostname to 127-0-0-1": {addr.New("", 0), addr.IPv4{127, 0, 0, 1}},
-		"resolves an IPv4 address to itself":      {addr.New("1.1.1.1", 0), addr.IPv4{1, 1, 1, 1}},
-	}
-	for name, test := range okTests {
-		t.Run(name, func(t *testing.T) {
-			got, err := test.host.ResolveToIPv4()
-			require.NoError(t, err)
-
-			assert.Equal(t, test.want, got)
-		})
-	}
-
-	failTests := map[string]struct {
-		host *addr.Addr
-	}{
-		"rejects IPv6 addresses": {addr.New("[0::0]", 0)},
-	}
-	for name, test := range failTests {
-		t.Run(name, func(t *testing.T) {
-			_, err := test.host.ResolveToIPv4()
-			require.Error(t, err)
-		})
-	}
-}
-
-func TestHost_ToIPv4(t *testing.T) {
-	tests := map[string]struct {
-		hostname string
-		want     addr.IPv4
-		fail     bool
-	}{
-		"parses IPv4 hostnames": {
-			hostname: "127.0.0.1",
-			want:     addr.IPv4{127, 0, 0, 1},
+		"resolves localhost to 127-0-0-1": {
+			addr: addr.New("localhost", 0),
+			want: addr.IPv4{127, 0, 0, 1},
 		},
 
-		"rejects symbolic hostnames": {
-			hostname: "localhost",
-			fail:     true,
+		"resolves an empty host to 127-0-0-1": {
+			addr: addr.New("", 0),
+			want: addr.IPv4{127, 0, 0, 1},
 		},
 
-		"rejects IPv6 addresses": {
-			hostname: "0:0:0:0:0:0:0:1",
-			fail:     true,
+		"resolves an IPv4 address to itself": {
+			addr: addr.New("1.1.1.1", 0),
+			want: addr.IPv4{1, 1, 1, 1},
 		},
 	}
 
 	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			host := addr.New(test.hostname, 0)
+		t.Run(name, func() {
+			got, err := test.addr.ResolveToIPv4()
+			t.Require().NoError(err)
 
-			ip, ok := host.ToIPv4()
-			if test.fail {
-				require.False(t, ok)
-			} else {
-				require.True(t, ok)
-				assert.Equal(t, test.want, ip)
-			}
+			t.Equal(test.want, got)
 		})
 	}
+
+	t.Run("rejects IPv6 addresses", func() {
+		a := addr.New("[0::0]", 0)
+
+		_, err := a.ResolveToIPv4()
+		t.Require().Error(err)
+	})
+}
+
+func (t *AddrTest) TestToIPv4() {
+	t.Run("parses an IPv4 host", func() {
+		a := addr.New("127.0.0.1", 0)
+
+		ip, ok := a.ToIPv4()
+		t.Require().True(ok)
+
+		want := addr.IPv4{127, 0, 0, 1}
+		t.Equal(want, ip)
+	})
+
+	t.Run("rejects named hosts", func() {
+		a := addr.New("localhost", 0)
+
+		_, ok := a.ToIPv4()
+		t.Require().False(ok)
+	})
+
+	t.Run("rejects IPv6 addresses", func() {
+		a := addr.New("0:0:0:0:0:0:0:1", 0)
+
+		_, ok := a.ToIPv4()
+		t.Require().False(ok)
+	})
 }
