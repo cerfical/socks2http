@@ -3,6 +3,7 @@ package proxy
 import (
 	"errors"
 	"slices"
+	"strings"
 )
 
 const (
@@ -41,7 +42,8 @@ func (p Proto) MarshalText() ([]byte, error) {
 }
 
 func (p *Proto) UnmarshalText(text []byte) error {
-	i := slices.Index(protos, string(text))
+	s := strings.ToLower(string(text))
+	i := slices.Index(protos, s)
 	if i == -1 {
 		return errors.New("unknown protocol")
 	}

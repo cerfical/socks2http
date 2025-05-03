@@ -39,6 +39,13 @@ func (t *ProtoTest) TestUnmarshalText() {
 		t.Equal(proxy.ProtoSOCKS5, got)
 	})
 
+	t.Run("ignores character case", func() {
+		var got proxy.Proto
+		t.Require().NoError(got.UnmarshalText([]byte("Socks5")))
+
+		t.Equal(proxy.ProtoSOCKS5, got)
+	})
+
 	t.Run("rejects invalid protocol names", func() {
 		var got proxy.Proto
 		t.Require().Error(got.UnmarshalText([]byte("socks6")))
