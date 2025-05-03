@@ -97,7 +97,7 @@ func (c *Client) Dial(ctx context.Context, h *addr.Addr) (net.Conn, error) {
 
 func socks5Connect(proxyConn net.Conn, dstAddr *addr.Addr, resolveLocally bool) error {
 	if resolveLocally {
-		ip4, err := dstAddr.ResolveToIPv4()
+		ip4, err := net.ResolveIPAddr("ip4", dstAddr.Host)
 		if err != nil {
 			return fmt.Errorf("resolve destination: %w", err)
 		}
@@ -147,7 +147,7 @@ func socks5Connect(proxyConn net.Conn, dstAddr *addr.Addr, resolveLocally bool) 
 
 func socks4Connect(proxyConn net.Conn, dstAddr *addr.Addr, resolveLocally bool) error {
 	if resolveLocally {
-		ip4, err := dstAddr.ResolveToIPv4()
+		ip4, err := net.ResolveIPAddr("ip4", dstAddr.Host)
 		if err != nil {
 			return fmt.Errorf("resolve destination: %w", err)
 		}

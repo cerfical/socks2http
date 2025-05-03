@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 
 	"github.com/cerfical/socks2http/addr"
 )
@@ -41,17 +42,23 @@ func (r *Request) Write(w io.Writer) error {
 	// Encode the request header
 	bytes := []byte{VersionCode, byte(r.Command), 0x00}
 
-	if ip4, ok := r.DstAddr.ToIPv4(); ok {
-		// Append destination IPv4 address
-		bytes = append(bytes, ip4AddrType)
-		bytes = append(bytes, ip4[:]...)
+	if ip := net.ParseIP(r.DstAddr.Host); ip != nil {
+		var addrType byte
+		if ip4 := ip.To4(); ip4 != nil {
+			// Destination is an IPv4 address
+			addrType = ip4AddrType
+			ip = ip4
+		} else {
+			// Destination is an IPv6 address
+		}
+		bytes = append(bytes, addrType)
+		bytes = append(bytes, ip[:]...)
 	} else {
+		// Destination is a hostname
 		n := len(r.DstAddr.Host)
 		if n > math.MaxUint8 {
 			return fmt.Errorf("encode destination address: %w (%v)", ErrHostnameTooLong, n)
 		}
-
-		// Append destination hostname
 		bytes = append(bytes, hostnameAddrType)
 		bytes = append(bytes, byte(n))
 		bytes = append(bytes, []byte(r.DstAddr.Host)...)

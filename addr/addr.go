@@ -55,31 +55,3 @@ func (a *Addr) UnmarshalText(text []byte) error {
 	*a = *host
 	return nil
 }
-
-func (a *Addr) ToIPv4() (IPv4, bool) {
-	ip := net.ParseIP(a.Host)
-	if ip == nil {
-		// Not an IP address
-		return IPv4{}, false
-	}
-
-	ip4 := ip.To4()
-	if ip4 == nil {
-		// Not an IPv4 address
-		return IPv4{}, false
-	}
-	return IPv4(ip4), true
-}
-
-func (a *Addr) ResolveToIPv4() (IPv4, error) {
-	// Assume localhost, if the hostname is not specified
-	if a.Host == "" {
-		return IPv4{127, 0, 0, 1}, nil
-	}
-
-	ip, err := net.ResolveIPAddr("ip4", a.Host)
-	if err != nil {
-		return IPv4{}, err
-	}
-	return IPv4(ip.IP.To4()), nil
-}

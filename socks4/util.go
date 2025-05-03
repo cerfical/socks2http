@@ -5,8 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-
-	"github.com/cerfical/socks2http/addr"
+	"net"
 )
 
 const VersionCode = 0x04
@@ -28,17 +27,17 @@ func checkVersion(r *bufio.Reader, version byte) error {
 	return nil
 }
 
-func readAddr(r *bufio.Reader) (addr.IPv4, uint16, error) {
+func readAddr(r *bufio.Reader) (net.IP, uint16, error) {
 	port, err := readPort(r)
 	if err != nil {
-		return addr.IPv4{}, 0, fmt.Errorf("decode port: %w", err)
+		return nil, 0, fmt.Errorf("decode port: %w", err)
 	}
 
-	var ip4 addr.IPv4
+	var ip4 [4]byte
 	if _, err := io.ReadFull(r, ip4[:]); err != nil {
-		return addr.IPv4{}, 0, fmt.Errorf("decode IPv4 address: %w", err)
+		return nil, 0, fmt.Errorf("decode IPv4 address: %w", err)
 	}
-	return ip4, port, nil
+	return net.IP(ip4[:]), port, nil
 }
 
 func readPort(r *bufio.Reader) (uint16, error) {

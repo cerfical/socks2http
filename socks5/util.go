@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 
 	"github.com/cerfical/socks2http/addr"
 )
@@ -53,11 +54,11 @@ func readAddr(r *bufio.Reader) (*addr.Addr, error) {
 	var host addr.Addr
 	switch addrType {
 	case ip4AddrType:
-		var ip4 addr.IPv4
+		var ip4 [4]byte
 		if _, err := io.ReadFull(r, ip4[:]); err != nil {
 			return nil, fmt.Errorf("decode IPv4 address: %w", err)
 		}
-		host.Host = ip4.String()
+		host.Host = net.IP(ip4[:]).String()
 	case hostnameAddrType:
 		n, err := r.ReadByte()
 		if err != nil {

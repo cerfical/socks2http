@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 	"slices"
 
 	"github.com/cerfical/socks2http/addr"
@@ -58,21 +59,28 @@ type Reply struct {
 func (r *Reply) Write(w io.Writer) error {
 	bytes := []byte{replyVersion, byte(r.Status)}
 	var (
-		bindIP   addr.IPv4
+		bindIP   [4]byte
 		bindAddr string
 	)
 
-	// Append bind IPv4 address and port
 	bytes = binary.BigEndian.AppendUint16(bytes, r.BindAddr.Port)
 	if r.BindAddr.Host != "" {
-		if ip4, ok := r.BindAddr.ToIPv4(); ok {
-			bindIP = ip4
+		if ip := net.ParseIP(r.BindAddr.Host); ip != nil {
+			ip4 := ip.To4()
+			if ip4 == nil {
+				// Bind address is an IPv6 address
+				return fmt.Errorf("encode bind address: not an IPv4 address: %v", ip)
+			}
+			// Bind address is an IPv4 address
+			bindIP = [4]byte(ip4)
 		} else {
-			bindIP[3] = 1
+			// Bind address is a hostname
 			bindAddr = r.BindAddr.Host
+			bindIP = [4]byte{0, 0, 0, 1}
 		}
 	} else {
-		bindIP = addr.IPv4{0, 0, 0, 0}
+		// No bind address was specified
+		bindIP = [4]byte{0, 0, 0, 0}
 	}
 	bytes = append(bytes, bindIP[:]...)
 

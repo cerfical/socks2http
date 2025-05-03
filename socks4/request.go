@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 	"slices"
 
 	"github.com/cerfical/socks2http/addr"
@@ -64,21 +65,30 @@ type Request struct {
 func (r *Request) Write(w io.Writer) error {
 	bytes := []byte{VersionCode, byte(r.Command)}
 	var (
-		dstIP   addr.IPv4
+		dstIP   [4]byte
 		dstAddr string
 	)
 
 	// Append destination IPv4 address and port
 	bytes = binary.BigEndian.AppendUint16(bytes, r.DstAddr.Port)
+
 	if r.DstAddr.Host != "" {
-		if ip4, ok := r.DstAddr.ToIPv4(); ok {
-			dstIP = ip4
+		if ip := net.ParseIP(r.DstAddr.Host); ip != nil {
+			ip4 := ip.To4()
+			if ip4 == nil {
+				// Destination is an IPv6 address
+				return fmt.Errorf("encode destination address: not an IPv4 address: %v", ip)
+			}
+			// Destination is an IPv4 address
+			dstIP = [4]byte(ip4)
 		} else {
-			dstIP[3] = 1
+			// Destination is a hostname
 			dstAddr = r.DstAddr.Host
+			dstIP = [4]byte{0, 0, 0, 1}
 		}
 	} else {
-		dstIP = addr.IPv4{0, 0, 0, 0}
+		// No destination address was specified
+		dstIP = [4]byte{0, 0, 0, 0}
 	}
 	bytes = append(bytes, dstIP[:]...)
 
