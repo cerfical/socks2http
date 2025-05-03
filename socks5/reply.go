@@ -50,6 +50,7 @@ func (r *Reply) Write(w io.Writer) error {
 			ip = ip4
 		} else {
 			// Bind address is an IPv6 address
+			addrType = ip6AddrType
 		}
 		bytes = append(bytes, addrType)
 		bytes = append(bytes, ip[:]...)

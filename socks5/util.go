@@ -14,6 +14,7 @@ const VersionCode = 0x05
 const (
 	ip4AddrType      = 0x01
 	hostnameAddrType = 0x03
+	ip6AddrType      = 0x04
 )
 
 type hexByte byte
@@ -51,14 +52,20 @@ func readAddr(r *bufio.Reader) (*addr.Addr, error) {
 		return nil, fmt.Errorf("decode address type: %w", err)
 	}
 
-	var host addr.Addr
+	var addr addr.Addr
 	switch addrType {
 	case ip4AddrType:
 		var ip4 [4]byte
 		if _, err := io.ReadFull(r, ip4[:]); err != nil {
 			return nil, fmt.Errorf("decode IPv4 address: %w", err)
 		}
-		host.Host = net.IP(ip4[:]).String()
+		addr.Host = net.IP(ip4[:]).String()
+	case ip6AddrType:
+		var ip6 [16]byte
+		if _, err := io.ReadFull(r, ip6[:]); err != nil {
+			return nil, fmt.Errorf("decode IPv6 address: %w", err)
+		}
+		addr.Host = net.IP(ip6[:]).String()
 	case hostnameAddrType:
 		n, err := r.ReadByte()
 		if err != nil {
@@ -69,17 +76,17 @@ func readAddr(r *bufio.Reader) (*addr.Addr, error) {
 		if _, err := io.ReadFull(r, hostname); err != nil {
 			return nil, fmt.Errorf("decode hostname: %w", err)
 		}
-		host.Host = string(hostname)
+		addr.Host = string(hostname)
 	default:
 		return nil, fmt.Errorf("%w (%v)", ErrInvalidAddrType, hexByte(addrType))
 	}
 
-	host.Port, err = readPort(r)
+	addr.Port, err = readPort(r)
 	if err != nil {
 		return nil, fmt.Errorf("decode port: %w", err)
 	}
 
-	return &host, nil
+	return &addr, nil
 }
 
 func readPort(r *bufio.Reader) (uint16, error) {

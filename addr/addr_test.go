@@ -30,6 +30,16 @@ func (t *AddrTest) TestParse() {
 			want:  addr.New("", 80),
 		},
 
+		"parses an IPv4 address": {
+			input: "127.0.0.1:80",
+			want:  addr.New("127.0.0.1", 80),
+		},
+
+		"parses an IPv6 address": {
+			input: "[1::1]:80",
+			want:  addr.New("1::1", 80),
+		},
+
 		"parses an empty input to a default value": {
 			input: "",
 			want:  &addr.Addr{},
@@ -74,6 +84,11 @@ func (t *AddrTest) TestString() {
 		"prints an IPv4-address": {
 			addr: addr.New("127.0.0.1", 80),
 			want: "127.0.0.1:80",
+		},
+
+		"prints an IPv6-address": {
+			addr: addr.New("1::1", 80),
+			want: "[1::1]:80",
 		},
 	}
 

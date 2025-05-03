@@ -50,6 +50,7 @@ func (r *Request) Write(w io.Writer) error {
 			ip = ip4
 		} else {
 			// Destination is an IPv6 address
+			addrType = ip6AddrType
 		}
 		bytes = append(bytes, addrType)
 		bytes = append(bytes, ip[:]...)

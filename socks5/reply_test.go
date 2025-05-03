@@ -36,6 +36,17 @@ func (t *ReplyTest) TestRead() {
 		t.Equal(want, got.BindAddr.Host)
 	})
 
+	t.Run("decodes a bind IPv6 address", func() {
+		got, err := decodeReply([]byte{5, 0, 0,
+			0x04, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+			0, 0,
+		})
+		t.Require().NoError(err)
+
+		want := "102:304:506:708:90a:b0c:d0e:f10"
+		t.Equal(want, got.BindAddr.Host)
+	})
+
 	t.Run("decodes a bind hostname", func() {
 		got, err := decodeReply([]byte{5, 0, 0, 0x03, 9, 'l', 'o', 'c', 'a', 'l', 'h', 'o', 's', 't', 0, 0})
 		t.Require().NoError(err)
@@ -122,6 +133,20 @@ func (t *ReplyTest) TestWrite() {
 
 		want := []byte{0x01, 127, 0, 0, 1}
 		t.Equal(want, got[3:8])
+	})
+
+	t.Run("encodes a bind IPv6 address", func() {
+		r := socks5.Reply{
+			BindAddr: *addr.New("102:304:506:708:90a:b0c:d0e:f10", 0),
+		}
+
+		got, err := encodeReply(&r)
+		t.Require().NoError(err)
+
+		want := []byte{
+			0x04, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+		}
+		t.Equal(want, got[3:20])
 	})
 
 	t.Run("encodes a bind hostname", func() {
