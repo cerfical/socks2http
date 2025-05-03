@@ -2,11 +2,8 @@ package socks4
 
 import (
 	"bufio"
-	"encoding/binary"
 	"fmt"
 	"io"
-	"net"
-	"slices"
 
 	"github.com/cerfical/socks2http/addr"
 )
@@ -29,25 +26,14 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 		return nil, fmt.Errorf("decode bind address: %w", err)
 	}
 
-	bindAddr := ""
-	if slices.Equal(bindIP[:3], []byte{0, 0, 0}) {
-		if bindIP[3] != 0 {
-			// The bind address is a hostname
-			bindAddr, err = r.ReadString('\x00')
-			if err != nil {
-				return nil, fmt.Errorf("decode bind hostname: %w", err)
-			}
-			bindAddr = bindAddr[:len(bindAddr)-1] // Remove the null terminator
-		} else {
-			bindAddr = ""
-		}
-	} else {
-		bindAddr = bindIP.String()
+	bindHost, err := readHostname(r, bindIP)
+	if err != nil {
+		return nil, fmt.Errorf("decode bind hostname: %w", err)
 	}
 
 	return &Reply{
 		Status(status),
-		*addr.New(bindAddr, bindPort),
+		*addr.New(bindHost, bindPort),
 	}, nil
 }
 
@@ -58,38 +44,19 @@ type Reply struct {
 
 func (r *Reply) Write(w io.Writer) error {
 	bytes := []byte{replyVersion, byte(r.Status)}
-	var (
-		bindIP   [4]byte
-		bindAddr string
-	)
 
-	bytes = binary.BigEndian.AppendUint16(bytes, r.BindAddr.Port)
-	if r.BindAddr.Host != "" {
-		if ip := net.ParseIP(r.BindAddr.Host); ip != nil {
-			ip4 := ip.To4()
-			if ip4 == nil {
-				// Bind address is an IPv6 address
-				return fmt.Errorf("encode bind address: not an IPv4 address: %v", ip)
-			}
-			// Bind address is an IPv4 address
-			bindIP = [4]byte(ip4)
-		} else {
-			// Bind address is a hostname
-			bindAddr = r.BindAddr.Host
-			bindIP = [4]byte{0, 0, 0, 1}
-		}
-	} else {
-		// No bind address was specified
-		bindIP = [4]byte{0, 0, 0, 0}
+	bindAddr, bindHostname, err := encodeAddr(&r.BindAddr)
+	if err != nil {
+		return fmt.Errorf("encode bind address: %w", err)
 	}
-	bytes = append(bytes, bindIP[:]...)
+	bytes = append(bytes, bindAddr...)
 
-	// Append the bind hostname, if any
-	if len(bindAddr) > 0 {
-		bytes = append(bytes, []byte(bindAddr)...)
+	// Append bind hostname, if any
+	if len(bindHostname) > 0 {
+		bytes = append(bytes, []byte(bindHostname)...)
 		bytes = append(bytes, 0)
 	}
 
-	_, err := w.Write(bytes)
+	_, err = w.Write(bytes)
 	return err
 }

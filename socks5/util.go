@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"net"
 
 	"github.com/cerfical/socks2http/addr"
@@ -95,4 +96,31 @@ func readPort(r *bufio.Reader) (uint16, error) {
 		return 0, err
 	}
 	return binary.BigEndian.Uint16(port[:]), nil
+}
+
+func encodeAddr(a *addr.Addr) ([]byte, error) {
+	var bytes []byte
+	if ip := net.ParseIP(a.Host); ip != nil {
+		var addrType byte
+		if ip4 := ip.To4(); ip4 != nil {
+			// IPv4 address
+			addrType = ip4AddrType
+			ip = ip4
+		} else {
+			// IPv6 address
+			addrType = ip6AddrType
+		}
+		bytes = append(bytes, addrType)
+		bytes = append(bytes, ip[:]...)
+	} else {
+		// Hostname address
+		n := len(a.Host)
+		if n > math.MaxUint8 {
+			return nil, fmt.Errorf("%w (%v)", ErrHostnameTooLong, n)
+		}
+		bytes = append(bytes, hostnameAddrType, byte(n))
+		bytes = append(bytes, []byte(a.Host)...)
+	}
+	bytes = binary.BigEndian.AppendUint16(bytes, a.Port)
+	return bytes, nil
 }

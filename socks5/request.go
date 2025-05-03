@@ -2,11 +2,8 @@ package socks5
 
 import (
 	"bufio"
-	"encoding/binary"
 	"fmt"
 	"io"
-	"math"
-	"net"
 
 	"github.com/cerfical/socks2http/addr"
 )
@@ -39,35 +36,15 @@ type Request struct {
 }
 
 func (r *Request) Write(w io.Writer) error {
-	// Encode the request header
+	// Encode request header
 	bytes := []byte{VersionCode, byte(r.Command), 0x00}
 
-	if ip := net.ParseIP(r.DstAddr.Host); ip != nil {
-		var addrType byte
-		if ip4 := ip.To4(); ip4 != nil {
-			// Destination is an IPv4 address
-			addrType = ip4AddrType
-			ip = ip4
-		} else {
-			// Destination is an IPv6 address
-			addrType = ip6AddrType
-		}
-		bytes = append(bytes, addrType)
-		bytes = append(bytes, ip[:]...)
-	} else {
-		// Destination is a hostname
-		n := len(r.DstAddr.Host)
-		if n > math.MaxUint8 {
-			return fmt.Errorf("encode destination address: %w (%v)", ErrHostnameTooLong, n)
-		}
-		bytes = append(bytes, hostnameAddrType)
-		bytes = append(bytes, byte(n))
-		bytes = append(bytes, []byte(r.DstAddr.Host)...)
+	addr, err := encodeAddr(&r.DstAddr)
+	if err != nil {
+		return fmt.Errorf("encode destination address: %w ", err)
 	}
+	bytes = append(bytes, addr...)
 
-	// Append destination port
-	bytes = binary.BigEndian.AppendUint16(bytes, r.DstAddr.Port)
-
-	_, err := w.Write(bytes)
+	_, err = w.Write(bytes)
 	return err
 }
