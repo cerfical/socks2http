@@ -50,10 +50,15 @@ func main() {
 	stop := make(chan os.Signal, 2)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
-	// Wait for interrupts, and if one occurs, shut down the server
-	<-stop
-	log.Info("Shutting down the server")
-	cancel()
+	select {
+	case <-stop:
+		// Wait for interrupts, and if one occurs, shut down the server
+		log.Info("Shutting down the server")
+		cancel()
+	case <-done:
+		// Server terminated abnormally
+		return
+	}
 
 	select {
 	case <-stop:
