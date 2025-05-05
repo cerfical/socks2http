@@ -25,12 +25,14 @@ func main() {
 		log.Error("Failed to initialize a proxy client", err)
 		return
 	}
-	log.Info("Using a proxy", "proto", config.Proxy.Proto, "addr", &config.Proxy.Addr)
+
+	log.WithFields("proto", config.Proxy.Proto, "addr", &config.Proxy.Addr).
+		Info("Using a proxy")
 
 	server, err := proxserv.New(
 		proxserv.WithServeProto(config.Server.Proto),
 		proxserv.WithProxy(proxy.New(client)),
-		proxserv.WithLog(log),
+		proxserv.WithLogger(log),
 	)
 	if err != nil {
 		log.Error("Failed to initialize a server", err)

@@ -45,7 +45,8 @@ func writeLog(logLevel, msgLevel log.Level) string {
 	case log.LevelError:
 		l.Error("log message", errors.New("description"))
 	case log.LevelInfo:
-		l.Info("log message", "error", "description")
+		l.WithFields("error", "description").
+			Info("log message")
 	}
 
 	return buf.String()

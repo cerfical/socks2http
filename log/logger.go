@@ -59,16 +59,20 @@ type Logger struct {
 	log zerolog.Logger
 }
 
+func (l *Logger) WithFields(fields ...any) *Logger {
+	return &Logger{l.log.With().Fields(fields).Logger()}
+}
+
 func (l *Logger) Error(msg string, err error) {
-	l.logEntry(LevelError, msg, []any{"error", err})
+	l.logEntry(LevelError, msg, err)
 }
 
-func (l *Logger) Info(msg string, fields ...any) {
-	l.logEntry(LevelInfo, msg, fields)
+func (l *Logger) Info(msg string) {
+	l.logEntry(LevelInfo, msg, nil)
 }
 
-func (l *Logger) logEntry(level Level, msg string, fields []any) {
+func (l *Logger) logEntry(level Level, msg string, err error) {
 	entry := l.log.WithLevel(makeZerologLevel(level))
-	entry.Fields(fields).
+	entry.Err(err).
 		Msg(msg)
 }
