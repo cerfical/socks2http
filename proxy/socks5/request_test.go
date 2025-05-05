@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cerfical/socks2http/addr"
-	"github.com/cerfical/socks2http/socks5"
+	"github.com/cerfical/socks2http/proxy/addr"
+	"github.com/cerfical/socks2http/proxy/socks5"
 	"github.com/stretchr/testify/suite"
 )
 

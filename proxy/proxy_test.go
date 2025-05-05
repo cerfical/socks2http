@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/proxy"
+	"github.com/cerfical/socks2http/proxy/addr"
 	"github.com/cerfical/socks2http/test/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"

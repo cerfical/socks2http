@@ -11,11 +11,11 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/cerfical/socks2http/addr"
+	"github.com/cerfical/socks2http/proxy/addr"
 	"github.com/cerfical/socks2http/log"
 	"github.com/cerfical/socks2http/proxy"
-	"github.com/cerfical/socks2http/socks4"
-	"github.com/cerfical/socks2http/socks5"
+	"github.com/cerfical/socks2http/proxy/socks4"
+	"github.com/cerfical/socks2http/proxy/socks5"
 )
 
 func New(ops ...Option) (*Server, error) {

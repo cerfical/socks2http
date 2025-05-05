@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/config"
 	"github.com/cerfical/socks2http/log"
 	"github.com/cerfical/socks2http/proxy"
+	"github.com/cerfical/socks2http/proxy/addr"
 	"github.com/stretchr/testify/suite"
 )
 

@@ -4,9 +4,9 @@ import (
 	"flag"
 	"time"
 
-	"github.com/cerfical/socks2http/addr"
 	"github.com/cerfical/socks2http/log"
 	"github.com/cerfical/socks2http/proxy"
+	"github.com/cerfical/socks2http/proxy/addr"
 )
 
 var defaultServeAddr = addr.New("localhost", 8080)

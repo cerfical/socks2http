@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cerfical/socks2http/addr"
+	"github.com/cerfical/socks2http/proxy/addr"
 )
 
 func ReadReply(r *bufio.Reader) (*Reply, error) {

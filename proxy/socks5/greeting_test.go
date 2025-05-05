@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/cerfical/socks2http/socks5"
+	"github.com/cerfical/socks2http/proxy/socks5"
 	"github.com/stretchr/testify/suite"
 )
 

@@ -8,7 +8,7 @@ import (
 	"math"
 	"net"
 
-	"github.com/cerfical/socks2http/addr"
+	"github.com/cerfical/socks2http/proxy/addr"
 )
 
 const VersionCode = 0x05

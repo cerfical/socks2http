@@ -3,7 +3,7 @@ package socks4_test
 import (
 	"testing"
 
-	"github.com/cerfical/socks2http/socks4"
+	"github.com/cerfical/socks2http/proxy/socks4"
 	"github.com/stretchr/testify/suite"
 )
 

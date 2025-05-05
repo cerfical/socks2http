@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	addr "github.com/cerfical/socks2http/addr"
+	addr "github.com/cerfical/socks2http/proxy/addr"
 
 	http "net/http"
 

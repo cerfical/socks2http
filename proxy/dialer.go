@@ -4,7 +4,7 @@ import (
 	"context"
 	"net"
 
-	"github.com/cerfical/socks2http/addr"
+	"github.com/cerfical/socks2http/proxy/addr"
 )
 
 var DirectDialer Dialer = DialerFunc(directDial)

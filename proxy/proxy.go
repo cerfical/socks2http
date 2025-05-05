@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cerfical/socks2http/addr"
+	"github.com/cerfical/socks2http/proxy/addr"
 )
 
 func New(d Dialer) Proxy {

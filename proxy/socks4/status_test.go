@@ -1,9 +1,9 @@
-package socks5_test
+package socks4_test
 
 import (
 	"testing"
 
-	"github.com/cerfical/socks2http/socks5"
+	"github.com/cerfical/socks2http/proxy/socks4"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -17,12 +17,12 @@ type StatusTest struct {
 
 func (t *StatusTest) TestString() {
 	tests := map[string]struct {
-		input socks5.Status
+		input socks4.Status
 		want  string
 	}{
 		"prints valid statuses as short description followed by status code in hex": {
-			input: socks5.StatusGeneralFailure,
-			want:  "General Failure (0x01)",
+			input: socks4.StatusGranted,
+			want:  "Request Granted (0x5a)",
 		},
 
 		"prints invalid statuses as error message followed by status code in hex": {
