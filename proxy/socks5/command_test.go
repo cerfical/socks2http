@@ -20,16 +20,17 @@ func (t *CommandTest) TestString() {
 		input socks5.Command
 		want  string
 	}{
-		"prints valid commands as command name followed by command code in hex": {
+		"prints valid commands as command name": {
 			input: socks5.CommandConnect,
-			want:  "CONNECT (0x01)",
+			want:  "CONNECT",
 		},
 
-		"prints invalid commands as error message followed by command code in hex": {
+		"prints invalid commands as numeric code in hex": {
 			input: 0x17,
-			want:  "Invalid Command (0x17)",
+			want:  "0x17",
 		},
 	}
+
 	for name, test := range tests {
 		t.Run(name, func() {
 			got := test.input.String()

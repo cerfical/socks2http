@@ -9,7 +9,7 @@ const (
 )
 
 var authMethods = map[AuthMethod]string{
-	AuthNone: "No Authentication",
+	AuthNone: "None",
 
 	AuthNotAcceptable: "No Acceptable Authentication Methods",
 }
@@ -18,9 +18,9 @@ type AuthMethod byte
 
 func (m AuthMethod) String() string {
 	if str, ok := authMethods[m]; ok {
-		return fmt.Sprintf("%v (%v)", str, hexByte(m))
+		return fmt.Sprintf("%v", str)
 	}
-	return fmt.Sprintf("Invalid Authentication Method (%v)", hexByte(m))
+	return fmt.Sprintf("%v", hexByte(m))
 }
 
 func (m AuthMethod) MarshalText() ([]byte, error) {

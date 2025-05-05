@@ -20,16 +20,17 @@ func (t *AuthMethodTest) TestString() {
 		input socks5.AuthMethod
 		want  string
 	}{
-		"prints valid auth methods as short description followed by auth method code in hex": {
-			input: socks5.AuthNotAcceptable,
-			want:  "No Acceptable Authentication Methods (0xff)",
+		"prints valid auth methods as method name": {
+			input: socks5.AuthNone,
+			want:  "None",
 		},
 
-		"prints invalid auth methods as error message followed by auth method code in hex": {
+		"prints invalid auth methods as numeric code in hex": {
 			input: 0x17,
-			want:  "Invalid Authentication Method (0x17)",
+			want:  "0x17",
 		},
 	}
+
 	for name, test := range tests {
 		t.Run(name, func() {
 			got := test.input.String()

@@ -30,9 +30,9 @@ type Status byte
 
 func (s Status) String() string {
 	if str, ok := statuses[s]; ok {
-		return fmt.Sprintf("%v (%v)", str, hexByte(s))
+		return fmt.Sprintf("%v", str)
 	}
-	return fmt.Sprintf("Invalid Status (%v)", hexByte(s))
+	return fmt.Sprintf("%v", hexByte(s))
 }
 
 func (s Status) MarshalText() ([]byte, error) {

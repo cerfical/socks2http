@@ -20,16 +20,17 @@ func (t *StatusTest) TestString() {
 		input socks4.Status
 		want  string
 	}{
-		"prints valid statuses as short description followed by status code in hex": {
+		"prints valid statuses as short description": {
 			input: socks4.StatusGranted,
-			want:  "Request Granted (0x5a)",
+			want:  "Request Granted",
 		},
 
-		"prints invalid statuses as error message followed by status code in hex": {
+		"prints invalid statuses as numeric code in hex": {
 			input: 0x17,
-			want:  "Invalid Status (0x17)",
+			want:  "0x17",
 		},
 	}
+
 	for name, test := range tests {
 		t.Run(name, func() {
 			got := test.input.String()
