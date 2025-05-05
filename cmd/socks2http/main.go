@@ -26,7 +26,7 @@ func main() {
 		return
 	}
 
-	log.WithFields("proto", config.Proxy.Proto, "addr", &config.Proxy.Addr).
+	log.WithFields("proxy_proto", config.Proxy.Proto, "proxy_addr", &config.Proxy.Addr).
 		Info("Using a proxy")
 
 	server, err := proxserv.New(

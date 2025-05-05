@@ -11,9 +11,9 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/cerfical/socks2http/proxy/addr"
 	"github.com/cerfical/socks2http/log"
 	"github.com/cerfical/socks2http/proxy"
+	"github.com/cerfical/socks2http/proxy/addr"
 	"github.com/cerfical/socks2http/proxy/socks4"
 	"github.com/cerfical/socks2http/proxy/socks5"
 )
@@ -69,7 +69,7 @@ type Option func(*Server)
 type Server struct {
 	serveProto proxy.Proto
 
-	serveConn func(context.Context, *bufio.Reader, net.Conn) error
+	serveConn func(context.Context, *bufio.Reader, net.Conn, *log.Logger) error
 	proxy     proxy.Proxy
 
 	log *log.Logger
@@ -86,7 +86,7 @@ func (s *Server) ListenAndServe(ctx context.Context, serveAddr *addr.Addr) error
 
 	// Use an automatically assigned port if one was not specified
 	addr := addr.New(serveAddr.Host, uint16(l.Addr().(*net.TCPAddr).Port))
-	s.log.WithFields("proto", s.serveProto, "addr", addr).
+	s.log.WithFields("serve_proto", s.serveProto, "serve_addr", addr).
 		Info("Server is up")
 
 	return s.Serve(ctx, l)
@@ -105,7 +105,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 				if errors.Is(err, net.ErrClosed) {
 					break
 				}
-				s.log.Error("Failed to accept an incoming client connection", err)
+				s.log.Error("Failed to accept an incoming connection", err)
 				continue
 			}
 
@@ -114,14 +114,15 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 					clientConn.Close()
 					activeConns.Done()
 				}()
+				log := s.log.WithFields("client_addr", clientConn.RemoteAddr().String())
 
-				err := s.serveConn(context.Background(), bufio.NewReader(clientConn), clientConn)
+				err := s.serveConn(context.Background(), bufio.NewReader(clientConn), clientConn, log)
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						// Ignore connections closed by client
 						return
 					}
-					s.log.Error("Server failure", fmt.Errorf("%v proxy: %w", s.serveProto, err))
+					log.Error("Server failure", fmt.Errorf("%v proxy: %w", s.serveProto, err))
 				}
 			}()
 		}
@@ -134,15 +135,12 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 	return err
 }
 
-func (s *Server) httpServe(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn) (err error) {
+func (s *Server) httpServe(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn, log *log.Logger) (err error) {
 	req, err := http.ReadRequest(clientRead)
 	if err != nil {
 		return fmt.Errorf("decode request: %w", err)
 	}
 	defer req.Body.Close()
-
-	s.log.WithFields("method", req.Method, "uri", req.RequestURI).
-		Info("HTTP request")
 
 	dstAddr, err := hostFromHTTPRequest(req)
 	if err != nil {
@@ -180,8 +178,8 @@ func (s *Server) httpServe(ctx context.Context, clientRead *bufio.Reader, client
 		}
 	}
 
-	s.log.WithFields("status", makeHTTPStatusString(resp.StatusCode)).
-		Info("HTTP response")
+	log.WithFields("method", req.Method, "uri", req.RequestURI, "status", makeHTTPStatusString(resp.StatusCode)).
+		Info("HTTP request")
 
 	if err := resp.Write(clientConn); err != nil {
 		return fmt.Errorf("encode response: %w", err)
@@ -189,19 +187,15 @@ func (s *Server) httpServe(ctx context.Context, clientRead *bufio.Reader, client
 	return proxyErr
 }
 
-func (s *Server) socks5Serve(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn) (err error) {
+func (s *Server) socks5Serve(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn, log *log.Logger) (err error) {
 	greet, err := socks5.ReadGreeting(clientRead)
 	if err != nil {
 		return fmt.Errorf("decode greeting: %w", err)
 	}
-	s.log.WithFields("auth_methods", greet.AuthMethods).
-		Info("SOCKS5 greeting")
 
-	greetReply := socks5.GreetingReply{
-		AuthMethod: selectSOCKS5AuthMethod(greet.AuthMethods),
-	}
-	s.log.WithFields("auth_method", greetReply.AuthMethod).
-		Info("SOCKS5 greeting reply")
+	greetReply := socks5.GreetingReply{AuthMethod: selectSOCKS5AuthMethod(greet.AuthMethods)}
+	log.WithFields("auth_supported", greet.AuthMethods, "auth_selected", greetReply.AuthMethod).
+		Info("SOCKS5 greeting")
 
 	if err := greetReply.Write(clientConn); err != nil {
 		return fmt.Errorf("encode greeting reply: %w", err)
@@ -215,8 +209,6 @@ func (s *Server) socks5Serve(ctx context.Context, clientRead *bufio.Reader, clie
 	if err != nil {
 		return fmt.Errorf("decode request: %w", err)
 	}
-	s.log.WithFields("command", req.Command, "destination", &req.DstAddr).
-		Info("SOCKS5 request")
 
 	reply := socks5.Reply{Status: socks5.StatusOK}
 	var proxyErr error
@@ -238,8 +230,8 @@ func (s *Server) socks5Serve(ctx context.Context, clientRead *bufio.Reader, clie
 		reply.Status = socks5.StatusCommandNotSupported
 	}
 
-	s.log.WithFields("status", reply.Status).
-		Info("SOCKS5 reply")
+	log.WithFields("command", req.Command, "dst_addr", &req.DstAddr, "status", reply.Status).
+		Info("SOCKS5 request")
 
 	if err := reply.Write(clientConn); err != nil {
 		return fmt.Errorf("encode reply: %w", err)
@@ -247,13 +239,11 @@ func (s *Server) socks5Serve(ctx context.Context, clientRead *bufio.Reader, clie
 	return proxyErr
 }
 
-func (s *Server) socks4Serve(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn) (err error) {
+func (s *Server) socks4Serve(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn, log *log.Logger) (err error) {
 	req, err := socks4.ReadRequest(clientRead)
 	if err != nil {
 		return fmt.Errorf("decode request: %w", err)
 	}
-	s.log.WithFields("command", req.Command, "destination", &req.DstAddr).
-		Info("SOCKS4 request")
 
 	reply := socks4.Reply{Status: socks4.StatusGranted}
 	var proxyErr error
@@ -275,8 +265,8 @@ func (s *Server) socks4Serve(ctx context.Context, clientRead *bufio.Reader, clie
 		reply.Status = socks4.StatusRejectedOrFailed
 	}
 
-	s.log.WithFields("status", reply.Status).
-		Info("SOCKS4 reply")
+	log.WithFields("command", req.Command, "dst_addr", &req.DstAddr, "status", reply.Status).
+		Info("SOCKS4 request")
 
 	if err := reply.Write(clientConn); err != nil {
 		return fmt.Errorf("encode reply: %w", err)
@@ -284,7 +274,7 @@ func (s *Server) socks4Serve(ctx context.Context, clientRead *bufio.Reader, clie
 	return proxyErr
 }
 
-func (s *Server) socksServe(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn) error {
+func (s *Server) socksServe(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn, log *log.Logger) error {
 	version, err := clientRead.Peek(1)
 	if err != nil {
 		return fmt.Errorf("decode version: %w", err)
@@ -292,9 +282,9 @@ func (s *Server) socksServe(ctx context.Context, clientRead *bufio.Reader, clien
 
 	switch version[0] {
 	case socks4.VersionCode:
-		return s.socks4Serve(ctx, clientRead, clientConn)
+		return s.socks4Serve(ctx, clientRead, clientConn, log)
 	case socks5.VersionCode:
-		return s.socks5Serve(ctx, clientRead, clientConn)
+		return s.socks5Serve(ctx, clientRead, clientConn, log)
 	default:
 		return fmt.Errorf("invalid version (%#02x)", version[0])
 	}
