@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/cerfical/socks2http/proxy/addr"
 	"github.com/cerfical/socks2http/proxy"
+	"github.com/cerfical/socks2http/proxy/addr"
 	"github.com/cerfical/socks2http/proxy/socks4"
 	"github.com/cerfical/socks2http/proxy/socks5"
 )
@@ -90,18 +90,18 @@ func (c *Client) Dial(ctx context.Context, h *addr.Addr) (net.Conn, error) {
 	// And connect the proxy to destination
 	if err := c.connect(proxyConn, h); err != nil {
 		proxyConn.Close()
-		return nil, fmt.Errorf("connect %v : %w", c.proxyProto, err)
+		return nil, fmt.Errorf("connect %v: %w", c.proxyProto, err)
 	}
 	return proxyConn, nil
 }
 
 func socks5Connect(proxyConn net.Conn, dstAddr *addr.Addr, resolveLocally bool) error {
 	if resolveLocally {
-		ip4, err := net.ResolveIPAddr("ip4", dstAddr.Host)
+		ip, err := net.ResolveIPAddr("ip", dstAddr.Host)
 		if err != nil {
 			return fmt.Errorf("resolve destination: %w", err)
 		}
-		dstAddr = addr.New(ip4.String(), dstAddr.Port)
+		dstAddr = addr.New(ip.String(), dstAddr.Port)
 	}
 
 	proxyRead := bufio.NewReader(proxyConn)
