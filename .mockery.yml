@@ -1,6 +1,6 @@
 with-expecter: true
 packages:
-  github.com/cerfical/socks2http/proxy:
+  github.com/cerfical/socks2http/internal/proxy:
     interfaces:
       Proxy:
       Dialer:
