@@ -1,2 +1,3 @@
 # Ignore hidden directories
 .*/
+!.github
