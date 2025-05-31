@@ -6,11 +6,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/cerfical/socks2http/config"
-	"github.com/cerfical/socks2http/log"
-	"github.com/cerfical/socks2http/proxy"
-	"github.com/cerfical/socks2http/proxy/proxcli"
-	"github.com/cerfical/socks2http/proxy/proxserv"
+	"github.com/cerfical/socks2http/internal/config"
+	"github.com/cerfical/socks2http/internal/log"
+	"github.com/cerfical/socks2http/internal/proxy"
+	"github.com/cerfical/socks2http/internal/proxy/proxcli"
+	"github.com/cerfical/socks2http/internal/proxy/proxserv"
 )
 
 func main() {
