@@ -1,0 +1,54 @@
+name: Lint
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  commit-lint:
+    name: Lint Commit Messages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commits
+        run: |
+          COMMIT_TYPES="feat|fix|docs|style|refactor|test|chore|ci|build"
+
+          case ${{ github.event_name }} in
+          "pull_request")
+            # Check commits in PR
+            base=${{ github.event.pull_request.base.sha }}
+            head=${{ github.event.pull_request.head.sha }}
+            msgs=$(git log --pretty=format:%s "${base}..${head}")
+            ;;
+          "push")
+            # Check the last commit only
+            msgs=$(git log --pretty=format:%s -1)
+            ;;
+          *)
+            # Check the whole commit history
+            msgs=$(git log --pretty=format:%s)
+            ;;
+          esac
+
+          valid=1
+          while read -r msg; do
+            if ! grep -qE "^(${COMMIT_TYPES})(\([^)]+\))?(!)?: .+" <<<"$msg"; then
+              echo "❌ [FAIL] $msg"
+              valid=0
+            else
+              echo "✅ [OK] $msg"
+            fi
+          done <<<"$msgs"
+
+          if [ "$valid" -ne 1 ]; then
+            echo "❌ [FAIL] Commit messages must follow Conventional Commits: 'type(scope): message'"
+            exit 1
+          fi
+
+          echo "✅ [OK] All commit messages are valid"
