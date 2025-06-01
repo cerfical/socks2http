@@ -12,7 +12,6 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 	if err := checkVersion(r, VersionCode); err != nil {
 		return nil, fmt.Errorf("decode version: %w", err)
 	}
-	r.Discard(1)
 
 	command, err := r.ReadByte()
 	if err != nil {

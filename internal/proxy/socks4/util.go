@@ -27,6 +27,8 @@ func checkVersion(r *bufio.Reader, version byte) error {
 	if v := versionBytes[0]; v != version {
 		return fmt.Errorf("%w (%v)", ErrInvalidVersion, hexByte(v))
 	}
+
+	_, _ = r.Discard(1) // Discard(1) is safe after Peek(1)
 	return nil
 }
 

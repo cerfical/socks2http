@@ -32,7 +32,7 @@ func checkVersion(r *bufio.Reader) error {
 	if version[0] != VersionCode {
 		return fmt.Errorf("%w (%v)", ErrInvalidVersion, hexByte(version[0]))
 	}
-	r.Discard(1)
+	_, _ = r.Discard(1) // Discard(1) is safe after Peek(1)
 	return nil
 }
 

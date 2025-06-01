@@ -14,7 +14,6 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 	if err := checkVersion(r, replyVersion); err != nil {
 		return nil, fmt.Errorf("decode version: %w", err)
 	}
-	r.Discard(1)
 
 	status, err := r.ReadByte()
 	if err != nil {
