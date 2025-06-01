@@ -105,16 +105,18 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) error {
 				if errors.Is(err, net.ErrClosed) {
 					break
 				}
-				s.log.Error("Failed to accept an incoming connection", err)
+				s.log.Error("Failed to open a client connection", err)
 				continue
 			}
 
 			go func() {
+				log := s.log.WithFields("client_addr", clientConn.RemoteAddr().String())
 				defer func() {
-					clientConn.Close()
+					if err := clientConn.Close(); err != nil {
+						log.Error("Failed to close a client connection", err)
+					}
 					activeConns.Done()
 				}()
-				log := s.log.WithFields("client_addr", clientConn.RemoteAddr().String())
 
 				err := s.serveConn(context.Background(), bufio.NewReader(clientConn), clientConn, log)
 				if err != nil {
