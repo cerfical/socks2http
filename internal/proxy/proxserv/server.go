@@ -86,8 +86,8 @@ func (s *Server) ListenAndServe(ctx context.Context, serveAddr *addr.Addr) error
 	// Use an automatically assigned port if one was not specified
 	addr := addr.New(serveAddr.Host, uint16(l.Addr().(*net.TCPAddr).Port))
 	s.log.Info("Server is up",
-		"serve_proto", s.serveProto,
-		"serve_addr", addr,
+		"server_proto", s.serveProto,
+		"server_addr", addr,
 	)
 
 	return s.Serve(ctx, l)
