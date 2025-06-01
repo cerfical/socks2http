@@ -22,12 +22,14 @@ func main() {
 		proxcli.WithProxyAddr(&config.Proxy.Addr),
 	)
 	if err != nil {
-		log.Error("Failed to initialize a proxy client", err)
+		log.Error("Failed to initialize a proxy client", "error", err)
 		return
 	}
 
-	log.WithFields("proxy_proto", config.Proxy.Proto, "proxy_addr", &config.Proxy.Addr).
-		Info("Using a proxy")
+	log.Info("Using a proxy",
+		"proxy_proto", config.Proxy.Proto,
+		"proxy_addr", &config.Proxy.Addr,
+	)
 
 	server, err := proxserv.New(
 		proxserv.WithServeProto(config.Server.Proto),
@@ -35,7 +37,7 @@ func main() {
 		proxserv.WithLogger(log),
 	)
 	if err != nil {
-		log.Error("Failed to initialize a server", err)
+		log.Error("Failed to initialize a server", "error", err)
 		return
 	}
 
@@ -45,7 +47,7 @@ func main() {
 	go func() {
 		defer close(done)
 		if err := server.ListenAndServe(ctx, &config.Server.Addr); err != nil {
-			log.Error("Server terminated abnormally", err)
+			log.Error("Server terminated abnormally", "error", err)
 		}
 	}()
 

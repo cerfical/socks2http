@@ -51,10 +51,9 @@ func encodeLog(logLevel, msgLevel log.Level) string {
 
 	switch msgLevel {
 	case log.LevelError:
-		l.Error("log message", errors.New("description"))
+		l.Error("log message", "error", errors.New("description"))
 	case log.LevelInfo:
-		l.WithFields("error", "description").
-			Info("log message")
+		l.Info("log message", "error", "description")
 	}
 
 	return buf.String()
