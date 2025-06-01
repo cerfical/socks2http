@@ -36,13 +36,12 @@ jobs:
           echo "Building for ${platform}"
 
           mkdir build && cd build
-          for cmd in ../cmd/*/; do
-            cmd_name=$(basename "$cmd")
-            echo Building ${cmd_name}
+          cmd="../"
+          cmd_name=$(basename "$cmd")
+          echo Building ${cmd_name}
 
-            # Let go build decide on executable name and extension
-            go build ${cmd}
-          done
+          # Let go build decide on executable name and extension
+          go build ${cmd}
           cd ..
 
           mkdir dist
