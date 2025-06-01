@@ -1,0 +1,28 @@
+version: "2"
+formatters:
+  enable:
+    - gofmt
+
+  settings:
+    gofmt:
+      simplify: true
+      rewrite-rules:
+        - pattern: "interface{}"
+          replacement: "any"
+
+linters:
+  default: standard
+  exclusions:
+    warn-unused: true
+    rules:
+      # Allow unchecked errors in test files
+      - path: test(/|\.go)
+        linters:
+          - errcheck
+
+  settings:
+    errcheck:
+      exclude-functions:
+        - (io.Closer).Close
+        - (net.Conn).Close
+        - (net.Conn).SetReadDeadline

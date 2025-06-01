@@ -5,6 +5,17 @@ permissions:
   contents: read
 
 jobs:
+  lint:
+    name: Lint and Style Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
+
   commit-lint:
     name: Lint Commit Messages
     runs-on: ubuntu-latest
