@@ -12,7 +12,7 @@ import (
 
 	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
-	"github.com/cerfical/socks2http/test/mocks"
+	"github.com/cerfical/socks2http/internal/test/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/goleak"

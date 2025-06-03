@@ -22,7 +22,10 @@ jobs:
         run: go mod download
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./internal/...
+        run: |
+          # Ignore test utils directory
+          test_dirs=$(find ./internal/ -mindepth 1 -maxdepth 1 -not -name test)
+          go test -v -race -coverprofile=coverage.out $test_dirs
 
       - name: Update coverage report
         uses: coverallsapp/github-action@v2

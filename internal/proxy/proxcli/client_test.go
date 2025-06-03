@@ -13,7 +13,7 @@ import (
 	"github.com/cerfical/socks2http/internal/proxy/proxcli"
 	"github.com/cerfical/socks2http/internal/proxy/socks4"
 	"github.com/cerfical/socks2http/internal/proxy/socks5"
-	"github.com/cerfical/socks2http/test/mocks"
+	"github.com/cerfical/socks2http/internal/test/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
