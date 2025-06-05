@@ -28,29 +28,23 @@ func Load(args []string) *Config {
 		},
 	}
 
-	flags := pflag.NewFlagSet(args[0], pflag.ContinueOnError)
-	flags.Var(&textValue{&config.Server.Addr, "addr"}, "server-addr", "address for proxy server to listen on")
-	flags.Var(&textValue{&config.Proxy.Addr, "addr"}, "proxy-addr", "proxy address to connect via proxy client")
-	flags.Var(&textValue{&config.Server.Proto, "proto"}, "server-proto", "proxy server protocol to use")
-	flags.Var(&textValue{&config.Proxy.Proto, "proto"}, "proxy-proto", "proxy client protocol to use")
-	flags.Var(&textValue{&config.Log.Level, "severity"}, "log-level", "severity level of logging messages")
-	flags.DurationVar(&config.Timeout, "timeout", 0, "wait time for I/O operations")
-
-	help := flags.Bool("help", false, "display help message")
+	progName := getProgramName(args)
+	flags := pflag.NewFlagSet(progName, pflag.ContinueOnError)
 	flags.Usage = func() {
 		fmt.Printf("Usage:\n")
-
-		progPath := args[0]
-		progName := strings.TrimSuffix(
-			filepath.Base(progPath),
-			filepath.Ext(progPath),
-		)
-		fmt.Printf("  %v [flags]\n\n", progName)
-
-		fmt.Printf("Flags:\n")
+		fmt.Printf("  %v [options]\n\n", progName)
+		fmt.Printf("Options:\n")
 		flags.PrintDefaults()
 	}
 
+	flags.Var(&textValue{&config.Server.Addr}, "server-addr", "address for proxy server to listen on")
+	flags.Var(&textValue{&config.Proxy.Addr}, "proxy-addr", "proxy address to connect via proxy client")
+	flags.Var(&textValue{&config.Server.Proto}, "server-proto", "proxy server protocol to use")
+	flags.Var(&textValue{&config.Proxy.Proto}, "proxy-proto", "proxy client protocol to use")
+	flags.Var(&textValue{&config.Log.Level}, "log-level", "severity level of logging messages")
+	flags.DurationVar(&config.Timeout, "timeout", 0, "``wait duration for I/O operations")
+
+	help := flags.Bool("help", false, "``display help message")
 	if err := flags.Parse(args[1:]); err != nil || *help {
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
@@ -58,8 +52,15 @@ func Load(args []string) *Config {
 		flags.Usage()
 		os.Exit(2)
 	}
-
 	return &config
+}
+
+func getProgramName(args []string) string {
+	progPath := args[0]
+	return strings.TrimSuffix(
+		filepath.Base(progPath),
+		filepath.Ext(progPath),
+	)
 }
 
 type Config struct {
@@ -90,7 +91,6 @@ type textValue struct {
 		encoding.TextMarshaler
 		encoding.TextUnmarshaler
 	}
-	typ string
 }
 
 func (v *textValue) Set(s string) error {
@@ -102,5 +102,5 @@ func (v *textValue) String() string {
 }
 
 func (v *textValue) Type() string {
-	return v.typ
+	return ""
 }
