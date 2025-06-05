@@ -15,7 +15,7 @@ import (
 
 func main() {
 	config := config.Load(os.Args)
-	log := log.New(log.WithLevel(config.LogLevel))
+	log := log.New(log.WithLevel(config.Log.Level))
 
 	client, err := proxcli.New(
 		proxcli.WithProxyProto(config.Proxy.Proto),

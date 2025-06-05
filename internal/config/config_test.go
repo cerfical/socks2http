@@ -65,7 +65,7 @@ func (t *ConfigTest) TestLoad() {
 		"log-level": {
 			arg: "info",
 			want: func(c *config.Config) {
-				t.Equal(log.LevelInfo, c.LogLevel)
+				t.Equal(log.LevelInfo, c.Log.Level)
 			},
 		},
 	}
