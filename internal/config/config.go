@@ -54,7 +54,7 @@ func Load(args []string) *Config {
 }
 
 func printErrorAndExit(f *pflag.FlagSet, err error) {
-	fmt.Printf("Error: %v\n", err)
+	fmt.Printf("Error: %v\n\n", err)
 	f.Usage()
 	os.Exit(1)
 }
