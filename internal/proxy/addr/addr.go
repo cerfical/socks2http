@@ -32,8 +32,8 @@ func Parse(addr string) (*Addr, error) {
 }
 
 type Addr struct {
-	Host string
-	Port uint16
+	Host string `mapstructure:"host"`
+	Port uint16 `mapstructure:"port"`
 }
 
 func (a *Addr) String() string {

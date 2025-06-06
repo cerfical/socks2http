@@ -50,14 +50,14 @@ func WithRoutes(routes []Route) Option {
 type Option func(r *Router)
 
 type Route struct {
-	Hosts []string
+	Hosts []string `mapstructure:"hosts"`
 
-	Proxy Proxy
+	Proxy Proxy `mapstructure:"proxy"`
 }
 
 type Proxy struct {
-	Proto proxy.Proto
-	Addr  addr.Addr
+	Proto proxy.Proto `mapstructure:"proto"`
+	Addr  addr.Addr   `mapstructure:"addr"`
 }
 
 type Router struct {

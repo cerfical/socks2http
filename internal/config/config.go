@@ -126,23 +126,23 @@ func getProgramName(args []string) string {
 }
 
 type Config struct {
-	Server ServerConfig
+	Server ServerConfig `mapstructure:"server"`
 
-	Proxy  router.Proxy
-	Routes []router.Route
+	Proxy  router.Proxy   `mapstructure:"proxy"`
+	Routes []router.Route `mapstructure:"routes"`
 
-	Log LogConfig
+	Log LogConfig `mapstructure:"log"`
 
-	Timeout time.Duration
+	Timeout time.Duration `mapstructure:"timeout"`
 }
 
 type LogConfig struct {
-	Level log.Level
+	Level log.Level `mapstructure:"level"`
 }
 
 type ServerConfig struct {
-	Proto proxy.Proto
-	Addr  addr.Addr
+	Proto proxy.Proto `mapstructure:"proto"`
+	Addr  addr.Addr   `mapstructure:"addr"`
 }
 
 type textValue struct {
