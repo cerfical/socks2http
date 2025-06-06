@@ -3,7 +3,7 @@ module github.com/cerfical/socks2http
 go 1.23.1
 
 require (
-	github.com/mitchellh/mapstructure v1.5.0
+	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.1
@@ -15,7 +15,6 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
-	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
