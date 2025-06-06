@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"slices"
+	"strings"
 
 	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
@@ -83,7 +84,13 @@ func (r *Router) Dial(ctx context.Context, dstAddr *addr.Addr) (net.Conn, error)
 
 func (r *Router) matchRoute(host string) *Route {
 	i := slices.IndexFunc(r.routes, func(r Route) bool {
-		return slices.Contains(r.Hosts, host)
+		// Check if the host matches any of the route's hosts
+		for _, h := range r.Hosts {
+			if strings.Contains(host, h) {
+				return true
+			}
+		}
+		return false
 	})
 	if i != -1 {
 		return &r.routes[i]
