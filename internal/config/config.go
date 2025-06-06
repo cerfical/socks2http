@@ -11,19 +11,22 @@ import (
 	"github.com/cerfical/socks2http/internal/log"
 	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
+	"github.com/cerfical/socks2http/internal/proxy/router"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
 var defaultConfig = Config{
-	Proxy: ProxyConfig{
-		Proto: proxy.ProtoDirect,
-	},
 	Server: ServerConfig{
 		Proto: proxy.ProtoHTTP,
 		Addr:  *addr.New("localhost", 8080),
 	},
+
+	Proxy: router.Proxy{
+		Proto: proxy.ProtoDirect,
+	},
+
 	Log: LogConfig{
 		Level: log.LevelVerbose,
 	},
@@ -123,8 +126,10 @@ func getProgramName(args []string) string {
 }
 
 type Config struct {
-	Proxy  ProxyConfig
 	Server ServerConfig
+
+	Proxy  router.Proxy
+	Routes []router.Route
 
 	Log LogConfig
 
@@ -136,11 +141,6 @@ type LogConfig struct {
 }
 
 type ServerConfig struct {
-	Proto proxy.Proto
-	Addr  addr.Addr
-}
-
-type ProxyConfig struct {
 	Proto proxy.Proto
 	Addr  addr.Addr
 }
