@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/cerfical/socks2http/compare/v1.1.0...v1.1.1) (2025-06-06)
+
+
+### Bug Fixes
+
+* fix incorrect error messages for SOCKS4 proxy clients ([63805f1](https://github.com/cerfical/socks2http/commit/63805f124d3d766d036ba56b6baae88f049b00ae))
+
 ## [1.1.0](https://github.com/cerfical/socks2http/compare/v1.0.0...v1.1.0) (2025-06-06)
 
 
