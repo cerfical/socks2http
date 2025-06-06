@@ -1,4 +1,4 @@
-package proxcli_test
+package client_test
 
 import (
 	"bufio"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
-	"github.com/cerfical/socks2http/internal/proxy/proxcli"
+	"github.com/cerfical/socks2http/internal/proxy/client"
 	"github.com/cerfical/socks2http/internal/proxy/socks4"
 	"github.com/cerfical/socks2http/internal/proxy/socks5"
 	"github.com/cerfical/socks2http/internal/test/mocks"
@@ -35,10 +35,10 @@ func (t *ClientTest) TestDial() {
 			Dial(mock.Anything, dstHost).
 			Return(nil, nil)
 
-		client, err := proxcli.New(
-			proxcli.WithProxyProto(proxy.ProtoDirect),
-			proxcli.WithProxyAddr(addr.New("", 0)),
-			proxcli.WithDialer(dialer),
+		client, err := client.New(
+			client.WithProxyProto(proxy.ProtoDirect),
+			client.WithProxyAddr(addr.New("", 0)),
+			client.WithDialer(dialer),
 		)
 		t.Require().NoError(err)
 
@@ -162,10 +162,10 @@ func (t *ClientTest) dialProxy(p proxy.Proto, dstHost *addr.Addr) (proxyConn net
 		Dial(mock.Anything, proxyAddr).
 		Return(clientConn, nil)
 
-	client, err := proxcli.New(
-		proxcli.WithProxyProto(p),
-		proxcli.WithProxyAddr(proxyAddr),
-		proxcli.WithDialer(dialer),
+	client, err := client.New(
+		client.WithProxyProto(p),
+		client.WithProxyAddr(proxyAddr),
+		client.WithDialer(dialer),
 	)
 	t.Require().NoError(err)
 

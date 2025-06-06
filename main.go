@@ -9,8 +9,8 @@ import (
 	"github.com/cerfical/socks2http/internal/config"
 	"github.com/cerfical/socks2http/internal/log"
 	"github.com/cerfical/socks2http/internal/proxy"
-	"github.com/cerfical/socks2http/internal/proxy/proxserv"
 	"github.com/cerfical/socks2http/internal/proxy/router"
+	"github.com/cerfical/socks2http/internal/proxy/server"
 )
 
 func main() {
@@ -29,10 +29,10 @@ func main() {
 		}),
 	)
 
-	server, err := proxserv.New(
-		proxserv.WithServeProto(config.Server.Proto),
-		proxserv.WithProxy(proxy.New(router)),
-		proxserv.WithLogger(log),
+	server, err := server.New(
+		server.WithServeProto(config.Server.Proto),
+		server.WithProxy(proxy.New(router)),
+		server.WithLogger(log),
 	)
 	if err != nil {
 		log.Error("Failed to initialize a server", "error", err)

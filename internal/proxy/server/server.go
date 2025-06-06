@@ -1,4 +1,4 @@
-package proxserv
+package server
 
 import (
 	"bufio"

@@ -1,4 +1,4 @@
-package proxcli
+package client
 
 import (
 	"bufio"

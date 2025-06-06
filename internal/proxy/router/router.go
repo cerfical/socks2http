@@ -9,7 +9,7 @@ import (
 
 	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
-	"github.com/cerfical/socks2http/internal/proxy/proxcli"
+	"github.com/cerfical/socks2http/internal/proxy/client"
 )
 
 func New(ops ...Option) *Router {
@@ -70,10 +70,10 @@ type Router struct {
 func (r *Router) Dial(ctx context.Context, dstAddr *addr.Addr) (net.Conn, error) {
 	policy := r.matchRoute(dstAddr.Host)
 
-	client, err := proxcli.New(
-		proxcli.WithDialer(r.dialer),
-		proxcli.WithProxyAddr(&policy.Proxy.Addr),
-		proxcli.WithProxyProto(policy.Proxy.Proto),
+	client, err := client.New(
+		client.WithDialer(r.dialer),
+		client.WithProxyAddr(&policy.Proxy.Addr),
+		client.WithProxyProto(policy.Proxy.Proto),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new proxy client: %w", err)

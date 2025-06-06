@@ -1,4 +1,4 @@
-package proxserv_test
+package server_test
 
 import (
 	"bufio"
@@ -13,7 +13,7 @@ import (
 
 	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
-	"github.com/cerfical/socks2http/internal/proxy/proxserv"
+	"github.com/cerfical/socks2http/internal/proxy/server"
 	"github.com/cerfical/socks2http/internal/proxy/socks4"
 	"github.com/cerfical/socks2http/internal/proxy/socks5"
 	"github.com/cerfical/socks2http/internal/test/mocks"
@@ -34,7 +34,7 @@ func (t *ServerTest) TestServe() {
 	t.Run("performs graceful shutdown on context cancellation", func() {
 		listener := stubs.NewIdleListener(1000, 50*time.Millisecond)
 
-		server, err := proxserv.New()
+		server, err := server.New()
 		t.Require().NoError(err)
 
 		serveCtx, serveStop := context.WithCancel(context.Background())
@@ -248,9 +248,9 @@ func (t *ServerTest) TestServe_SOCKS5() {
 }
 
 func (t *ServerTest) openProxyConn(proto proxy.Proto, proxy proxy.Proxy) net.Conn {
-	server, err := proxserv.New(
-		proxserv.WithServeProto(proto),
-		proxserv.WithProxy(proxy),
+	server, err := server.New(
+		server.WithServeProto(proto),
+		server.WithProxy(proxy),
 	)
 	t.Require().NoError(err)
 
