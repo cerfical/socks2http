@@ -37,19 +37,22 @@ func (t *RouterTest) TestDial() {
 			Dial(mock.Anything, proxyAddr2).
 			Return(nil, errors.New("redirected to Proxy#2"))
 
-		router := router.New(router.WithDialer(dialer)).
-			Route(dstAddr1.Host, &router.Policy{
-				Proxy: router.ProxyConfig{
+		router := router.New(
+			router.WithDialer(dialer),
+			router.WithRoutes([]router.Route{{
+				Hosts: []string{dstAddr1.Host},
+				Proxy: router.Proxy{
 					Addr:  *proxyAddr1,
 					Proto: proxy.ProtoHTTP,
 				},
-			}).
-			Route(dstAddr2.Host, &router.Policy{
-				Proxy: router.ProxyConfig{
+			}, {
+				Hosts: []string{dstAddr2.Host},
+				Proxy: router.Proxy{
 					Addr:  *proxyAddr2,
 					Proto: proxy.ProtoHTTP,
 				},
-			})
+			}}),
+		)
 
 		// Check that the first proxy is called for the first address
 		_, err := router.Dial(context.Background(), dstAddr1)
@@ -71,8 +74,8 @@ func (t *RouterTest) TestDial() {
 
 		router := router.New(
 			router.WithDialer(dialer),
-			router.WithDefaultPolicy(&router.Policy{
-				Proxy: router.ProxyConfig{
+			router.WithDefaultRoute(&router.Route{
+				Proxy: router.Proxy{
 					Addr:  *proxyAddr,
 					Proto: proxy.ProtoHTTP,
 				},
