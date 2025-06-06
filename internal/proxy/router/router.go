@@ -13,8 +13,8 @@ import (
 
 func New(ops ...Option) *Router {
 	defaults := []Option{
-		WithDefaultPolicy(&Policy{
-			Proxy: ProxyConfig{
+		WithDefaultRoute(&Route{
+			Proxy: Proxy{
 				Proto: proxy.ProtoDirect,
 			},
 		}),
@@ -28,9 +28,9 @@ func New(ops ...Option) *Router {
 	return &r
 }
 
-func WithDefaultPolicy(p *Policy) Option {
-	return func(r *Router) {
-		r.defaultRoute = *p
+func WithDefaultRoute(r *Route) Option {
+	return func(rr *Router) {
+		rr.defaultRoute = *r
 	}
 }
 
@@ -40,32 +40,30 @@ func WithDialer(d proxy.Dialer) Option {
 	}
 }
 
-type Option func(r *Router)
-
-type Policy struct {
-	Proxy ProxyConfig
+func WithRoutes(routes []Route) Option {
+	return func(r *Router) {
+		r.routes = routes
+	}
 }
 
-type ProxyConfig struct {
+type Option func(r *Router)
+
+type Route struct {
+	Hosts []string
+
+	Proxy Proxy
+}
+
+type Proxy struct {
 	Proto proxy.Proto
 	Addr  addr.Addr
 }
 
-type RouteTable map[string]Policy
-
 type Router struct {
 	dialer proxy.Dialer
-	routes RouteTable
+	routes []Route
 
-	defaultRoute Policy
-}
-
-func (r *Router) Route(host string, p *Policy) *Router {
-	if r.routes == nil {
-		r.routes = make(RouteTable)
-	}
-	r.routes[host] = *p
-	return r
+	defaultRoute Route
 }
 
 func (r *Router) Dial(ctx context.Context, dstAddr *addr.Addr) (net.Conn, error) {
@@ -83,9 +81,12 @@ func (r *Router) Dial(ctx context.Context, dstAddr *addr.Addr) (net.Conn, error)
 	return client.Dial(ctx, dstAddr)
 }
 
-func (r *Router) matchRoute(host string) *Policy {
-	if policy, ok := r.routes[host]; ok {
-		return &policy
+func (r *Router) matchRoute(host string) *Route {
+	i := slices.IndexFunc(r.routes, func(r Route) bool {
+		return slices.Contains(r.Hosts, host)
+	})
+	if i != -1 {
+		return &r.routes[i]
 	}
 	return &r.defaultRoute
 }
