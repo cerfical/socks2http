@@ -168,7 +168,7 @@ func socks4Connect(proxyConn net.Conn, dstAddr *addr.Addr, resolveLocally bool) 
 	}
 
 	if reply.Status != socks4.StatusGranted {
-		return fmt.Errorf("connection rejected: %v", reply)
+		return fmt.Errorf("connection rejected: %v", reply.Status)
 	}
 	return nil
 }
