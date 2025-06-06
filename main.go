@@ -9,31 +9,29 @@ import (
 	"github.com/cerfical/socks2http/internal/config"
 	"github.com/cerfical/socks2http/internal/log"
 	"github.com/cerfical/socks2http/internal/proxy"
-	"github.com/cerfical/socks2http/internal/proxy/proxcli"
 	"github.com/cerfical/socks2http/internal/proxy/proxserv"
+	"github.com/cerfical/socks2http/internal/proxy/router"
 )
 
 func main() {
 	config := config.Load(os.Args)
 	log := log.New(log.WithLevel(config.Log.Level))
 
-	client, err := proxcli.New(
-		proxcli.WithProxyProto(config.Proxy.Proto),
-		proxcli.WithProxyAddr(&config.Proxy.Addr),
-	)
-	if err != nil {
-		log.Error("Failed to initialize a proxy client", "error", err)
-		return
-	}
-
 	log.Info("Using a proxy",
 		"proxy_proto", config.Proxy.Proto,
 		"proxy_addr", &config.Proxy.Addr,
 	)
 
+	router := router.New(
+		router.WithRoutes(config.Routes),
+		router.WithDefaultRoute(&router.Route{
+			Proxy: config.Proxy,
+		}),
+	)
+
 	server, err := proxserv.New(
 		proxserv.WithServeProto(config.Server.Proto),
-		proxserv.WithProxy(proxy.New(client)),
+		proxserv.WithProxy(proxy.New(router)),
 		proxserv.WithLogger(log),
 	)
 	if err != nil {
