@@ -1,2 +1,2 @@
-# Automatically normalize line endings
-* text=auto
+# Force LF line endings on checkout
+* text=auto eol=lf
