@@ -131,11 +131,10 @@ func getProgramName(args []string) string {
 	)
 }
 
-func withDefaultRouteHook(r *router.Route) mapstructure.DecodeHookFuncValue {
-	return func(from reflect.Value, to reflect.Value) (any, error) {
-		// Ignore destination types we are not interested in, as well as non-map source types
-		if to.Type() != reflect.TypeOf(router.Route{}) || from.Kind() != reflect.Map {
-			return from.Interface(), nil
+func withDefaultRouteHook(r *router.Route) mapstructure.DecodeHookFuncType {
+	return func(from reflect.Type, to reflect.Type, data any) (any, error) {
+		if to != reflect.TypeOf(router.Route{}) || from.Kind() != reflect.Map {
+			return data, nil
 		}
 
 		r := *r
@@ -147,9 +146,9 @@ func withDefaultRouteHook(r *router.Route) mapstructure.DecodeHookFuncValue {
 			return nil, fmt.Errorf("create decoder: %w", err)
 		}
 
-		if err := dec.Decode(from.Interface()); err != nil {
+		if err := dec.Decode(data); err != nil {
 			// Let the caller handle the error
-			return from.Interface(), nil
+			return data, nil
 		}
 		return r, nil
 	}
@@ -177,7 +176,7 @@ type ServerConfig struct {
 
 type textValue struct {
 	val interface {
-		encoding.TextMarshaler
+		fmt.Stringer
 		encoding.TextUnmarshaler
 	}
 }
@@ -187,7 +186,7 @@ func (v *textValue) Set(s string) error {
 }
 
 func (v *textValue) String() string {
-	return fmt.Sprintf("%v", v.val)
+	return v.val.String()
 }
 
 func (v *textValue) Type() string {
