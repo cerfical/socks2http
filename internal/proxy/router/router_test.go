@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
 	"github.com/cerfical/socks2http/internal/proxy/router"
 	"github.com/cerfical/socks2http/internal/test/mocks"
@@ -43,13 +42,13 @@ func (t *RouterTest) TestDial() {
 				Hosts: []string{dstAddr1.Host},
 				Proxy: router.Proxy{
 					Addr:  *proxyAddr1,
-					Proto: proxy.ProtoHTTP,
+					Proto: addr.ProtoHTTP,
 				},
 			}, {
 				Hosts: []string{dstAddr2.Host},
 				Proxy: router.Proxy{
 					Addr:  *proxyAddr2,
-					Proto: proxy.ProtoHTTP,
+					Proto: addr.ProtoHTTP,
 				},
 			}}),
 		)
@@ -77,7 +76,7 @@ func (t *RouterTest) TestDial() {
 			router.WithDefaultRoute(&router.Route{
 				Proxy: router.Proxy{
 					Addr:  *proxyAddr,
-					Proto: proxy.ProtoHTTP,
+					Proto: addr.ProtoHTTP,
 				},
 			}),
 		)

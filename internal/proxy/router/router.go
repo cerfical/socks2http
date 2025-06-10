@@ -16,7 +16,7 @@ func New(ops ...Option) *Router {
 	defaults := []Option{
 		WithDefaultRoute(&Route{
 			Proxy: Proxy{
-				Proto: proxy.ProtoDirect,
+				Proto: addr.ProtoDirect,
 			},
 		}),
 		WithDialer(proxy.DirectDialer),
@@ -56,8 +56,8 @@ type Route struct {
 }
 
 type Proxy struct {
-	Proto proxy.Proto `mapstructure:"proto"`
-	Addr  addr.Addr   `mapstructure:"addr"`
+	Proto addr.Proto `mapstructure:"proto"`
+	Addr  addr.Addr  `mapstructure:"addr"`
 }
 
 type Router struct {

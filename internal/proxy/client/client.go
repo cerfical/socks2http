@@ -18,7 +18,7 @@ import (
 func New(ops ...Option) (*Client, error) {
 	defaults := []Option{
 		WithProxyAddr(addr.New("localhost", 8080)),
-		WithProxyProto(proxy.ProtoHTTP),
+		WithProxyProto(addr.ProtoHTTP),
 		WithDialer(proxy.DirectDialer),
 	}
 
@@ -28,17 +28,17 @@ func New(ops ...Option) (*Client, error) {
 	}
 
 	switch proto := c.proxyProto; proto {
-	case proxy.ProtoSOCKS4, proxy.ProtoSOCKS4a:
+	case addr.ProtoSOCKS4, addr.ProtoSOCKS4a:
 		c.connect = func(c net.Conn, h *addr.Addr) error {
-			return socks4Connect(c, h, proto == proxy.ProtoSOCKS4)
+			return socks4Connect(c, h, proto == addr.ProtoSOCKS4)
 		}
-	case proxy.ProtoSOCKS5, proxy.ProtoSOCKS5h:
+	case addr.ProtoSOCKS5, addr.ProtoSOCKS5h:
 		c.connect = func(c net.Conn, h *addr.Addr) error {
-			return socks5Connect(c, h, proto == proxy.ProtoSOCKS5)
+			return socks5Connect(c, h, proto == addr.ProtoSOCKS5)
 		}
-	case proxy.ProtoHTTP:
+	case addr.ProtoHTTP:
 		c.connect = httpConnect
-	case proxy.ProtoDirect:
+	case addr.ProtoDirect:
 		c.connect = nil
 	default:
 		return nil, fmt.Errorf("unsupported protocol scheme: %v", proto)
@@ -53,7 +53,7 @@ func WithProxyAddr(a *addr.Addr) Option {
 	}
 }
 
-func WithProxyProto(p proxy.Proto) Option {
+func WithProxyProto(p addr.Proto) Option {
 	return func(c *Client) {
 		c.proxyProto = p
 	}
@@ -69,7 +69,7 @@ type Option func(*Client)
 
 type Client struct {
 	proxyAddr  addr.Addr
-	proxyProto proxy.Proto
+	proxyProto addr.Proto
 
 	dialer  proxy.Dialer
 	connect func(net.Conn, *addr.Addr) error

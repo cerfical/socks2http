@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/cerfical/socks2http/internal/log"
-	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
 	"github.com/cerfical/socks2http/internal/proxy/router"
 	"github.com/go-viper/mapstructure/v2"
@@ -20,12 +19,12 @@ import (
 
 var defaultConfig = Config{
 	Server: ServerConfig{
-		Proto: proxy.ProtoHTTP,
+		Proto: addr.ProtoHTTP,
 		Addr:  *addr.New("localhost", 8080),
 	},
 
 	Proxy: router.Proxy{
-		Proto: proxy.ProtoDirect,
+		Proto: addr.ProtoDirect,
 	},
 
 	Log: LogConfig{
@@ -170,8 +169,8 @@ type LogConfig struct {
 }
 
 type ServerConfig struct {
-	Proto proxy.Proto `mapstructure:"proto"`
-	Addr  addr.Addr   `mapstructure:"addr"`
+	Proto addr.Proto `mapstructure:"proto"`
+	Addr  addr.Addr  `mapstructure:"addr"`
 }
 
 type textValue struct {

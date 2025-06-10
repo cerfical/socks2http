@@ -7,7 +7,6 @@ import (
 
 	"github.com/cerfical/socks2http/internal/config"
 	"github.com/cerfical/socks2http/internal/log"
-	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
 	"github.com/stretchr/testify/suite"
 )
@@ -36,7 +35,7 @@ func (t *ConfigTest) TestLoad() {
 		"server-proto": {
 			arg: "http",
 			want: func(c *config.Config) {
-				t.Equal(proxy.ProtoHTTP, c.Server.Proto)
+				t.Equal(addr.ProtoHTTP, c.Server.Proto)
 			},
 		},
 
@@ -51,7 +50,7 @@ func (t *ConfigTest) TestLoad() {
 		"proxy-proto": {
 			arg: "http",
 			want: func(c *config.Config) {
-				t.Equal(proxy.ProtoHTTP, c.Proxy.Proto)
+				t.Equal(addr.ProtoHTTP, c.Proxy.Proto)
 			},
 		},
 

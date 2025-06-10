@@ -19,7 +19,7 @@ import (
 
 func New(ops ...Option) (*Server, error) {
 	defaults := []Option{
-		WithServeProto(proxy.ProtoHTTP),
+		WithServeProto(addr.ProtoHTTP),
 		WithProxy(proxy.New(proxy.DirectDialer)),
 		WithLogger(proxy.DiscardLogger),
 	}
@@ -30,13 +30,13 @@ func New(ops ...Option) (*Server, error) {
 	}
 
 	switch s.serveProto {
-	case proxy.ProtoSOCKS:
+	case addr.ProtoSOCKS:
 		s.serveConn = s.socksServe
-	case proxy.ProtoSOCKS4:
+	case addr.ProtoSOCKS4:
 		s.serveConn = s.socks4Serve
-	case proxy.ProtoSOCKS5:
+	case addr.ProtoSOCKS5:
 		s.serveConn = s.socks5Serve
-	case proxy.ProtoHTTP:
+	case addr.ProtoHTTP:
 		s.serveConn = s.httpServe
 	default:
 		return nil, fmt.Errorf("unsupported protocol scheme: %v", s.serveProto)
@@ -51,7 +51,7 @@ func WithProxy(p proxy.Proxy) Option {
 	}
 }
 
-func WithServeProto(p proxy.Proto) Option {
+func WithServeProto(p addr.Proto) Option {
 	return func(s *Server) {
 		s.serveProto = p
 	}
@@ -66,7 +66,7 @@ func WithLogger(l proxy.Logger) Option {
 type Option func(*Server)
 
 type Server struct {
-	serveProto proxy.Proto
+	serveProto addr.Proto
 
 	serveConn func(context.Context, *bufio.Reader, net.Conn, proxy.Logger) error
 	proxy     proxy.Proxy
