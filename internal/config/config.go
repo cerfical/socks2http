@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -79,10 +80,15 @@ func parseConfig(f *pflag.FlagSet) (*Config, error) {
 		}
 	}
 
+	defaultRoute := router.Route{
+		Proxy: defaultConfig.Proxy,
+	}
+
 	options := []viper.DecoderConfigOption{
 		viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
 			mapstructure.TextUnmarshallerHookFunc(),
 			mapstructure.StringToTimeDurationHookFunc(),
+			withDefaultRouteHook(&defaultRoute),
 		)),
 	}
 
@@ -123,6 +129,30 @@ func getProgramName(args []string) string {
 		filepath.Base(progPath),
 		filepath.Ext(progPath),
 	)
+}
+
+func withDefaultRouteHook(r *router.Route) mapstructure.DecodeHookFuncValue {
+	return func(from reflect.Value, to reflect.Value) (any, error) {
+		// Ignore destination types we are not interested in, as well as non-map source types
+		if to.Type() != reflect.TypeOf(router.Route{}) || from.Kind() != reflect.Map {
+			return from.Interface(), nil
+		}
+
+		r := *r
+		dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+			DecodeHook: mapstructure.TextUnmarshallerHookFunc(),
+			Result:     &r,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("create decoder: %w", err)
+		}
+
+		if err := dec.Decode(from.Interface()); err != nil {
+			// Let the caller handle the error
+			return from.Interface(), nil
+		}
+		return r, nil
+	}
 }
 
 type Config struct {
