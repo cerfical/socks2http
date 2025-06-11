@@ -22,34 +22,43 @@ const (
 )
 
 var protos = []string{
-	ProtoSOCKS:   "socks",
-	ProtoSOCKS4:  "socks4",
-	ProtoSOCKS4a: "socks4a",
-	ProtoSOCKS5:  "socks5",
-	ProtoSOCKS5h: "socks5h",
+	ProtoSOCKS:   "SOCKS",
+	ProtoSOCKS4:  "SOCKS4",
+	ProtoSOCKS4a: "SOCKS4a",
+	ProtoSOCKS5:  "SOCKS5",
+	ProtoSOCKS5h: "SOCKS5h",
 
-	ProtoHTTP: "http",
+	ProtoHTTP: "HTTP",
+}
+
+func ParseProto(proto string) (Proto, error) {
+	i := slices.IndexFunc(protos, func(s string) bool {
+		return strings.EqualFold(s, proto)
+	})
+	if i == -1 {
+		return 0, errors.New("unknown protocol")
+	}
+	return Proto(i), nil
 }
 
 type Proto int
-
-func (p Proto) MarshalText() ([]byte, error) {
-	return []byte(p.String()), nil
-}
-
-func (p *Proto) UnmarshalText(text []byte) error {
-	s := strings.ToLower(string(text))
-	i := slices.Index(protos, s)
-	if i == -1 {
-		return errors.New("unknown protocol")
-	}
-	*p = Proto(i)
-	return nil
-}
 
 func (p Proto) String() string {
 	if p >= protoMin && p <= protoMax {
 		return protos[p]
 	}
 	panic("unknown protocol")
+}
+
+func (p Proto) MarshalText() ([]byte, error) {
+	return []byte(p.String()), nil
+}
+
+func (p *Proto) UnmarshalText(text []byte) error {
+	proto, err := ParseProto(string(text))
+	if err != nil {
+		return err
+	}
+	*p = proto
+	return nil
 }

@@ -39,8 +39,8 @@ func ParseURL(url string, defProto Proto) (*URL, error) {
 	scheme := strings.ToLower(cmp.Or(rawURL.Scheme, defProto.String()))
 	host := strings.ToLower(rawURL.Host)
 
-	var proto Proto
-	if err := proto.UnmarshalText([]byte(scheme)); err != nil {
+	proto, err := ParseProto(scheme)
+	if err != nil {
 		return nil, fmt.Errorf("parse scheme '%v': %w", scheme, err)
 	}
 
