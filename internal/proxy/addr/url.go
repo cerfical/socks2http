@@ -15,7 +15,7 @@ var (
 		`(?<HOSTNAME>[^:]+)`, // Hostname.
 		`(?<PORT>[^:]+)`,     // Port number.
 	))
-	defaultScheme = ProtoHTTP.String()
+	urlDefProto = ProtoHTTP
 )
 
 func NewURL(proto Proto, host string, port uint16) *URL {
@@ -26,7 +26,7 @@ func NewURL(proto Proto, host string, port uint16) *URL {
 	}
 }
 
-func ParseURL(url string) (*URL, error) {
+func ParseURL(url string, defProto Proto) (*URL, error) {
 	if url == "" {
 		return NewURL(0, "", 0), nil
 	}
@@ -36,7 +36,7 @@ func ParseURL(url string) (*URL, error) {
 		return nil, err
 	}
 
-	scheme := strings.ToLower(cmp.Or(rawURL.Scheme, defaultScheme))
+	scheme := strings.ToLower(cmp.Or(rawURL.Scheme, defProto.String()))
 	host := strings.ToLower(rawURL.Host)
 
 	var proto Proto
@@ -97,19 +97,21 @@ func (u *URL) Addr() *Addr {
 	return New(u.Host, u.Port)
 }
 
-func (u *URL) String() string {
-	scheme := ""
-	host := u.Host
-	port := ""
+func (u *URL) IsZero() bool {
+	return u.Proto == 0 && u.Host == "" && u.Port == 0
+}
 
-	if u.Proto != 0 {
-		scheme = fmt.Sprintf("%v:", u.Proto)
+func (u *URL) String() string {
+	if u.IsZero() {
+		return ""
 	}
-	if u.Host != "" && u.Proto != 0 {
-		host = fmt.Sprintf("//%v", u.Host)
-	}
-	if u.Port != 0 {
-		port = fmt.Sprintf(":%v", u.Port)
+
+	scheme := fmt.Sprintf("%v:", u.Proto)
+	host := u.Host
+	port := fmt.Sprintf(":%v", u.Port)
+
+	if host != "" {
+		host = fmt.Sprintf("//%v", host)
 	}
 
 	return strings.ToLower(scheme) + strings.ToLower(host) + port
@@ -120,7 +122,7 @@ func (u *URL) MarshalText() ([]byte, error) {
 }
 
 func (u *URL) UnmarshalText(text []byte) error {
-	url, err := ParseURL(string(text))
+	url, err := ParseURL(string(text), urlDefProto)
 	if err != nil {
 		return err
 	}

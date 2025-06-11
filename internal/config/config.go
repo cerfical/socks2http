@@ -1,11 +1,9 @@
 package config
 
 import (
-	"encoding"
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"time"
 
@@ -17,15 +15,14 @@ import (
 	"github.com/spf13/viper"
 )
 
-var defaultConfig = Config{
-	Server: *addr.NewURL(addr.ProtoHTTP, "localhost", 8080),
+var (
+	defServerURL = addr.NewURL(addr.ProtoHTTP, "localhost", 80)
 
-	Proxy: *addr.NewURL(addr.ProtoDirect, "", 0),
+	defProxyURL   = addr.NewURL(addr.ProtoDirect, "", 0)
+	defProxyProto = addr.ProtoHTTP
 
-	Log: LogConfig{
-		Level: log.LevelVerbose,
-	},
-}
+	defLogLevel = log.LevelVerbose
+)
 
 func Load(args []string) *Config {
 	progName := getProgramName(args)
@@ -41,11 +38,11 @@ func Load(args []string) *Config {
 		printErrorAndExit(flags, err)
 	}
 
-	config, err := parseConfig(flags)
+	rawConfig, err := parseRawConfig(flags)
 	if err != nil {
 		printErrorAndExit(flags, err)
 	}
-	return config
+	return rawConfig.ToConfig()
 }
 
 func printErrorAndExit(f *pflag.FlagSet, err error) {
@@ -54,7 +51,7 @@ func printErrorAndExit(f *pflag.FlagSet, err error) {
 	os.Exit(1)
 }
 
-func parseConfig(f *pflag.FlagSet) (*Config, error) {
+func parseRawConfig(f *pflag.FlagSet) (*rawConfig, error) {
 	v := viper.New()
 
 	// Bind command-line flags to their corresponding values from config file
@@ -70,36 +67,40 @@ func parseConfig(f *pflag.FlagSet) (*Config, error) {
 	if err := v.ReadInConfig(); err != nil {
 		// Make the configuration file optional
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, fmt.Errorf("load config file: %w", err)
+			return nil, fmt.Errorf("load configuration: %w", err)
 		}
-	}
-
-	defaultRoute := router.Route{
-		Proxy: defaultConfig.Proxy,
 	}
 
 	options := []viper.DecoderConfigOption{
 		viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
 			mapstructure.TextUnmarshallerHookFunc(),
 			mapstructure.StringToTimeDurationHookFunc(),
-			withDefaultRouteHook(&defaultRoute),
 		)),
+
+		func(c *mapstructure.DecoderConfig) {
+			c.IgnoreUntaggedFields = true
+		},
 	}
 
-	config := defaultConfig
+	var config rawConfig
 	if err := v.UnmarshalExact(&config, options...); err != nil {
-		return nil, fmt.Errorf("parse config file: %w", err)
+		return nil, fmt.Errorf("parse configuration: %w", err)
 	}
 	return &config, nil
 }
 
 func parseFlags(f *pflag.FlagSet, args []string) error {
 	// Flags shared with options from a configuration file
-	c := defaultConfig
-	f.Var(&textValue{&c.Server}, "server", "address for proxy server to listen on")
-	f.Var(&textValue{&c.Proxy}, "proxy", "proxy URL to connect via proxy client")
-	f.Var(&textValue{&c.Log.Level}, "log-level", "severity level of logging messages")
-	f.DurationVar(&c.Timeout, "timeout", c.Timeout, "``wait duration for I/O operations")
+	serverURL := proxyURLValue(*defServerURL)
+	f.Var(&serverURL, "server", "``address for proxy server to listen on")
+
+	proxyURL := proxyURLValue(*defProxyURL)
+	f.Var(&proxyURL, "proxy", "``proxy URL to connect via proxy client")
+
+	logLevel := logLevelValue(defLogLevel)
+	f.Var(&logLevel, "log-level", "``severity level of logging messages")
+
+	f.Duration("timeout", 0, "``wait duration for I/O operations")
 
 	help := f.Bool("help", false, "``display help message")
 	f.String("config-file", "", "``configuration file")
@@ -123,59 +124,91 @@ func getProgramName(args []string) string {
 	)
 }
 
-func withDefaultRouteHook(r *router.Route) mapstructure.DecodeHookFuncType {
-	return func(from reflect.Type, to reflect.Type, data any) (any, error) {
-		if to != reflect.TypeOf(router.Route{}) || from.Kind() != reflect.Map {
-			return data, nil
-		}
+type Config struct {
+	Server addr.URL
 
-		r := *r
-		dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-			DecodeHook: mapstructure.TextUnmarshallerHookFunc(),
-			Result:     &r,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("create decoder: %w", err)
-		}
+	Proxy  addr.URL
+	Routes []router.Route
 
-		if err := dec.Decode(data); err != nil {
-			// Let the caller handle the error
-			return data, nil
-		}
-		return r, nil
+	Log struct {
+		Level log.Level
 	}
+
+	Timeout time.Duration
 }
 
-type Config struct {
-	Server addr.URL `mapstructure:"server"`
+type rawConfig struct {
+	Server proxyURLValue `mapstructure:"server"`
 
-	Proxy  addr.URL       `mapstructure:"proxy"`
-	Routes []router.Route `mapstructure:"routes"`
+	Proxy  proxyURLValue `mapstructure:"proxy"`
+	Routes []struct {
+		Hosts []string      `mapstructure:"hosts"`
+		Proxy proxyURLValue `mapstructure:"proxy"`
+	} `mapstructure:"routes"`
 
-	Log LogConfig `mapstructure:"log"`
+	Log struct {
+		Level logLevelValue `mapstructure:"level"`
+	} `mapstructure:"log"`
 
 	Timeout time.Duration `mapstructure:"timeout"`
 }
 
-type LogConfig struct {
-	Level log.Level `mapstructure:"level"`
-}
+func (c *rawConfig) ToConfig() *Config {
+	var config Config
 
-type textValue struct {
-	val interface {
-		fmt.Stringer
-		encoding.TextUnmarshaler
+	config.Server = addr.URL(c.Server)
+	config.Proxy = addr.URL(c.Proxy)
+	config.Log.Level = log.Level(c.Log.Level)
+	config.Timeout = c.Timeout
+
+	for _, r := range c.Routes {
+		route := router.Route{
+			Hosts: r.Hosts,
+			Proxy: addr.URL(r.Proxy),
+		}
+		config.Routes = append(config.Routes, route)
 	}
+
+	return &config
 }
 
-func (v *textValue) Set(s string) error {
-	return v.val.UnmarshalText([]byte(s))
+type proxyURLValue addr.URL
+
+func (v *proxyURLValue) Set(s string) error {
+	u, err := addr.ParseURL(s, defProxyProto)
+	if err != nil {
+		return err
+	}
+	*v = proxyURLValue(*u)
+	return nil
 }
 
-func (v *textValue) String() string {
-	return v.val.String()
+func (v *proxyURLValue) UnmarshalText(text []byte) error {
+	return v.Set(string(text))
 }
 
-func (v *textValue) Type() string {
+func (v *proxyURLValue) String() string {
+	return (*addr.URL)(v).String()
+}
+
+func (v *proxyURLValue) Type() string {
+	return ""
+}
+
+type logLevelValue log.Level
+
+func (v *logLevelValue) Set(s string) error {
+	return (*log.Level)(v).UnmarshalText([]byte(s))
+}
+
+func (v *logLevelValue) UnmarshalText(text []byte) error {
+	return v.Set(string(text))
+}
+
+func (v *logLevelValue) String() string {
+	return (*log.Level)(v).String()
+}
+
+func (v *logLevelValue) Type() string {
 	return ""
 }

@@ -88,13 +88,6 @@ func (t *URLTest) TestParse() {
 			},
 		},
 
-		"uses HTTP as default protocol scheme": {
-			input: "example.com",
-			want: func(u *addr.URL) {
-				t.Equal(addr.ProtoHTTP, u.Proto)
-			},
-		},
-
 		"ignores case when parsing protocol scheme": {
 			input: "HTTP://example.com",
 			want: func(u *addr.URL) {
@@ -112,7 +105,7 @@ func (t *URLTest) TestParse() {
 
 	for name, test := range tests {
 		t.Run(name, func() {
-			url, err := addr.ParseURL(test.input)
+			url, err := addr.ParseURL(test.input, addr.ProtoHTTP)
 			t.Require().NoError(err)
 
 			test.want(url)
@@ -128,7 +121,7 @@ func (t *URLTest) TestParse() {
 
 	for name, test := range errors {
 		t.Run(name, func() {
-			_, err := addr.ParseURL(test)
+			_, err := addr.ParseURL(test, addr.ProtoHTTP)
 			t.Require().Error(err)
 		})
 	}
@@ -144,44 +137,19 @@ func (t *URLTest) TestString() {
 			want: "",
 		},
 
-		"prints URL with only host specified": {
-			url:  addr.NewURL(0, "example.com", 0),
-			want: "example.com",
-		},
-
-		"prints URL with only protocol scheme specified": {
-			url:  addr.NewURL(addr.ProtoSOCKS4, "", 0),
-			want: "socks4:",
-		},
-
-		"prints URL with only port number specified": {
-			url:  addr.NewURL(0, "", 80),
-			want: ":80",
-		},
-
-		"prints scheme-port pairs": {
-			url:  addr.NewURL(addr.ProtoSOCKS4, "", 80),
-			want: "socks4::80",
-		},
-
-		"prints host-port pairs": {
-			url:  addr.NewURL(0, "example.com", 80),
-			want: "example.com:80",
-		},
-
-		"prints scheme-host pairs": {
-			url:  addr.NewURL(addr.ProtoSOCKS4, "example.com", 0),
-			want: "socks4://example.com",
-		},
-
 		"prints URL with scheme, host and port number": {
 			url:  addr.NewURL(addr.ProtoSOCKS4, "example.com", 1081),
 			want: "socks4://example.com:1081",
 		},
 
 		"ignores case when printing host": {
-			url:  addr.NewURL(0, "EXAMPLE.COM", 0),
-			want: "example.com",
+			url:  addr.NewURL(addr.ProtoHTTP, "EXAMPLE.COM", 81),
+			want: "http://example.com:81",
+		},
+
+		"ignores empty host": {
+			url:  addr.NewURL(addr.ProtoHTTP, "", 81),
+			want: "http::81",
 		},
 	}
 
@@ -220,5 +188,17 @@ func (t *URLTest) TestAddr() {
 
 		want := addr.New("example.com", 1081)
 		t.Equal(want, url.Addr())
+	})
+}
+
+func (t *URLTest) TestIsZero() {
+	t.Run("zero URL is empty", func() {
+		var url addr.URL
+		t.True(url.IsZero())
+	})
+
+	t.Run("non-zero URL is non-empty", func() {
+		url := addr.NewURL(addr.ProtoSOCKS4, "example.com", 1081)
+		t.False(url.IsZero())
 	})
 }
