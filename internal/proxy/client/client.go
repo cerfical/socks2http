@@ -95,7 +95,7 @@ func socks5Connect(proxyConn net.Conn, dstAddr *addr.Addr, resolveLocally bool) 
 		if err != nil {
 			return fmt.Errorf("resolve destination: %w", err)
 		}
-		dstAddr = addr.New(ip.String(), dstAddr.Port)
+		dstAddr = addr.NewAddr(ip.String(), dstAddr.Port)
 	}
 
 	proxyRead := bufio.NewReader(proxyConn)
@@ -145,7 +145,7 @@ func socks4Connect(proxyConn net.Conn, dstAddr *addr.Addr, resolveLocally bool) 
 		if err != nil {
 			return fmt.Errorf("resolve destination: %w", err)
 		}
-		dstAddr = addr.New(ip4.String(), dstAddr.Port)
+		dstAddr = addr.NewAddr(ip4.String(), dstAddr.Port)
 	}
 
 	connReq := socks4.Request{

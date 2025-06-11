@@ -36,7 +36,7 @@ func ReadRequest(r *bufio.Reader) (*Request, error) {
 
 	return &Request{
 		Command(command),
-		*addr.New(dstHost, dstPort),
+		*addr.NewAddr(dstHost, dstPort),
 		username,
 	}, nil
 }

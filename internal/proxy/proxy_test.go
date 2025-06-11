@@ -32,7 +32,7 @@ func (t *ProxyTest) TestProxy_ForwardHTTP() {
 	t.Run("forwards an HTTP request to the destination and reads the response", func() {
 		dstServerConn, dstProxyConn := net.Pipe()
 
-		dstHost := addr.New("localhost", 1111)
+		dstHost := addr.NewAddr("localhost", 1111)
 
 		dialer := mocks.NewDialer(t.T())
 		dialer.EXPECT().
@@ -112,7 +112,7 @@ func (t *ProxyTest) openTunnel() (done <-chan error, srcConn, dstConn net.Conn) 
 		goleak.VerifyNone(t.T())
 	})
 
-	dstHost := addr.New("localhost", 1111)
+	dstHost := addr.NewAddr("localhost", 1111)
 
 	dialer := mocks.NewDialer(t.T())
 	dialer.EXPECT().

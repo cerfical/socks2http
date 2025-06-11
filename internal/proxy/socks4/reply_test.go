@@ -93,7 +93,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind IPv4 address", func() {
 		r := socks4.Reply{
-			BindAddr: *addr.New("127.0.0.1", 0),
+			BindAddr: *addr.NewAddr("127.0.0.1", 0),
 		}
 
 		got, err := encodeReply(&r)
@@ -105,7 +105,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind hostname", func() {
 		r := socks4.Reply{
-			BindAddr: *addr.New("localhost", 0),
+			BindAddr: *addr.NewAddr("localhost", 0),
 		}
 
 		got, err := encodeReply(&r)
@@ -117,7 +117,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes an empty bind address", func() {
 		r := socks4.Reply{
-			BindAddr: *addr.New("", 0),
+			BindAddr: *addr.NewAddr("", 0),
 		}
 
 		got, err := encodeReply(&r)
@@ -129,7 +129,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind port", func() {
 		r := socks4.Reply{
-			BindAddr: *addr.New("", 1080),
+			BindAddr: *addr.NewAddr("", 1080),
 		}
 
 		got, err := encodeReply(&r)

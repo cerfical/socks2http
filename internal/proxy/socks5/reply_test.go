@@ -125,7 +125,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind IPv4 address", func() {
 		r := socks5.Reply{
-			BindAddr: *addr.New("127.0.0.1", 0),
+			BindAddr: *addr.NewAddr("127.0.0.1", 0),
 		}
 
 		got, err := encodeReply(&r)
@@ -137,7 +137,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind IPv6 address", func() {
 		r := socks5.Reply{
-			BindAddr: *addr.New("102:304:506:708:90a:b0c:d0e:f10", 0),
+			BindAddr: *addr.NewAddr("102:304:506:708:90a:b0c:d0e:f10", 0),
 		}
 
 		got, err := encodeReply(&r)
@@ -151,7 +151,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind hostname", func() {
 		r := socks5.Reply{
-			BindAddr: *addr.New("localhost", 0),
+			BindAddr: *addr.NewAddr("localhost", 0),
 		}
 
 		got, err := encodeReply(&r)
@@ -163,7 +163,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("encodes a bind port", func() {
 		r := socks5.Reply{
-			BindAddr: *addr.New("", 1080),
+			BindAddr: *addr.NewAddr("", 1080),
 		}
 
 		got, err := encodeReply(&r)
@@ -175,7 +175,7 @@ func (t *ReplyTest) TestWrite() {
 
 	t.Run("rejects a bind hostname longer than 255 bytes", func() {
 		r := socks5.Reply{
-			BindAddr: *addr.New(strings.Repeat("a", 256), 0),
+			BindAddr: *addr.NewAddr(strings.Repeat("a", 256), 0),
 		}
 
 		_, err := encodeReply(&r)

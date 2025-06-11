@@ -27,7 +27,7 @@ type ClientTest struct {
 
 func (t *ClientTest) TestDial() {
 	t.Run("connects to destination directly if no proxy is used", func() {
-		dstHost := addr.New("localhost", 8080)
+		dstHost := addr.NewAddr("localhost", 8080)
 
 		dialer := mocks.NewDialer(t.T())
 		dialer.EXPECT().
@@ -44,7 +44,7 @@ func (t *ClientTest) TestDial() {
 
 func (t *ClientTest) TestDial_HTTP() {
 	t.Run("makes a CONNECT request to proxy", func() {
-		dstHost := addr.New("localhost", 8080)
+		dstHost := addr.NewAddr("localhost", 8080)
 		proxyConn := t.dialProxy(addr.ProtoHTTP, dstHost)
 
 		req, err := http.ReadRequest(bufio.NewReader(proxyConn))
@@ -62,7 +62,7 @@ func (t *ClientTest) TestDial_HTTP() {
 
 func (t *ClientTest) TestDial_SOCKS4() {
 	t.Run("makes a CONNECT request to proxy", func() {
-		proxyConn := t.dialProxy(addr.ProtoSOCKS4, addr.New("localhost", 8080))
+		proxyConn := t.dialProxy(addr.ProtoSOCKS4, addr.NewAddr("localhost", 8080))
 
 		req, err := socks4.ReadRequest(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
@@ -74,20 +74,20 @@ func (t *ClientTest) TestDial_SOCKS4() {
 	})
 
 	t.Run("performs name resolution locally when using SOCKS4", func() {
-		dstAddr := addr.New("localhost", 8080)
+		dstAddr := addr.NewAddr("localhost", 8080)
 		proxyConn := t.dialProxy(addr.ProtoSOCKS4, dstAddr)
 
 		req, err := socks4.ReadRequest(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
-		t.Equal(addr.New("127.0.0.1", 8080), &req.DstAddr)
+		t.Equal(addr.NewAddr("127.0.0.1", 8080), &req.DstAddr)
 
 		reply := socks4.Reply{Status: socks4.StatusGranted}
 		t.Require().NoError(reply.Write(proxyConn))
 	})
 
 	t.Run("delegates name resolution to proxy when using SOCKS4a", func() {
-		dstAddr := addr.New("localhost", 8080)
+		dstAddr := addr.NewAddr("localhost", 8080)
 		proxyConn := t.dialProxy(addr.ProtoSOCKS4a, dstAddr)
 
 		req, err := socks4.ReadRequest(bufio.NewReader(proxyConn))
@@ -101,7 +101,7 @@ func (t *ClientTest) TestDial_SOCKS4() {
 }
 
 func (t *ClientTest) TestDial_SOCKS5() {
-	dstAddr := addr.New("localhost", 8080)
+	dstAddr := addr.NewAddr("localhost", 8080)
 
 	t.Run("makes a CONNECT request to proxy", func() {
 		proxyConn := t.dialProxy(addr.ProtoSOCKS5, dstAddr)
@@ -123,7 +123,7 @@ func (t *ClientTest) TestDial_SOCKS5() {
 		req, err := socks5.ReadRequest(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
-		t.Equal(addr.New("127.0.0.1", 8080), &req.DstAddr)
+		t.Equal(addr.NewAddr("127.0.0.1", 8080), &req.DstAddr)
 
 		reply := socks5.Reply{Status: socks5.StatusOK}
 		t.Require().NoError(reply.Write(proxyConn))
@@ -150,7 +150,7 @@ func (t *ClientTest) dialProxy(p addr.Proto, dstHost *addr.Addr) (proxyConn net.
 		serverConn.Close()
 	})
 
-	proxyAddr := addr.New("localhost", 1111)
+	proxyAddr := addr.NewAddr("localhost", 1111)
 
 	dialer := mocks.NewDialer(t.T())
 	dialer.EXPECT().

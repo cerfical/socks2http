@@ -186,7 +186,7 @@ func (t *URLTest) TestAddr() {
 	t.Run("returns host-port part of URL", func() {
 		url := addr.NewURL(addr.ProtoSOCKS4, "example.com", 1081)
 
-		want := addr.New("example.com", 1081)
+		want := addr.NewAddr("example.com", 1081)
 		t.Equal(want, url.Addr())
 	})
 }

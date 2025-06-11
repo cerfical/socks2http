@@ -125,7 +125,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes a destination IPv4 address", func() {
 		r := socks5.Request{
-			DstAddr: *addr.New("127.0.0.1", 0),
+			DstAddr: *addr.NewAddr("127.0.0.1", 0),
 		}
 
 		got, err := encodeRequest(&r)
@@ -137,7 +137,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes a destination IPv6 address", func() {
 		r := socks5.Request{
-			DstAddr: *addr.New("102:304:506:708:90a:b0c:d0e:f10", 0),
+			DstAddr: *addr.NewAddr("102:304:506:708:90a:b0c:d0e:f10", 0),
 		}
 
 		got, err := encodeRequest(&r)
@@ -151,7 +151,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes a destination hostname", func() {
 		r := socks5.Request{
-			DstAddr: *addr.New("localhost", 0),
+			DstAddr: *addr.NewAddr("localhost", 0),
 		}
 
 		got, err := encodeRequest(&r)
@@ -163,7 +163,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes a destination port", func() {
 		r := socks5.Request{
-			DstAddr: *addr.New("", 1080),
+			DstAddr: *addr.NewAddr("", 1080),
 		}
 
 		got, err := encodeRequest(&r)
@@ -175,7 +175,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("rejects a destination hostname longer than 255 bytes", func() {
 		r := socks5.Request{
-			DstAddr: *addr.New(strings.Repeat("a", 256), 0),
+			DstAddr: *addr.NewAddr(strings.Repeat("a", 256), 0),
 		}
 
 		_, err := encodeRequest(&r)

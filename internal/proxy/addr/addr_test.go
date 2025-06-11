@@ -22,22 +22,22 @@ func (t *AddrTest) TestParse() {
 	}{
 		"parses a host-port pair": {
 			input: "localhost:80",
-			want:  addr.New("localhost", 80),
+			want:  addr.NewAddr("localhost", 80),
 		},
 
 		"parses an empty host": {
 			input: ":80",
-			want:  addr.New("", 80),
+			want:  addr.NewAddr("", 80),
 		},
 
 		"parses an IPv4 address": {
 			input: "127.0.0.1:80",
-			want:  addr.New("127.0.0.1", 80),
+			want:  addr.NewAddr("127.0.0.1", 80),
 		},
 
 		"parses an IPv6 address": {
 			input: "[1::1]:80",
-			want:  addr.New("1::1", 80),
+			want:  addr.NewAddr("1::1", 80),
 		},
 
 		"parses an empty input to a default value": {
@@ -48,7 +48,7 @@ func (t *AddrTest) TestParse() {
 
 	for name, test := range tests {
 		t.Run(name, func() {
-			addr, err := addr.Parse(test.input)
+			addr, err := addr.ParseAddr(test.input)
 			t.Require().NoError(err)
 
 			t.Equal(test.want, addr)
@@ -56,7 +56,7 @@ func (t *AddrTest) TestParse() {
 	}
 
 	t.Run("rejects an empty port", func() {
-		_, err := addr.Parse("localhost:")
+		_, err := addr.ParseAddr("localhost:")
 		t.Error(err)
 	})
 }
@@ -67,12 +67,12 @@ func (t *AddrTest) TestString() {
 		want string
 	}{
 		"prints a host-port pair": {
-			addr: addr.New("localhost", 80),
+			addr: addr.NewAddr("localhost", 80),
 			want: "localhost:80",
 		},
 
 		"prints an empty host": {
-			addr: addr.New("", 80),
+			addr: addr.NewAddr("", 80),
 			want: ":80",
 		},
 
@@ -82,12 +82,12 @@ func (t *AddrTest) TestString() {
 		},
 
 		"prints an IPv4-address": {
-			addr: addr.New("127.0.0.1", 80),
+			addr: addr.NewAddr("127.0.0.1", 80),
 			want: "127.0.0.1:80",
 		},
 
 		"prints an IPv6-address": {
-			addr: addr.New("1::1", 80),
+			addr: addr.NewAddr("1::1", 80),
 			want: "[1::1]:80",
 		},
 	}

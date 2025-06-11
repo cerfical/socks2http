@@ -101,7 +101,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes a destination IPv4 address", func() {
 		r := socks4.Request{
-			DstAddr: *addr.New("127.0.0.1", 0),
+			DstAddr: *addr.NewAddr("127.0.0.1", 0),
 		}
 
 		got, err := encodeRequest(&r)
@@ -113,7 +113,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes a destination hostname", func() {
 		r := socks4.Request{
-			DstAddr: *addr.New("localhost", 0),
+			DstAddr: *addr.NewAddr("localhost", 0),
 		}
 
 		got, err := encodeRequest(&r)
@@ -125,7 +125,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes an destination address", func() {
 		r := socks4.Request{
-			DstAddr: *addr.New("", 0),
+			DstAddr: *addr.NewAddr("", 0),
 		}
 
 		got, err := encodeRequest(&r)
@@ -137,7 +137,7 @@ func (t *RequestTest) TestWrite() {
 
 	t.Run("encodes a destination port", func() {
 		r := socks4.Request{
-			DstAddr: *addr.New("", 1080),
+			DstAddr: *addr.NewAddr("", 1080),
 		}
 
 		got, err := encodeRequest(&r)

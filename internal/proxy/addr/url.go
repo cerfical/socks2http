@@ -94,7 +94,7 @@ type URL struct {
 }
 
 func (u *URL) Addr() *Addr {
-	return New(u.Host, u.Port)
+	return NewAddr(u.Host, u.Port)
 }
 
 func (u *URL) IsZero() bool {

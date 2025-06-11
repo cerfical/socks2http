@@ -22,10 +22,10 @@ type RouterTest struct {
 
 func (t *RouterTest) TestDial() {
 	t.Run("routes connection requests to the destination through specified proxy", func() {
-		dstAddr1 := addr.New("dst-addr-1", 80)
+		dstAddr1 := addr.NewAddr("dst-addr-1", 80)
 		proxyURL1 := addr.NewURL(addr.ProtoHTTP, "proxy-1", 8080)
 
-		dstAddr2 := addr.New("dst-addr-2", 80)
+		dstAddr2 := addr.NewAddr("dst-addr-2", 80)
 		proxyURL2 := addr.NewURL(addr.ProtoHTTP, "proxy-2", 8080)
 
 		dialer := mocks.NewDialer(t.T())
@@ -57,7 +57,7 @@ func (t *RouterTest) TestDial() {
 	})
 
 	t.Run("uses default policy if routing table contains no matches", func() {
-		dstAddr := addr.New("example.com", 80)
+		dstAddr := addr.NewAddr("example.com", 80)
 		proxyURL := addr.NewURL(addr.ProtoHTTP, "proxy", 8081)
 
 		dialer := mocks.NewDialer(t.T())

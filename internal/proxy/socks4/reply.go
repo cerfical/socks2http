@@ -32,7 +32,7 @@ func ReadReply(r *bufio.Reader) (*Reply, error) {
 
 	return &Reply{
 		Status(status),
-		*addr.New(bindHost, bindPort),
+		*addr.NewAddr(bindHost, bindPort),
 	}, nil
 }
 

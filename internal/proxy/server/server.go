@@ -306,7 +306,7 @@ func (s *Server) socksServe(ctx context.Context, clientRead *bufio.Reader, clien
 func hostFromHTTPRequest(r *http.Request) (*addr.Addr, error) {
 	// For HTTP CONNECT requests, the host is in the Request URL
 	if r.Method == http.MethodConnect {
-		h, err := addr.Parse(r.URL.Host)
+		h, err := addr.ParseAddr(r.URL.Host)
 		if err != nil {
 			return nil, fmt.Errorf("parse request URL: %w", err)
 		}
@@ -321,7 +321,7 @@ func hostFromHTTPRequest(r *http.Request) (*addr.Addr, error) {
 		if err != nil {
 			return nil, fmt.Errorf("lookup port by scheme: %w", err)
 		}
-		return addr.New(r.URL.Hostname(), uint16(portNum)), nil
+		return addr.NewAddr(r.URL.Hostname(), uint16(portNum)), nil
 	}
 
 	// If the port is specified, we can use it directly
@@ -330,7 +330,7 @@ func hostFromHTTPRequest(r *http.Request) (*addr.Addr, error) {
 		return nil, fmt.Errorf("parse port: %w", err)
 	}
 
-	return addr.New(r.URL.Hostname(), portNum), nil
+	return addr.NewAddr(r.URL.Hostname(), portNum), nil
 }
 
 func selectSOCKS5AuthMethod(methods []socks5.AuthMethod) socks5.AuthMethod {

@@ -6,16 +6,16 @@ import (
 	"strconv"
 )
 
-func New(host string, port uint16) *Addr {
+func NewAddr(host string, port uint16) *Addr {
 	return &Addr{
 		Host: host,
 		Port: port,
 	}
 }
 
-func Parse(addr string) (*Addr, error) {
+func ParseAddr(addr string) (*Addr, error) {
 	if addr == "" {
-		return New("", 0), nil
+		return NewAddr("", 0), nil
 	}
 
 	host, port, err := net.SplitHostPort(addr)
@@ -28,7 +28,7 @@ func Parse(addr string) (*Addr, error) {
 		return nil, fmt.Errorf("parse port %v: %w", port, err)
 	}
 
-	return New(host, portNum), nil
+	return NewAddr(host, portNum), nil
 }
 
 type Addr struct {
@@ -48,7 +48,7 @@ func (a *Addr) MarshalText() ([]byte, error) {
 }
 
 func (a *Addr) UnmarshalText(text []byte) error {
-	host, err := Parse(string(text))
+	host, err := ParseAddr(string(text))
 	if err != nil {
 		return err
 	}
