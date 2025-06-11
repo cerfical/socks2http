@@ -89,16 +89,16 @@ func parseRawConfig(f *pflag.FlagSet) (*rawConfig, error) {
 func parseFlags(f *pflag.FlagSet, args []string) error {
 	// Flags shared with options from a configuration file
 	serverURL := proxyURLValue(*defServerURL)
-	f.Var(&serverURL, "server", "``address for proxy server to listen on")
-	f.Var(&proxyURLValue{}, "proxy", "``proxy URL to connect via proxy client")
+	f.VarP(&serverURL, "server", "s", "``address for proxy server to listen on")
+	f.VarP(&proxyURLValue{}, "proxy", "p", "``proxy URL to connect via proxy client")
 
 	logLevel := logLevelValue(defLogLevel)
-	f.Var(&logLevel, "log-level", "``severity level of logging messages")
+	f.VarP(&logLevel, "log-level", "l", "``severity level of logging messages")
 
-	f.Duration("timeout", 0, "``wait duration for I/O operations")
+	f.DurationP("timeout", "t", 0, "``wait duration for I/O operations")
 
-	help := f.Bool("help", false, "``display help message")
-	f.String("config-file", "", "``configuration file")
+	help := f.BoolP("help", "h", false, "``display help message")
+	f.StringP("config-file", "c", "", "``configuration file")
 
 	if err := f.Parse(args[1:]); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
