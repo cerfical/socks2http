@@ -1,0 +1,135 @@
+package addr
+
+import (
+	"cmp"
+	"errors"
+	"fmt"
+	"regexp"
+	"strings"
+)
+
+var (
+	urlRgx = regexp.MustCompile(fmt.Sprintf(
+		`\A(?:%[1]v:(?://%[2]v)?(?::%[3]v)?|(?:%[2]v)?(?::%[3]v)?)\z`,
+		`(?<SCHEME>[^:]+)`,   // Protocol scheme.
+		`(?<HOSTNAME>[^:]+)`, // Hostname.
+		`(?<PORT>[^:]+)`,     // Port number.
+	))
+	defaultScheme = ProtoHTTP.String()
+)
+
+func NewURL(proto Proto, host string, port uint16) *URL {
+	return &URL{
+		Proto: proto,
+		Host:  host,
+		Port:  port,
+	}
+}
+
+func ParseURL(url string) (*URL, error) {
+	if url == "" {
+		return NewURL(0, "", 0), nil
+	}
+
+	rawURL, err := parseRawURL(url)
+	if err != nil {
+		return nil, err
+	}
+
+	scheme := strings.ToLower(cmp.Or(rawURL.Scheme, defaultScheme))
+	host := strings.ToLower(rawURL.Host)
+
+	var proto Proto
+	if err := proto.UnmarshalText([]byte(scheme)); err != nil {
+		return nil, fmt.Errorf("parse scheme '%v': %w", scheme, err)
+	}
+
+	port := defaultPortForProto(proto)
+	if rawURL.Port != "" {
+		p, err := ParsePort(rawURL.Port)
+		if err != nil {
+			return nil, fmt.Errorf("parse port '%v': %w", rawURL.Port, err)
+		}
+		port = p
+	}
+
+	return NewURL(proto, host, port), nil
+}
+
+func parseRawURL(url string) (*rawURL, error) {
+	matches := urlRgx.FindStringSubmatch(url)
+	if matches == nil {
+		return nil, errors.New("invalid syntax")
+	}
+
+	// Group named captures by name.
+	submatches := make(map[string]string)
+	for i, n := range urlRgx.SubexpNames() {
+		submatches[n] = cmp.Or(submatches[n], matches[i])
+	}
+
+	return &rawURL{
+		Scheme: submatches["SCHEME"],
+		Host:   submatches["HOSTNAME"],
+		Port:   submatches["PORT"],
+	}, nil
+}
+
+func defaultPortForProto(p Proto) uint16 {
+	switch p {
+	case ProtoSOCKS, ProtoSOCKS4, ProtoSOCKS4a, ProtoSOCKS5, ProtoSOCKS5h:
+		return 1080
+	case ProtoHTTP:
+		return 80
+	default:
+		return 0
+	}
+}
+
+type URL struct {
+	Proto Proto
+
+	Host string
+	Port uint16
+}
+
+func (u *URL) Addr() *Addr {
+	return New(u.Host, u.Port)
+}
+
+func (u *URL) String() string {
+	scheme := ""
+	host := u.Host
+	port := ""
+
+	if u.Proto != 0 {
+		scheme = fmt.Sprintf("%v:", u.Proto)
+	}
+	if u.Host != "" && u.Proto != 0 {
+		host = fmt.Sprintf("//%v", u.Host)
+	}
+	if u.Port != 0 {
+		port = fmt.Sprintf(":%v", u.Port)
+	}
+
+	return strings.ToLower(scheme) + strings.ToLower(host) + port
+}
+
+func (u *URL) MarshalText() ([]byte, error) {
+	return []byte(u.String()), nil
+}
+
+func (u *URL) UnmarshalText(text []byte) error {
+	url, err := ParseURL(string(text))
+	if err != nil {
+		return err
+	}
+	*u = *url
+	return nil
+}
+
+type rawURL struct {
+	Scheme string
+	Host   string
+	Port   string
+}
