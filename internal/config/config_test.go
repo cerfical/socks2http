@@ -24,18 +24,11 @@ func (t *ConfigTest) TestLoad() {
 		arg  string
 		want func(*config.Config)
 	}{
-		"server-addr": {
-			arg: "localhost:8090",
+		"server": {
+			arg: "http://localhost:81",
 			want: func(c *config.Config) {
-				want := addr.New("localhost", 8090)
-				t.Equal(want, &c.Server.Addr)
-			},
-		},
-
-		"server-proto": {
-			arg: "http",
-			want: func(c *config.Config) {
-				t.Equal(addr.ProtoHTTP, c.Server.Proto)
+				want := addr.NewURL(addr.ProtoHTTP, "localhost", 81)
+				t.Equal(want, &c.Server)
 			},
 		},
 

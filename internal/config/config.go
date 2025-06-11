@@ -18,10 +18,7 @@ import (
 )
 
 var defaultConfig = Config{
-	Server: ServerConfig{
-		Proto: addr.ProtoHTTP,
-		Addr:  *addr.New("localhost", 8080),
-	},
+	Server: *addr.NewURL(addr.ProtoHTTP, "localhost", 8080),
 
 	Proxy: *addr.NewURL(addr.ProtoDirect, "", 0),
 
@@ -61,7 +58,7 @@ func parseConfig(f *pflag.FlagSet) (*Config, error) {
 	v := viper.New()
 
 	// Bind command-line flags to their corresponding values from config file
-	configNames := []string{"server.addr", "server.proto", "proxy", "log.level", "timeout"}
+	configNames := []string{"server", "proxy", "log.level", "timeout"}
 	for _, name := range configNames {
 		kebabCasedName := strings.ReplaceAll(name, ".", "-")
 		if err := v.BindPFlag(name, f.Lookup(kebabCasedName)); err != nil {
@@ -99,9 +96,8 @@ func parseConfig(f *pflag.FlagSet) (*Config, error) {
 func parseFlags(f *pflag.FlagSet, args []string) error {
 	// Flags shared with options from a configuration file
 	c := defaultConfig
-	f.Var(&textValue{&c.Server.Addr}, "server-addr", "address for proxy server to listen on")
+	f.Var(&textValue{&c.Server}, "server", "address for proxy server to listen on")
 	f.Var(&textValue{&c.Proxy}, "proxy", "proxy URL to connect via proxy client")
-	f.Var(&textValue{&c.Server.Proto}, "server-proto", "proxy server protocol to use")
 	f.Var(&textValue{&c.Log.Level}, "log-level", "severity level of logging messages")
 	f.DurationVar(&c.Timeout, "timeout", c.Timeout, "``wait duration for I/O operations")
 
@@ -151,7 +147,7 @@ func withDefaultRouteHook(r *router.Route) mapstructure.DecodeHookFuncType {
 }
 
 type Config struct {
-	Server ServerConfig `mapstructure:"server"`
+	Server addr.URL `mapstructure:"server"`
 
 	Proxy  addr.URL       `mapstructure:"proxy"`
 	Routes []router.Route `mapstructure:"routes"`
@@ -163,11 +159,6 @@ type Config struct {
 
 type LogConfig struct {
 	Level log.Level `mapstructure:"level"`
-}
-
-type ServerConfig struct {
-	Proto addr.Proto `mapstructure:"proto"`
-	Addr  addr.Addr  `mapstructure:"addr"`
 }
 
 type textValue struct {

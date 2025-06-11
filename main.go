@@ -41,7 +41,7 @@ func main() {
 
 	go func() {
 		defer close(done)
-		if err := server.ListenAndServe(ctx, &config.Server.Addr); err != nil {
+		if err := server.ListenAndServe(ctx, config.Server.Addr()); err != nil {
 			log.Error("Server terminated abnormally", "error", err)
 		}
 	}()
