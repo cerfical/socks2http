@@ -17,8 +17,7 @@ import (
 
 func New(ops ...Option) (*Client, error) {
 	defaults := []Option{
-		WithProxyAddr(addr.New("localhost", 8080)),
-		WithProxyProto(addr.ProtoHTTP),
+		WithProxyURL(addr.NewURL(addr.ProtoHTTP, "localhost", 8080)),
 		WithDialer(proxy.DirectDialer),
 	}
 
@@ -27,7 +26,7 @@ func New(ops ...Option) (*Client, error) {
 		op(&c)
 	}
 
-	switch proto := c.proxyProto; proto {
+	switch proto := c.proxyURL.Proto; proto {
 	case addr.ProtoSOCKS4, addr.ProtoSOCKS4a:
 		c.connect = func(c net.Conn, h *addr.Addr) error {
 			return socks4Connect(c, h, proto == addr.ProtoSOCKS4)
@@ -47,15 +46,9 @@ func New(ops ...Option) (*Client, error) {
 	return &c, nil
 }
 
-func WithProxyAddr(a *addr.Addr) Option {
+func WithProxyURL(u *addr.URL) Option {
 	return func(c *Client) {
-		c.proxyAddr = *a
-	}
-}
-
-func WithProxyProto(p addr.Proto) Option {
-	return func(c *Client) {
-		c.proxyProto = p
+		c.proxyURL = *u
 	}
 }
 
@@ -68,8 +61,7 @@ func WithDialer(d proxy.Dialer) Option {
 type Option func(*Client)
 
 type Client struct {
-	proxyAddr  addr.Addr
-	proxyProto addr.Proto
+	proxyURL addr.URL
 
 	dialer  proxy.Dialer
 	connect func(net.Conn, *addr.Addr) error
@@ -82,15 +74,15 @@ func (c *Client) Dial(ctx context.Context, h *addr.Addr) (net.Conn, error) {
 	}
 
 	// Otherwise establish a connection to a proxy
-	proxyConn, err := c.dialer.Dial(ctx, &c.proxyAddr)
+	proxyConn, err := c.dialer.Dial(ctx, c.proxyURL.Addr())
 	if err != nil {
-		return nil, fmt.Errorf("dial proxy %v: %w", &c.proxyAddr, err)
+		return nil, fmt.Errorf("dial proxy %v: %w", c.proxyURL.Addr(), err)
 	}
 
 	// And connect the proxy to destination
 	if err := c.connect(proxyConn, h); err != nil {
 		proxyConn.Close()
-		return nil, fmt.Errorf("connect %v: %w", c.proxyProto, err)
+		return nil, fmt.Errorf("connect %v: %w", c.proxyURL.Proto, err)
 	}
 	return proxyConn, nil
 }

@@ -15,9 +15,7 @@ import (
 func New(ops ...Option) *Router {
 	defaults := []Option{
 		WithDefaultRoute(&Route{
-			Proxy: Proxy{
-				Proto: addr.ProtoDirect,
-			},
+			Proxy: *addr.NewURL(addr.ProtoDirect, "", 0),
 		}),
 		WithDialer(proxy.DirectDialer),
 	}
@@ -52,12 +50,7 @@ type Option func(r *Router)
 type Route struct {
 	Hosts []string `mapstructure:"hosts"`
 
-	Proxy Proxy `mapstructure:"proxy"`
-}
-
-type Proxy struct {
-	Proto addr.Proto `mapstructure:"proto"`
-	Addr  addr.Addr  `mapstructure:"addr"`
+	Proxy addr.URL `mapstructure:"proxy"`
 }
 
 type Router struct {
@@ -72,8 +65,7 @@ func (r *Router) Dial(ctx context.Context, dstAddr *addr.Addr) (net.Conn, error)
 
 	client, err := client.New(
 		client.WithDialer(r.dialer),
-		client.WithProxyAddr(&policy.Proxy.Addr),
-		client.WithProxyProto(policy.Proxy.Proto),
+		client.WithProxyURL(&policy.Proxy),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new proxy client: %w", err)

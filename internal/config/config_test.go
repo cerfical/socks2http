@@ -39,18 +39,11 @@ func (t *ConfigTest) TestLoad() {
 			},
 		},
 
-		"proxy-addr": {
-			arg: "localhost:8090",
+		"proxy": {
+			arg: "http://localhost:81",
 			want: func(c *config.Config) {
-				want := addr.New("localhost", 8090)
-				t.Equal(want, &c.Proxy.Addr)
-			},
-		},
-
-		"proxy-proto": {
-			arg: "http",
-			want: func(c *config.Config) {
-				t.Equal(addr.ProtoHTTP, c.Proxy.Proto)
+				want := addr.NewURL(addr.ProtoHTTP, "localhost", 81)
+				t.Equal(want, &c.Proxy)
 			},
 		},
 

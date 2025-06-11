@@ -23,33 +23,27 @@ type RouterTest struct {
 func (t *RouterTest) TestDial() {
 	t.Run("routes connection requests to the destination through specified proxy", func() {
 		dstAddr1 := addr.New("dst-addr-1", 80)
-		proxyAddr1 := addr.New("proxy-1", 8080)
+		proxyURL1 := addr.NewURL(addr.ProtoHTTP, "proxy-1", 8080)
 
 		dstAddr2 := addr.New("dst-addr-2", 80)
-		proxyAddr2 := addr.New("proxy-2", 8080)
+		proxyURL2 := addr.NewURL(addr.ProtoHTTP, "proxy-2", 8080)
 
 		dialer := mocks.NewDialer(t.T())
 		dialer.EXPECT().
-			Dial(mock.Anything, proxyAddr1).
+			Dial(mock.Anything, proxyURL1.Addr()).
 			Return(nil, errors.New("redirected to Proxy#1"))
 		dialer.EXPECT().
-			Dial(mock.Anything, proxyAddr2).
+			Dial(mock.Anything, proxyURL2.Addr()).
 			Return(nil, errors.New("redirected to Proxy#2"))
 
 		router := router.New(
 			router.WithDialer(dialer),
 			router.WithRoutes([]router.Route{{
 				Hosts: []string{dstAddr1.Host},
-				Proxy: router.Proxy{
-					Addr:  *proxyAddr1,
-					Proto: addr.ProtoHTTP,
-				},
+				Proxy: *proxyURL1,
 			}, {
 				Hosts: []string{dstAddr2.Host},
-				Proxy: router.Proxy{
-					Addr:  *proxyAddr2,
-					Proto: addr.ProtoHTTP,
-				},
+				Proxy: *proxyURL2,
 			}}),
 		)
 
@@ -64,20 +58,17 @@ func (t *RouterTest) TestDial() {
 
 	t.Run("uses default policy if routing table contains no matches", func() {
 		dstAddr := addr.New("example.com", 80)
-		proxyAddr := addr.New("proxy", 8081)
+		proxyURL := addr.NewURL(addr.ProtoHTTP, "proxy", 8081)
 
 		dialer := mocks.NewDialer(t.T())
 		dialer.EXPECT().
-			Dial(mock.Anything, proxyAddr).
+			Dial(mock.Anything, proxyURL.Addr()).
 			Return(nil, errors.New("redirected to Proxy"))
 
 		router := router.New(
 			router.WithDialer(dialer),
 			router.WithDefaultRoute(&router.Route{
-				Proxy: router.Proxy{
-					Addr:  *proxyAddr,
-					Proto: addr.ProtoHTTP,
-				},
+				Proxy: *proxyURL,
 			}),
 		)
 

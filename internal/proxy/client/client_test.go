@@ -35,8 +35,7 @@ func (t *ClientTest) TestDial() {
 			Return(nil, nil)
 
 		client, err := client.New(
-			client.WithProxyProto(addr.ProtoDirect),
-			client.WithProxyAddr(addr.New("", 0)),
+			client.WithProxyURL(addr.NewURL(addr.ProtoDirect, "", 0)),
 			client.WithDialer(dialer),
 		)
 		t.Require().NoError(err)
@@ -162,8 +161,7 @@ func (t *ClientTest) dialProxy(p addr.Proto, dstHost *addr.Addr) (proxyConn net.
 		Return(clientConn, nil)
 
 	client, err := client.New(
-		client.WithProxyProto(p),
-		client.WithProxyAddr(proxyAddr),
+		client.WithProxyURL(addr.NewURL(p, proxyAddr.Host, proxyAddr.Port)),
 		client.WithDialer(dialer),
 	)
 	t.Require().NoError(err)

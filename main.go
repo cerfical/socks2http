@@ -17,10 +17,7 @@ func main() {
 	config := config.Load(os.Args)
 	log := log.New(log.WithLevel(config.Log.Level))
 
-	log.Info("Using a proxy",
-		"proxy_proto", config.Proxy.Proto,
-		"proxy_addr", &config.Proxy.Addr,
-	)
+	log.Info("Using a proxy", "proxy_url", &config.Proxy)
 
 	router := router.New(
 		router.WithRoutes(config.Routes),
