@@ -7,9 +7,7 @@ import (
 )
 
 const (
-	ProtoDirect Proto = iota + 1
-
-	ProtoSOCKS
+	ProtoSOCKS Proto = iota + 1
 	ProtoSOCKS4
 	ProtoSOCKS4a
 	ProtoSOCKS5
@@ -19,13 +17,11 @@ const (
 )
 
 const (
-	protoMin = ProtoDirect
+	protoMin = ProtoSOCKS
 	protoMax = ProtoHTTP
 )
 
 var protos = []string{
-	ProtoDirect: "direct",
-
 	ProtoSOCKS:   "socks",
 	ProtoSOCKS4:  "socks4",
 	ProtoSOCKS4a: "socks4a",

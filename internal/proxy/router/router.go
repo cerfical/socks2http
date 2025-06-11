@@ -14,9 +14,6 @@ import (
 
 func New(ops ...Option) *Router {
 	defaults := []Option{
-		WithDefaultRoute(&Route{
-			Proxy: *addr.NewURL(addr.ProtoDirect, "", 0),
-		}),
 		WithDialer(proxy.DirectDialer),
 	}
 

@@ -16,12 +16,9 @@ import (
 )
 
 var (
-	defServerURL = addr.NewURL(addr.ProtoHTTP, "localhost", 80)
-
-	defProxyURL   = addr.NewURL(addr.ProtoDirect, "", 0)
+	defServerURL  = addr.NewURL(addr.ProtoHTTP, "localhost", 80)
 	defProxyProto = addr.ProtoHTTP
-
-	defLogLevel = log.LevelVerbose
+	defLogLevel   = log.LevelVerbose
 )
 
 func Load(args []string) *Config {
@@ -93,9 +90,7 @@ func parseFlags(f *pflag.FlagSet, args []string) error {
 	// Flags shared with options from a configuration file
 	serverURL := proxyURLValue(*defServerURL)
 	f.Var(&serverURL, "server", "``address for proxy server to listen on")
-
-	proxyURL := proxyURLValue(*defProxyURL)
-	f.Var(&proxyURL, "proxy", "``proxy URL to connect via proxy client")
+	f.Var(&proxyURLValue{}, "proxy", "``proxy URL to connect via proxy client")
 
 	logLevel := logLevelValue(defLogLevel)
 	f.Var(&logLevel, "log-level", "``severity level of logging messages")

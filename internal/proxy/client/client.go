@@ -17,7 +17,6 @@ import (
 
 func New(ops ...Option) (*Client, error) {
 	defaults := []Option{
-		WithProxyURL(addr.NewURL(addr.ProtoHTTP, "localhost", 8080)),
 		WithDialer(proxy.DirectDialer),
 	}
 
@@ -26,21 +25,24 @@ func New(ops ...Option) (*Client, error) {
 		op(&c)
 	}
 
-	switch proto := c.proxyURL.Proto; proto {
-	case addr.ProtoSOCKS4, addr.ProtoSOCKS4a:
-		c.connect = func(c net.Conn, h *addr.Addr) error {
-			return socks4Connect(c, h, proto == addr.ProtoSOCKS4)
+	if !c.proxyURL.IsZero() {
+		switch proto := c.proxyURL.Proto; proto {
+		case addr.ProtoSOCKS4, addr.ProtoSOCKS4a:
+			c.connect = func(c net.Conn, h *addr.Addr) error {
+				return socks4Connect(c, h, proto == addr.ProtoSOCKS4)
+			}
+		case addr.ProtoSOCKS5, addr.ProtoSOCKS5h:
+			c.connect = func(c net.Conn, h *addr.Addr) error {
+				return socks5Connect(c, h, proto == addr.ProtoSOCKS5)
+			}
+		case addr.ProtoHTTP:
+			c.connect = httpConnect
+		default:
+			return nil, fmt.Errorf("unsupported protocol scheme: %v", proto)
 		}
-	case addr.ProtoSOCKS5, addr.ProtoSOCKS5h:
-		c.connect = func(c net.Conn, h *addr.Addr) error {
-			return socks5Connect(c, h, proto == addr.ProtoSOCKS5)
-		}
-	case addr.ProtoHTTP:
-		c.connect = httpConnect
-	case addr.ProtoDirect:
+	} else {
 		c.connect = nil
-	default:
-		return nil, fmt.Errorf("unsupported protocol scheme: %v", proto)
+
 	}
 
 	return &c, nil

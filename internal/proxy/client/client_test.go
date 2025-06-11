@@ -26,7 +26,7 @@ type ClientTest struct {
 }
 
 func (t *ClientTest) TestDial() {
-	t.Run("connects to destination directly if Direct is used", func() {
+	t.Run("connects to destination directly if no proxy is used", func() {
 		dstHost := addr.New("localhost", 8080)
 
 		dialer := mocks.NewDialer(t.T())
@@ -34,10 +34,7 @@ func (t *ClientTest) TestDial() {
 			Dial(mock.Anything, dstHost).
 			Return(nil, nil)
 
-		client, err := client.New(
-			client.WithProxyURL(addr.NewURL(addr.ProtoDirect, "", 0)),
-			client.WithDialer(dialer),
-		)
+		client, err := client.New(client.WithDialer(dialer))
 		t.Require().NoError(err)
 
 		_, err = client.Dial(context.Background(), dstHost)
