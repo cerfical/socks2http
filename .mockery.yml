@@ -6,6 +6,6 @@ packages:
       Dialer:
 
 outpkg: "mocks"
-dir: "test/mocks"
+dir: "internal/test/mocks"
 mockname: "{{ .InterfaceName }}"
 filename: "{{ .InterfaceName | snakecase }}.go"
