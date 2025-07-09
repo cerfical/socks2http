@@ -20,7 +20,8 @@ import (
 func New(ops ...Option) (*Server, error) {
 	defaults := []Option{
 		WithServeProto(addr.ProtoHTTP),
-		WithProxy(proxy.New(proxy.DirectDialer)),
+		WithDialer(proxy.DirectDialer),
+		WithTunneler(proxy.DefaultTunneler),
 		WithLogger(proxy.DiscardLogger),
 	}
 
@@ -45,9 +46,15 @@ func New(ops ...Option) (*Server, error) {
 	return &s, nil
 }
 
-func WithProxy(p proxy.Proxy) Option {
+func WithDialer(d proxy.Dialer) Option {
 	return func(s *Server) {
-		s.proxy = p
+		s.dialer = d
+	}
+}
+
+func WithTunneler(t proxy.Tunneler) Option {
+	return func(s *Server) {
+		s.tunneler = t
 	}
 }
 
@@ -69,7 +76,9 @@ type Server struct {
 	serveProto addr.Proto
 
 	serveConn func(context.Context, *bufio.Reader, net.Conn, proxy.Logger) error
-	proxy     proxy.Proxy
+
+	tunneler proxy.Tunneler
+	dialer   proxy.Dialer
 
 	log proxy.Logger
 }
@@ -144,11 +153,6 @@ func (s *Server) httpServe(ctx context.Context, clientRead *bufio.Reader, client
 	}
 	defer req.Body.Close()
 
-	dstAddr, err := hostFromHTTPRequest(req)
-	if err != nil {
-		return fmt.Errorf("decode destination address: %w", err)
-	}
-
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		ProtoMajor: req.ProtoMajor,
@@ -158,20 +162,26 @@ func (s *Server) httpServe(ctx context.Context, clientRead *bufio.Reader, client
 	var proxyErr error
 	if req.Method == http.MethodConnect {
 		// Special case for HTTP CONNECT
-		tunnelDone, err := s.proxy.OpenTunnel(ctx, clientConn, dstAddr)
+		dstAddr, err := hostFromHTTPConnect(req)
 		if err != nil {
-			proxyErr = fmt.Errorf("open tunnel: %w", err)
+			return fmt.Errorf("parse destination address: %w", err)
+		}
+
+		dstConn, err := s.dialer.Dial(ctx, dstAddr)
+		if err != nil {
+			proxyErr = fmt.Errorf("connect to destination: %w", err)
 			resp.StatusCode = http.StatusBadGateway
 		} else {
 			defer func() {
-				if tunnelErr := <-tunnelDone; tunnelErr != nil && err == nil {
-					err = fmt.Errorf("close tunnel: %w", tunnelErr)
+				if tunnelErr := s.tunneler.Tunnel(ctx, clientConn, dstConn); tunnelErr != nil && err == nil {
+					err = fmt.Errorf("tunnel closed unexpectedly: %w", tunnelErr)
 				}
+				dstConn.Close()
 			}()
 		}
 	} else {
 		// All other requests are forwarded to destination as is
-		r, err := s.proxy.ForwardHTTP(ctx, req, dstAddr)
+		r, err := s.httpForward(req)
 		if err != nil {
 			proxyErr = fmt.Errorf("HTTP forward: %w", err)
 			resp.StatusCode = http.StatusBadGateway
@@ -190,6 +200,63 @@ func (s *Server) httpServe(ctx context.Context, clientRead *bufio.Reader, client
 		return fmt.Errorf("encode response: %w", err)
 	}
 	return proxyErr
+}
+
+func makeHTTPStatusString(status int) string {
+	return fmt.Sprintf("%v %v", status, http.StatusText(status))
+}
+
+func hostFromHTTPConnect(r *http.Request) (*addr.Addr, error) {
+	// For HTTP CONNECT requests, the host is in the Request URL
+	h, err := addr.ParseAddr(r.URL.Host)
+	if err != nil {
+		return nil, fmt.Errorf("parse request URL: %w", err)
+	}
+	return h, nil
+}
+
+func (s *Server) httpForward(r *http.Request) (*http.Response, error) {
+	dstAddr, err := hostFromHTTPRequest(r)
+	if err != nil {
+		return nil, fmt.Errorf("parse destination address: %w", err)
+	}
+
+	dstConn, err := s.dialer.Dial(r.Context(), dstAddr)
+	if err != nil {
+		return nil, fmt.Errorf("connect to destination: %w", err)
+	}
+	defer dstConn.Close()
+
+	if err := r.Write(dstConn); err != nil {
+		return nil, fmt.Errorf("write request: %w", err)
+	}
+
+	resp, err := http.ReadResponse(bufio.NewReader(dstConn), r)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+	return resp, nil
+}
+
+func hostFromHTTPRequest(r *http.Request) (*addr.Addr, error) {
+	// For proxied requests, the request URL contains the full destination URL, including the scheme
+	port := r.URL.Port()
+	if port == "" {
+		// If the URL contains no port, we can try to guess it by looking at the scheme
+		portNum, err := net.LookupPort("tcp", r.URL.Scheme)
+		if err != nil {
+			return nil, fmt.Errorf("lookup port: %w", err)
+		}
+		return addr.NewAddr(r.URL.Hostname(), uint16(portNum)), nil
+	}
+
+	// If the port is specified, we can use it directly
+	portNum, err := addr.ParsePort(port)
+	if err != nil {
+		return nil, fmt.Errorf("parse port: %w", err)
+	}
+
+	return addr.NewAddr(r.URL.Hostname(), portNum), nil
 }
 
 func (s *Server) socks5Serve(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn, log proxy.Logger) (err error) {
@@ -222,15 +289,16 @@ func (s *Server) socks5Serve(ctx context.Context, clientRead *bufio.Reader, clie
 
 	switch req.Command {
 	case socks5.CommandConnect:
-		tunnelDone, err := s.proxy.OpenTunnel(ctx, clientConn, &req.DstAddr)
+		dstConn, err := s.dialer.Dial(ctx, &req.DstAddr)
 		if err != nil {
-			proxyErr = fmt.Errorf("open tunnel: %w", err)
+			proxyErr = fmt.Errorf("connect to destination: %w", err)
 			reply.Status = socks5.StatusHostUnreachable
 		} else {
 			defer func() {
-				if tunnelErr := <-tunnelDone; tunnelErr != nil && err == nil {
-					err = fmt.Errorf("close tunnel: %w", tunnelErr)
+				if tunnelErr := s.tunneler.Tunnel(ctx, clientConn, dstConn); tunnelErr != nil && err == nil {
+					err = fmt.Errorf("tunnel closed unexpectedly: %w", tunnelErr)
 				}
+				dstConn.Close()
 			}()
 		}
 	default:
@@ -249,6 +317,15 @@ func (s *Server) socks5Serve(ctx context.Context, clientRead *bufio.Reader, clie
 	return proxyErr
 }
 
+func selectSOCKS5AuthMethod(methods []socks5.AuthMethod) socks5.AuthMethod {
+	for _, m := range methods {
+		if m == socks5.AuthNone {
+			return m
+		}
+	}
+	return socks5.AuthNotAcceptable
+}
+
 func (s *Server) socks4Serve(ctx context.Context, clientRead *bufio.Reader, clientConn net.Conn, log proxy.Logger) (err error) {
 	req, err := socks4.ReadRequest(clientRead)
 	if err != nil {
@@ -260,15 +337,16 @@ func (s *Server) socks4Serve(ctx context.Context, clientRead *bufio.Reader, clie
 
 	switch req.Command {
 	case socks4.CommandConnect:
-		tunnelDone, err := s.proxy.OpenTunnel(ctx, clientConn, &req.DstAddr)
+		dstConn, err := s.dialer.Dial(ctx, &req.DstAddr)
 		if err != nil {
-			proxyErr = fmt.Errorf("open tunnel: %w", err)
+			proxyErr = fmt.Errorf("connect to destination: %w", err)
 			reply.Status = socks4.StatusRejectedOrFailed
 		} else {
 			defer func() {
-				if tunnelErr := <-tunnelDone; tunnelErr != nil && err == nil {
-					err = fmt.Errorf("close tunnel: %w", tunnelErr)
+				if tunnelErr := s.tunneler.Tunnel(ctx, clientConn, dstConn); tunnelErr != nil && err == nil {
+					err = fmt.Errorf("tunnel closed unexpectedly: %w", tunnelErr)
 				}
+				dstConn.Close()
 			}()
 		}
 	default:
@@ -301,47 +379,4 @@ func (s *Server) socksServe(ctx context.Context, clientRead *bufio.Reader, clien
 	default:
 		return fmt.Errorf("invalid version (%#02x)", version[0])
 	}
-}
-
-func hostFromHTTPRequest(r *http.Request) (*addr.Addr, error) {
-	// For HTTP CONNECT requests, the host is in the Request URL
-	if r.Method == http.MethodConnect {
-		h, err := addr.ParseAddr(r.URL.Host)
-		if err != nil {
-			return nil, fmt.Errorf("parse request URL: %w", err)
-		}
-		return h, nil
-	}
-
-	// For others, the request URL contains the full destination URL, including the scheme
-	port := r.URL.Port()
-	if port == "" {
-		// If the URL contains no port, we can try to guess it by looking at the scheme
-		portNum, err := net.LookupPort("tcp", r.URL.Scheme)
-		if err != nil {
-			return nil, fmt.Errorf("lookup port by scheme: %w", err)
-		}
-		return addr.NewAddr(r.URL.Hostname(), uint16(portNum)), nil
-	}
-
-	// If the port is specified, we can use it directly
-	portNum, err := addr.ParsePort(port)
-	if err != nil {
-		return nil, fmt.Errorf("parse port: %w", err)
-	}
-
-	return addr.NewAddr(r.URL.Hostname(), portNum), nil
-}
-
-func selectSOCKS5AuthMethod(methods []socks5.AuthMethod) socks5.AuthMethod {
-	for _, m := range methods {
-		if m == socks5.AuthNone {
-			return m
-		}
-	}
-	return socks5.AuthNotAcceptable
-}
-
-func makeHTTPStatusString(status int) string {
-	return fmt.Sprintf("%v %v", status, http.StatusText(status))
 }

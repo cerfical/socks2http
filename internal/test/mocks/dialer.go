@@ -62,7 +62,7 @@ type Dialer_Dial_Call struct {
 
 // Dial is a helper method to define mock.On call
 //   - _a0 context.Context
-//   - _a1 *addr.Host
+//   - _a1 *addr.Addr
 func (_e *Dialer_Expecter) Dial(_a0 interface{}, _a1 interface{}) *Dialer_Dial_Call {
 	return &Dialer_Dial_Call{Call: _e.mock.On("Dial", _a0, _a1)}
 }

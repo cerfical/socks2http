@@ -53,46 +53,69 @@ func (t *ServerTest) TestServe() {
 func (t *ServerTest) TestServe_HTTP() {
 	t.Run("non-CONNECT requests are forwarded to destination", func() {
 		dstHost := addr.NewAddr("localhost", 1111)
+		dstServerConn, dstProxyConn := net.Pipe()
 
-		p := mocks.NewProxy(t.T())
-		p.EXPECT().
-			ForwardHTTP(mock.Anything, mock.Anything, dstHost).
-			Return(&http.Response{}, nil)
+		dial := mocks.NewDialer(t.T())
+		dial.EXPECT().
+			Dial(mock.Anything, dstHost).
+			Return(dstProxyConn, nil)
 
-		proxyConn := t.openProxyConn(addr.ProtoHTTP, p)
+		proxyConn := t.openProxyConn(addr.ProtoHTTP, nil, dial)
 
+		// Simulate a client HTTP GET request through the proxy
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("http://%v", dstHost), nil)
 		t.Require().NoError(req.WriteProxy(proxyConn))
+
+		// Ensure the request is received by the destination
+		_, err := http.ReadRequest(bufio.NewReader(dstServerConn))
+		t.Require().NoError(err)
+
+		// Simulate a response from the destination
+		recorder := httptest.NewRecorder()
+		recorder.WriteHeader(http.StatusOK)
+		t.Require().NoError(recorder.Result().Write(dstServerConn))
+
+		// Ensure the proxy returns the response to the client
+		resp, err := http.ReadResponse(bufio.NewReader(proxyConn), nil)
+		t.Require().NoError(err)
+		t.Equal(http.StatusOK, resp.StatusCode)
 	})
 
 	t.Run("replies to non-CONNECT requests with 502-Bad-Gateway if destination is unreachable", func() {
 		dstHost := addr.NewAddr("unreachable-host", 1111)
 
-		p := mocks.NewProxy(t.T())
-		p.EXPECT().
-			ForwardHTTP(mock.Anything, mock.Anything, dstHost).
+		dial := mocks.NewDialer(t.T())
+		dial.EXPECT().
+			Dial(mock.Anything, dstHost).
 			Return(nil, errors.New("unreachable host"))
 
-		proxyConn := t.openProxyConn(addr.ProtoHTTP, p)
+		proxyConn := t.openProxyConn(addr.ProtoHTTP, nil, dial)
 
+		// Simulate a client HTTP GET request through the proxy
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("http://%v", dstHost), nil)
 		t.Require().NoError(req.WriteProxy(proxyConn))
 
+		// Ensure the proxy returns 502 Bad Gateway to the client
 		resp, err := http.ReadResponse(bufio.NewReader(proxyConn), nil)
 		t.Require().NoError(err)
-
 		t.Equal(http.StatusBadGateway, resp.StatusCode)
 	})
 
 	t.Run("CONNECT opens a tunnel to destination", func() {
 		dstHost := addr.NewAddr("localhost", 1111)
+		dstConn := stubs.NewDummyConn()
 
-		p := mocks.NewProxy(t.T())
-		p.EXPECT().
-			OpenTunnel(mock.Anything, mock.Anything, dstHost).
-			Return(dummyChan(), nil)
+		dial := mocks.NewDialer(t.T())
+		dial.EXPECT().
+			Dial(mock.Anything, dstHost).
+			Return(dstConn, nil)
 
-		proxyConn := t.openProxyConn(addr.ProtoHTTP, p)
+		tun := mocks.NewTunneler(t.T())
+		tun.EXPECT().
+			Tunnel(mock.Anything, mock.Anything, dstConn).
+			Return(nil)
+
+		proxyConn := t.openProxyConn(addr.ProtoHTTP, tun, dial)
 
 		req := httptest.NewRequest(http.MethodConnect, dstHost.String(), nil)
 		t.Require().NoError(req.WriteProxy(proxyConn))
@@ -106,12 +129,12 @@ func (t *ServerTest) TestServe_HTTP() {
 	t.Run("replies to CONNECT with 502-Bad-Gateway if destination is unreachable", func() {
 		dstHost := addr.NewAddr("unreachable-host", 1111)
 
-		p := mocks.NewProxy(t.T())
-		p.EXPECT().
-			OpenTunnel(mock.Anything, mock.Anything, dstHost).
+		dial := mocks.NewDialer(t.T())
+		dial.EXPECT().
+			Dial(mock.Anything, dstHost).
 			Return(nil, errors.New("unreachable host"))
 
-		proxyConn := t.openProxyConn(addr.ProtoHTTP, p)
+		proxyConn := t.openProxyConn(addr.ProtoHTTP, nil, dial)
 
 		req := httptest.NewRequest(http.MethodConnect, dstHost.String(), nil)
 		t.Require().NoError(req.WriteProxy(proxyConn))
@@ -126,13 +149,18 @@ func (t *ServerTest) TestServe_HTTP() {
 func (t *ServerTest) TestServe_SOCKS4() {
 	t.Run("CONNECT opens a tunnel to destination", func() {
 		dstHost := addr.NewAddr("127.0.0.1", 1111)
+		dstConn := stubs.NewDummyConn()
 
-		p := mocks.NewProxy(t.T())
-		p.EXPECT().
-			OpenTunnel(mock.Anything, mock.Anything, dstHost).
-			Return(dummyChan(), nil)
+		dial := mocks.NewDialer(t.T())
+		dial.EXPECT().
+			Dial(mock.Anything, dstHost).
+			Return(dstConn, nil)
+		tun := mocks.NewTunneler(t.T())
+		tun.EXPECT().
+			Tunnel(mock.Anything, mock.Anything, dstConn).
+			Return(nil)
 
-		proxyConn := t.openProxyConn(addr.ProtoSOCKS4, p)
+		proxyConn := t.openProxyConn(addr.ProtoSOCKS4, tun, dial)
 
 		req := socks4.Request{
 			Command: socks4.CommandConnect,
@@ -149,12 +177,12 @@ func (t *ServerTest) TestServe_SOCKS4() {
 	t.Run("replies to CONNECT with Request-Rejected if destination is unreachable", func() {
 		dstHost := addr.NewAddr("127.0.0.1", 1080)
 
-		p := mocks.NewProxy(t.T())
-		p.EXPECT().
-			OpenTunnel(mock.Anything, mock.Anything, dstHost).
+		dial := mocks.NewDialer(t.T())
+		dial.EXPECT().
+			Dial(mock.Anything, dstHost).
 			Return(nil, errors.New("unreachable host"))
 
-		proxyConn := t.openProxyConn(addr.ProtoSOCKS4, p)
+		proxyConn := t.openProxyConn(addr.ProtoSOCKS4, nil, dial)
 
 		req := socks4.Request{
 			Command: socks4.CommandConnect,
@@ -172,13 +200,19 @@ func (t *ServerTest) TestServe_SOCKS4() {
 func (t *ServerTest) TestServe_SOCKS5() {
 	t.Run("CONNECT opens a tunnel to destination", func() {
 		dstHost := addr.NewAddr("localhost", 1111)
+		dstConn := stubs.NewDummyConn()
 
-		p := mocks.NewProxy(t.T())
-		p.EXPECT().
-			OpenTunnel(mock.Anything, mock.Anything, dstHost).
-			Return(dummyChan(), nil)
+		dial := mocks.NewDialer(t.T())
+		dial.EXPECT().
+			Dial(mock.Anything, dstHost).
+			Return(dstConn, nil)
 
-		proxyConn := t.openProxyConn(addr.ProtoSOCKS5, p)
+		tun := mocks.NewTunneler(t.T())
+		tun.EXPECT().
+			Tunnel(mock.Anything, mock.Anything, dstConn).
+			Return(nil)
+
+		proxyConn := t.openProxyConn(addr.ProtoSOCKS5, tun, dial)
 		t.socks5Authenticate(proxyConn)
 
 		req := socks5.Request{
@@ -196,7 +230,7 @@ func (t *ServerTest) TestServe_SOCKS5() {
 	t.Run("replies to non-CONNECT requests with Command-Not-Supported", func() {
 		dstHost := addr.NewAddr("localhost", 1111)
 
-		proxyConn := t.openProxyConn(addr.ProtoSOCKS5, nil)
+		proxyConn := t.openProxyConn(addr.ProtoSOCKS5, nil, nil)
 		t.socks5Authenticate(proxyConn)
 
 		req := socks5.Request{
@@ -212,7 +246,7 @@ func (t *ServerTest) TestServe_SOCKS5() {
 	})
 
 	t.Run("replies to unsupported auth methods with Not-Acceptable", func() {
-		proxyConn := t.openProxyConn(addr.ProtoSOCKS5, nil)
+		proxyConn := t.openProxyConn(addr.ProtoSOCKS5, nil, nil)
 
 		greet := socks5.Greeting{AuthMethods: []socks5.AuthMethod{0xf0}}
 		t.Require().NoError(greet.Write(proxyConn))
@@ -226,12 +260,12 @@ func (t *ServerTest) TestServe_SOCKS5() {
 	t.Run("replies to CONNECT with Host-Unreachable if destination is unreachable", func() {
 		dstHost := addr.NewAddr("localhost", 1111)
 
-		p := mocks.NewProxy(t.T())
-		p.EXPECT().
-			OpenTunnel(mock.Anything, mock.Anything, dstHost).
+		dial := mocks.NewDialer(t.T())
+		dial.EXPECT().
+			Dial(mock.Anything, dstHost).
 			Return(nil, errors.New("unreachable host"))
 
-		proxyConn := t.openProxyConn(addr.ProtoSOCKS5, p)
+		proxyConn := t.openProxyConn(addr.ProtoSOCKS5, nil, dial)
 		t.socks5Authenticate(proxyConn)
 
 		req := socks5.Request{
@@ -247,10 +281,11 @@ func (t *ServerTest) TestServe_SOCKS5() {
 	})
 }
 
-func (t *ServerTest) openProxyConn(proto addr.Proto, proxy proxy.Proxy) net.Conn {
+func (t *ServerTest) openProxyConn(proto addr.Proto, tun proxy.Tunneler, dial proxy.Dialer) net.Conn {
 	server, err := server.New(
 		server.WithServeProto(proto),
-		server.WithProxy(proxy),
+		server.WithTunneler(tun),
+		server.WithDialer(dial),
 	)
 	t.Require().NoError(err)
 
@@ -284,10 +319,4 @@ func (t *ServerTest) socks5Authenticate(c net.Conn) {
 	t.Require().NoError(err)
 
 	t.Equal(socks5.AuthNone, greetReply.AuthMethod)
-}
-
-func dummyChan() chan error {
-	ch := make(chan error)
-	close(ch)
-	return ch
 }

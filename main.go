@@ -8,7 +8,6 @@ import (
 
 	"github.com/cerfical/socks2http/internal/config"
 	"github.com/cerfical/socks2http/internal/log"
-	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/router"
 	"github.com/cerfical/socks2http/internal/proxy/server"
 )
@@ -28,7 +27,7 @@ func main() {
 
 	server, err := server.New(
 		server.WithServeProto(config.Server.Proto),
-		server.WithProxy(proxy.New(router)),
+		server.WithDialer(router),
 		server.WithLogger(log),
 	)
 	if err != nil {

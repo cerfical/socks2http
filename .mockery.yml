@@ -2,7 +2,7 @@ with-expecter: true
 packages:
   github.com/cerfical/socks2http/internal/proxy:
     interfaces:
-      Proxy:
+      Tunneler:
       Dialer:
 
 outpkg: "mocks"
