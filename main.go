@@ -25,22 +25,17 @@ func main() {
 		}),
 	)
 
-	server, err := server.New(
-		server.WithServeProto(config.Server.Proto),
+	server := server.New(
 		server.WithDialer(router),
 		server.WithLogger(log),
 	)
-	if err != nil {
-		log.Error("Failed to initialize a server", "error", err)
-		return
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 
 	go func() {
 		defer close(done)
-		if err := server.ListenAndServe(ctx, config.Server.Addr()); err != nil {
+		if err := server.ListenAndServe(ctx, &config.Server); err != nil {
 			log.Error("Server terminated abnormally", "error", err)
 		}
 	}()
