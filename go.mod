@@ -3,7 +3,7 @@ module github.com/cerfical/socks2http
 go 1.23.1
 
 require (
-	github.com/go-viper/mapstructure/v2 v2.2.1
+	github.com/go-viper/mapstructure/v2 v2.3.0
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/pflag v1.0.6
 	github.com/spf13/viper v1.20.1
