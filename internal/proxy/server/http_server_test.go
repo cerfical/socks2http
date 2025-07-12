@@ -13,9 +13,8 @@ import (
 
 	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
+	"github.com/cerfical/socks2http/internal/proxy/mocks"
 	"github.com/cerfical/socks2http/internal/proxy/server"
-	"github.com/cerfical/socks2http/internal/test/mocks"
-	"github.com/cerfical/socks2http/internal/test/stubs"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -30,7 +29,7 @@ type HTTPServerTest struct {
 
 func (t *HTTPServerTest) TestServeHTTP() {
 	t.Run("performs graceful shutdown on context cancellation", func() {
-		listener := stubs.NewIdleListener(1000, 50*time.Millisecond)
+		listener := NewIdleListener(1000, 50*time.Millisecond)
 
 		server := server.HTTPServer{
 			Tunneler: proxy.DefaultTunneler,
@@ -104,7 +103,7 @@ func (t *HTTPServerTest) TestServeHTTP() {
 
 	t.Run("CONNECT opens a tunnel to destination", func() {
 		dstHost := addr.NewAddr("localhost", 1111)
-		dstConn := stubs.NewDummyConn()
+		dstConn := NewDummyConn()
 
 		dial := mocks.NewDialer(t.T())
 		dial.EXPECT().

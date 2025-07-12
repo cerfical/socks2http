@@ -10,11 +10,10 @@ import (
 
 	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
+	"github.com/cerfical/socks2http/internal/proxy/mocks"
 	"github.com/cerfical/socks2http/internal/proxy/server"
 	"github.com/cerfical/socks2http/internal/proxy/socks4"
 	"github.com/cerfical/socks2http/internal/proxy/socks5"
-	"github.com/cerfical/socks2http/internal/test/mocks"
-	"github.com/cerfical/socks2http/internal/test/stubs"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -29,7 +28,7 @@ type SOCKSServerTest struct {
 
 func (t *SOCKSServerTest) TestServeSOCKS() {
 	t.Run("performs graceful shutdown on context cancellation", func() {
-		listener := stubs.NewIdleListener(1000, 50*time.Millisecond)
+		listener := NewIdleListener(1000, 50*time.Millisecond)
 
 		server := server.SOCKSServer{
 			Tunneler: proxy.DefaultTunneler,
@@ -52,7 +51,7 @@ func (t *SOCKSServerTest) TestServeSOCKS() {
 func (t *SOCKSServerTest) TestServeSOCKS4() {
 	t.Run("CONNECT opens a tunnel to destination", func() {
 		dstHost := addr.NewAddr("127.0.0.1", 1111)
-		dstConn := stubs.NewDummyConn()
+		dstConn := NewDummyConn()
 
 		dial := mocks.NewDialer(t.T())
 		dial.EXPECT().
@@ -103,7 +102,7 @@ func (t *SOCKSServerTest) TestServeSOCKS4() {
 func (t *SOCKSServerTest) TestServeSOCKS5() {
 	t.Run("CONNECT opens a tunnel to destination", func() {
 		dstHost := addr.NewAddr("localhost", 1111)
-		dstConn := stubs.NewDummyConn()
+		dstConn := NewDummyConn()
 
 		dial := mocks.NewDialer(t.T())
 		dial.EXPECT().

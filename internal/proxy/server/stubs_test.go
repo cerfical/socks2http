@@ -1,10 +1,30 @@
-package stubs
+package server_test
 
 import (
 	"net"
 	"sync/atomic"
 	"time"
 )
+
+// NewDummyConn creates a new [DummyConn].
+func NewDummyConn() *DummyConn {
+	return &DummyConn{}
+}
+
+// DummyConn reads and writes no data.
+type DummyConn struct{}
+
+func (*DummyConn) Read([]byte) (int, error)  { return 0, nil }
+func (*DummyConn) Write([]byte) (int, error) { return 0, nil }
+
+func (*DummyConn) Close() error { return nil }
+
+func (*DummyConn) LocalAddr() net.Addr  { return nil }
+func (*DummyConn) RemoteAddr() net.Addr { return nil }
+
+func (*DummyConn) SetDeadline(time.Time) error      { return nil }
+func (*DummyConn) SetReadDeadline(time.Time) error  { return nil }
+func (*DummyConn) SetWriteDeadline(time.Time) error { return nil }
 
 // NewIdleListener creates a new [IdleListener] with the specified number of active connections and time delay.
 func NewIdleListener(numConns int, idleTime time.Duration) *IdleListener {

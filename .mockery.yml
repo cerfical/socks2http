@@ -4,8 +4,9 @@ packages:
     interfaces:
       Tunneler:
       Dialer:
+    config:
+      dir: "internal/proxy/mocks"
 
 outpkg: "mocks"
-dir: "internal/test/mocks"
 mockname: "{{ .InterfaceName }}"
 filename: "{{ .InterfaceName | snakecase }}.go"

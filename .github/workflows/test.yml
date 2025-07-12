@@ -23,8 +23,8 @@ jobs:
 
       - name: Run tests
         run: |
-          # Ignore test utils directory
-          test_dirs=$(find ./internal/ -mindepth 1 -maxdepth 1 -not -name test)
+          # Ignore mocks
+          test_dirs=$(find ./internal/ -mindepth 1 -type d -not -name mocks)
           go test -v -race -coverprofile=coverage.out $test_dirs
 
       - name: Update coverage report
