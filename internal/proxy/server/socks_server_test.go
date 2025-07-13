@@ -12,8 +12,7 @@ import (
 	"github.com/cerfical/socks2http/internal/proxy/addr"
 	"github.com/cerfical/socks2http/internal/proxy/mocks"
 	"github.com/cerfical/socks2http/internal/proxy/server"
-	"github.com/cerfical/socks2http/internal/proxy/socks4"
-	"github.com/cerfical/socks2http/internal/proxy/socks5"
+	"github.com/cerfical/socks2http/internal/proxy/socks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -48,7 +47,7 @@ func (t *SOCKSServerTest) TestServeSOCKS() {
 	})
 }
 
-func (t *SOCKSServerTest) TestServeSOCKS4() {
+func (t *SOCKSServerTest) TestServeSOCKS_V4() {
 	t.Run("CONNECT opens a tunnel to destination", func() {
 		dstHost := addr.NewAddr("127.0.0.1", 1111)
 		dstConn := NewDummyConn()
@@ -64,19 +63,20 @@ func (t *SOCKSServerTest) TestServeSOCKS4() {
 
 		proxyConn := t.openProxyConn(tun, dial)
 
-		req := socks4.Request{
-			Command: socks4.CommandConnect,
+		req := socks.Request{
+			Version: socks.V4,
+			Command: socks.CommandConnect,
 			DstAddr: *dstHost,
 		}
 		t.Require().NoError(req.Write(proxyConn))
 
-		reply, err := socks4.ReadReply(bufio.NewReader(proxyConn))
+		reply, err := socks.ReadReply(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
-		t.Equal(socks4.StatusGranted, reply.Status)
+		t.Equal(socks.StatusGranted, reply.Status)
 	})
 
-	t.Run("replies to CONNECT with Request-Rejected if destination is unreachable", func() {
+	t.Run("replies to CONNECT with General-Failure if destination is unreachable", func() {
 		dstHost := addr.NewAddr("127.0.0.1", 1080)
 
 		dial := mocks.NewDialer(t.T())
@@ -86,20 +86,21 @@ func (t *SOCKSServerTest) TestServeSOCKS4() {
 
 		proxyConn := t.openProxyConn(nil, dial)
 
-		req := socks4.Request{
-			Command: socks4.CommandConnect,
+		req := socks.Request{
+			Version: socks.V4,
+			Command: socks.CommandConnect,
 			DstAddr: *dstHost,
 		}
 		t.Require().NoError(req.Write(proxyConn))
 
-		reply, err := socks4.ReadReply(bufio.NewReader(proxyConn))
+		reply, err := socks.ReadReply(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
-		t.Equal(socks4.StatusRejectedOrFailed, reply.Status)
+		t.Equal(socks.StatusGeneralFailure, reply.Status)
 	})
 }
 
-func (t *SOCKSServerTest) TestServeSOCKS5() {
+func (t *SOCKSServerTest) TestServeSOCKS_V5() {
 	t.Run("CONNECT opens a tunnel to destination", func() {
 		dstHost := addr.NewAddr("localhost", 1111)
 		dstConn := NewDummyConn()
@@ -117,16 +118,17 @@ func (t *SOCKSServerTest) TestServeSOCKS5() {
 		proxyConn := t.openProxyConn(tun, dial)
 		t.socks5Authenticate(proxyConn)
 
-		req := socks5.Request{
-			Command: socks5.CommandConnect,
+		req := socks.Request{
+			Version: socks.V5,
+			Command: socks.CommandConnect,
 			DstAddr: *dstHost,
 		}
 		t.Require().NoError(req.Write(proxyConn))
 
-		reply, err := socks5.ReadReply(bufio.NewReader(proxyConn))
+		reply, err := socks.ReadReply(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
-		t.Equal(socks5.StatusOK, reply.Status)
+		t.Equal(socks.StatusGranted, reply.Status)
 	})
 
 	t.Run("replies to non-CONNECT requests with Command-Not-Supported", func() {
@@ -135,28 +137,32 @@ func (t *SOCKSServerTest) TestServeSOCKS5() {
 		proxyConn := t.openProxyConn(nil, nil)
 		t.socks5Authenticate(proxyConn)
 
-		req := socks5.Request{
-			Command: socks5.CommandBind,
+		req := socks.Request{
+			Version: socks.V5,
+			Command: socks.CommandBind,
 			DstAddr: *dstHost,
 		}
 		t.Require().NoError(req.Write(proxyConn))
 
-		reply, err := socks5.ReadReply(bufio.NewReader(proxyConn))
+		reply, err := socks.ReadReply(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
-		t.Equal(socks5.StatusCommandNotSupported, reply.Status)
+		t.Equal(socks.StatusCommandNotSupported, reply.Status)
 	})
 
 	t.Run("replies to unsupported auth methods with Not-Acceptable", func() {
 		proxyConn := t.openProxyConn(nil, nil)
 
-		greet := socks5.Greeting{AuthMethods: []socks5.AuthMethod{0xf0}}
+		greet := socks.Greeting{
+			Version: socks.V5,
+			Auth:    []socks.Auth{0xf0},
+		}
 		t.Require().NoError(greet.Write(proxyConn))
 
-		greetReply, err := socks5.ReadGreetingReply(bufio.NewReader(proxyConn))
+		greetReply, err := socks.ReadGreetingReply(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
-		t.Equal(socks5.AuthNotAcceptable, greetReply.AuthMethod)
+		t.Equal(socks.AuthNotAcceptable, greetReply.Auth)
 	})
 
 	t.Run("replies to CONNECT with Host-Unreachable if destination is unreachable", func() {
@@ -170,16 +176,17 @@ func (t *SOCKSServerTest) TestServeSOCKS5() {
 		proxyConn := t.openProxyConn(nil, dial)
 		t.socks5Authenticate(proxyConn)
 
-		req := socks5.Request{
-			Command: socks5.CommandConnect,
+		req := socks.Request{
+			Version: socks.V5,
+			Command: socks.CommandConnect,
 			DstAddr: *dstHost,
 		}
 		t.Require().NoError(req.Write(proxyConn))
 
-		reply, err := socks5.ReadReply(bufio.NewReader(proxyConn))
+		reply, err := socks.ReadReply(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
-		t.Equal(socks5.StatusHostUnreachable, reply.Status)
+		t.Equal(socks.StatusHostUnreachable, reply.Status)
 	})
 }
 
@@ -211,13 +218,14 @@ func (t *SOCKSServerTest) openProxyConn(tun proxy.Tunneler, dial proxy.Dialer) n
 }
 
 func (t *SOCKSServerTest) socks5Authenticate(c net.Conn) {
-	greet := socks5.Greeting{
-		AuthMethods: []socks5.AuthMethod{socks5.AuthNone},
+	greet := socks.Greeting{
+		Version: socks.V5,
+		Auth:    []socks.Auth{socks.AuthNone},
 	}
 	t.Require().NoError(greet.Write(c))
 
-	greetReply, err := socks5.ReadGreetingReply(bufio.NewReader(c))
+	greetReply, err := socks.ReadGreetingReply(bufio.NewReader(c))
 	t.Require().NoError(err)
 
-	t.Equal(socks5.AuthNone, greetReply.AuthMethod)
+	t.Equal(socks.AuthNone, greetReply.Auth)
 }

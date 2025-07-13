@@ -8,6 +8,7 @@ import (
 
 	"github.com/cerfical/socks2http/internal/proxy"
 	"github.com/cerfical/socks2http/internal/proxy/addr"
+	"github.com/cerfical/socks2http/internal/proxy/socks"
 )
 
 func New(ops ...Option) *Server {
@@ -84,9 +85,11 @@ func (s *Server) Serve(ctx context.Context, p addr.Proto, l net.Listener) error 
 	case addr.ProtoSOCKS:
 		return socksServ.ServeSOCKS(ctx, l)
 	case addr.ProtoSOCKS4:
-		return socksServ.ServeSOCKS4(ctx, l)
+		socksServ.Version = socks.V4
+		return socksServ.ServeSOCKS(ctx, l)
 	case addr.ProtoSOCKS5:
-		return socksServ.ServeSOCKS5(ctx, l)
+		socksServ.Version = socks.V5
+		return socksServ.ServeSOCKS(ctx, l)
 	case addr.ProtoHTTP:
 		return httpServ.ServeHTTP(ctx, l)
 	default:
