@@ -2,7 +2,6 @@ package router
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"slices"
 	"strings"
@@ -59,14 +58,10 @@ type Router struct {
 func (r *Router) Dial(ctx context.Context, dstAddr *addr.Addr) (net.Conn, error) {
 	policy := r.matchRoute(dstAddr.Host)
 
-	client, err := client.New(
+	client := client.New(
 		client.WithDialer(r.dialer),
 		client.WithProxyURL(&policy.Proxy),
 	)
-	if err != nil {
-		return nil, fmt.Errorf("new proxy client: %w", err)
-	}
-
 	return client.Dial(ctx, dstAddr)
 }
 

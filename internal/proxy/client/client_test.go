@@ -11,8 +11,7 @@ import (
 	"github.com/cerfical/socks2http/internal/proxy/addr"
 	"github.com/cerfical/socks2http/internal/proxy/client"
 	"github.com/cerfical/socks2http/internal/proxy/mocks"
-	"github.com/cerfical/socks2http/internal/proxy/socks4"
-	"github.com/cerfical/socks2http/internal/proxy/socks5"
+	"github.com/cerfical/socks2http/internal/proxy/socks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -34,10 +33,9 @@ func (t *ClientTest) TestDial() {
 			Dial(mock.Anything, dstHost).
 			Return(nil, nil)
 
-		client, err := client.New(client.WithDialer(dialer))
-		t.Require().NoError(err)
+		client := client.New(client.WithDialer(dialer))
 
-		_, err = client.Dial(context.Background(), dstHost)
+		_, err := client.Dial(context.Background(), dstHost)
 		t.Require().NoError(err)
 	})
 }
@@ -64,39 +62,49 @@ func (t *ClientTest) TestDial_SOCKS4() {
 	t.Run("makes a CONNECT request to proxy", func() {
 		proxyConn := t.dialProxy(addr.ProtoSOCKS4, addr.NewAddr("localhost", 8080))
 
-		req, err := socks4.ReadRequest(bufio.NewReader(proxyConn))
+		req, err := socks.ReadRequest(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
-		t.Equal(socks4.CommandConnect, req.Command)
+		t.Equal(socks.V4, req.Version)
+		t.Equal(socks.CommandConnect, req.Command)
 
-		reply := socks4.Reply{Status: socks4.StatusGranted}
-		t.Require().NoError(reply.Write(proxyConn))
+		rep := socks.Reply{
+			Version: req.Version,
+			Status:  socks.StatusGranted,
+		}
+		t.Require().NoError(rep.Write(proxyConn))
 	})
 
 	t.Run("performs name resolution locally when using SOCKS4", func() {
 		dstAddr := addr.NewAddr("localhost", 8080)
 		proxyConn := t.dialProxy(addr.ProtoSOCKS4, dstAddr)
 
-		req, err := socks4.ReadRequest(bufio.NewReader(proxyConn))
+		req, err := socks.ReadRequest(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
 		t.Equal(addr.NewAddr("127.0.0.1", 8080), &req.DstAddr)
 
-		reply := socks4.Reply{Status: socks4.StatusGranted}
-		t.Require().NoError(reply.Write(proxyConn))
+		rep := socks.Reply{
+			Version: req.Version,
+			Status:  socks.StatusGranted,
+		}
+		t.Require().NoError(rep.Write(proxyConn))
 	})
 
 	t.Run("delegates name resolution to proxy when using SOCKS4a", func() {
 		dstAddr := addr.NewAddr("localhost", 8080)
 		proxyConn := t.dialProxy(addr.ProtoSOCKS4a, dstAddr)
 
-		req, err := socks4.ReadRequest(bufio.NewReader(proxyConn))
+		req, err := socks.ReadRequest(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
 		t.Equal(dstAddr, &req.DstAddr)
 
-		reply := socks4.Reply{Status: socks4.StatusGranted}
-		t.Require().NoError(reply.Write(proxyConn))
+		rep := socks.Reply{
+			Version: req.Version,
+			Status:  socks.StatusGranted,
+		}
+		t.Require().NoError(rep.Write(proxyConn))
 	})
 }
 
@@ -107,39 +115,49 @@ func (t *ClientTest) TestDial_SOCKS5() {
 		proxyConn := t.dialProxy(addr.ProtoSOCKS5, dstAddr)
 		t.socks5Authenticate(proxyConn)
 
-		req, err := socks5.ReadRequest(bufio.NewReader(proxyConn))
+		req, err := socks.ReadRequest(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
-		t.Equal(socks5.CommandConnect, req.Command)
+		t.Equal(socks.V5, req.Version)
+		t.Equal(socks.CommandConnect, req.Command)
 
-		reply := socks5.Reply{Status: socks5.StatusOK}
-		t.Require().NoError(reply.Write(proxyConn))
+		rep := socks.Reply{
+			Version: req.Version,
+			Status:  socks.StatusGranted,
+		}
+		t.Require().NoError(rep.Write(proxyConn))
 	})
 
 	t.Run("performs name resolution locally when using SOCKS5", func() {
 		proxyConn := t.dialProxy(addr.ProtoSOCKS5, dstAddr)
 		t.socks5Authenticate(proxyConn)
 
-		req, err := socks5.ReadRequest(bufio.NewReader(proxyConn))
+		req, err := socks.ReadRequest(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
 		t.Equal(addr.NewAddr("127.0.0.1", 8080), &req.DstAddr)
 
-		reply := socks5.Reply{Status: socks5.StatusOK}
-		t.Require().NoError(reply.Write(proxyConn))
+		rep := socks.Reply{
+			Version: req.Version,
+			Status:  socks.StatusGranted,
+		}
+		t.Require().NoError(rep.Write(proxyConn))
 	})
 
 	t.Run("delegates name resolution to proxy when using SOCKS5h", func() {
 		proxyConn := t.dialProxy(addr.ProtoSOCKS5h, dstAddr)
 		t.socks5Authenticate(proxyConn)
 
-		req, err := socks5.ReadRequest(bufio.NewReader(proxyConn))
+		req, err := socks.ReadRequest(bufio.NewReader(proxyConn))
 		t.Require().NoError(err)
 
 		t.Equal(dstAddr, &req.DstAddr)
 
-		reply := socks5.Reply{Status: socks5.StatusOK}
-		t.Require().NoError(reply.Write(proxyConn))
+		rep := socks.Reply{
+			Version: req.Version,
+			Status:  socks.StatusGranted,
+		}
+		t.Require().NoError(rep.Write(proxyConn))
 	})
 }
 
@@ -157,11 +175,10 @@ func (t *ClientTest) dialProxy(p addr.Proto, dstHost *addr.Addr) (proxyConn net.
 		Dial(mock.Anything, proxyAddr).
 		Return(clientConn, nil)
 
-	client, err := client.New(
+	client := client.New(
 		client.WithProxyURL(addr.NewURL(p, proxyAddr.Host, proxyAddr.Port)),
 		client.WithDialer(dialer),
 	)
-	t.Require().NoError(err)
 
 	errChan := make(chan error, 1)
 	go func() {
@@ -177,11 +194,14 @@ func (t *ClientTest) dialProxy(p addr.Proto, dstHost *addr.Addr) (proxyConn net.
 }
 
 func (t *ClientTest) socks5Authenticate(c net.Conn) {
-	greet, err := socks5.ReadGreeting(bufio.NewReader(c))
+	greet, err := socks.ReadGreeting(bufio.NewReader(c))
 	t.Require().NoError(err)
 
-	t.ElementsMatch([]socks5.AuthMethod{socks5.AuthNone}, greet.AuthMethods)
+	t.ElementsMatch([]socks.Auth{socks.AuthNone}, greet.Auth)
 
-	greetReply := socks5.GreetingReply{AuthMethod: socks5.AuthNone}
-	t.Require().NoError(greetReply.Write(c))
+	greetRep := socks.GreetingReply{
+		Version: greet.Version,
+		Auth:    socks.AuthNone,
+	}
+	t.Require().NoError(greetRep.Write(c))
 }
