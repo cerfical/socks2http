@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.0](https://github.com/cerfical/socks2http/compare/v1.1.0...v1.2.0) (2025-07-13)
+
+
+### Features
+
+* **config:** add shorthands for common flags ([ef7e5e0](https://github.com/cerfical/socks2http/commit/ef7e5e032a2faf71b2de9a8aa67983ea7d3f3bc3))
+* **config:** add simplified URL parsing ([d75b0ed](https://github.com/cerfical/socks2http/commit/d75b0edf7dd66bf3bb6e6eb45eaee9d6dd9da359))
+* **config:** remove `direct` protocol scheme ([1afa238](https://github.com/cerfical/socks2http/commit/1afa238376476639c16becc55adc533727cced99))
+* **config:** replace `proxy-proto` and `proxy-addr` options with `proxy` ([ea696b1](https://github.com/cerfical/socks2http/commit/ea696b1497fd530036f8c111973ed8cbe3ee2b43))
+* **config:** replace `server-proto` and `server-addr` options with `server` ([0220b1e](https://github.com/cerfical/socks2http/commit/0220b1e1b14190d5df324bd7ad63d99293fcc64a))
+* **proxy:** improve `SOCKS` implementation ([8c2ec07](https://github.com/cerfical/socks2http/commit/8c2ec07597f051cbf2bf85b7799c3a2eb515836c))
+* **proxy:** improve proxy client implementation ([51a69a7](https://github.com/cerfical/socks2http/commit/51a69a7e3cae1ea95840e514ecb10dea6fe2563a))
+* **proxy:** improve proxy server implementation ([9052fe3](https://github.com/cerfical/socks2http/commit/9052fe39201a24e69d4d045346e91f06337ecf54))
+
+
+### Bug Fixes
+
+* fix incorrect error messages for SOCKS4 proxy clients ([63805f1](https://github.com/cerfical/socks2http/commit/63805f124d3d766d036ba56b6baae88f049b00ae))
+* fix invalid default values for configured proxy routes ([f020908](https://github.com/cerfical/socks2http/commit/f0209089152f55dec447bb1d824dfc1669bb4b82))
+
 ## [1.1.0](https://github.com/cerfical/socks2http/compare/v1.0.0...v1.1.0) (2025-06-06)
 
 
